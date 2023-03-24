@@ -11,6 +11,30 @@ import (
 
 var tmpl *template.Template
 
+type Gate struct {
+	Id        int
+	Name      string
+	Width     float32
+	Price     float32
+	Img       string
+	Tolerance float32
+	Color     string
+}
+type Gates []Gate
+type Extension struct {
+	Id    int
+	Name  string
+	Width float32
+	Price float32
+	Img   string
+	Color string
+}
+type Extensions []Extension
+type Bundle struct {
+	Gate       Gate
+	Extensions Extensions
+}
+
 func inValidRequest(w http.ResponseWriter) {
 	templateErr := tmpl.ExecuteTemplate(w, "inavlidRequest.tmpl", nil)
 	if templateErr != nil {
@@ -33,23 +57,10 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
-	tmpl, err := template.ParseGlob("./templates/*.tmpl")
-	if err != nil {
-		panic(err)
-	}
+	tmpl := template.Must(template.ParseGlob("./templates/*.tmpl"))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/" {
-			type Gate struct {
-				Id        int
-				Name      string
-				Width     float32
-				Price     float32
-				Img       string
-				Tolerance float32
-				Color     string
-			}
-			type Gates []Gate
 
 			rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM gates")
 			if err != nil {
