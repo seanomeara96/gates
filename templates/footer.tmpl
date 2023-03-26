@@ -1,26 +1,4 @@
   
-  <script>
-    const buildForm = document.querySelector("#build-gate");
-    buildForm.addEventListener("submit", async function(e){
-      e.preventDefault()
-      try {
-        const input = buildForm.querySelector("#desired-width");
-        const width = parseInt(input.value);
-        
-        const res = await fetch("/build/", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({width}),
-        })
-        console.log(res.ok)
-        const data = await res.json();
-        console.log(data)
-      } catch (err) {
-        console.log(err)
-      }
-    })
-  </script>
+  <script src="/assets/js/index.js"></script>
   </body>
 </html>

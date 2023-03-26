@@ -11,7 +11,7 @@ func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth
 	bundle.Gate = gate
 
 	sort.Slice(extensions, func(i int, j int) bool {
-		return extensions[i].Width < extensions[j].Width
+		return extensions[i].Width > extensions[j].Width
 	})
 
 	smallestExtension := extensions[len(extensions)-1]
@@ -25,9 +25,11 @@ func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth
 		}
 
 		currentExtension := extensions[index]
+		currentExtension.Qty = 1
 
-		if currentExtension.Width <= widthRemaining {
+		if widthRemaining >= currentExtension.Width || (widthRemaining < smallestExtension.Width && widthRemaining > 0) {
 			var matchingExtension *components.Extension
+			// find matching extension
 			for i := 0; i < len(bundle.Extensions); i++ {
 				if currentExtension.Id == bundle.Extensions[i].Id {
 					matchingExtension = &bundle.Extensions[i]
@@ -46,12 +48,6 @@ func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth
 
 		if currentExtension.Width > widthRemaining && currentExtension.Id != smallestExtension.Id {
 			index++
-			continue
-		}
-
-		if widthRemaining < smallestExtension.Width && widthRemaining > 0 {
-			bundle.Extensions = append(bundle.Extensions, smallestExtension)
-			widthRemaining = widthRemaining - smallestExtension.Width
 		}
 
 	}
@@ -59,8 +55,8 @@ func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth
 	bundle.MaxLength = bundle.Gate.Width
 	bundle.Price = bundle.Gate.Price
 	for _, extension := range bundle.Extensions {
-		bundle.MaxLength += extension.Width
-		bundle.Price += extension.Price
+		bundle.MaxLength += extension.Width * float32(extension.Qty)
+		bundle.Price += extension.Price * float32(extension.Qty)
 	}
 
 	// need to test if the width of the bundle minus the threshold actuall accomodates the requested size

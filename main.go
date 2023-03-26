@@ -39,7 +39,7 @@ func main() {
 
 	// init assets dir
 	assetsDirPath := "/assets/"
-	httpFileSystem := http.Dir(assetsDirPath)
+	httpFileSystem := http.Dir("assets")
 	staticFileHttpHandler := http.FileServer(httpFileSystem)
 	assetsPathHandler := http.StripPrefix(assetsDirPath, staticFileHttpHandler)
 	http.Handle(assetsDirPath, assetsPathHandler)
@@ -94,7 +94,16 @@ func main() {
 				internalStatusError("something went wrong while decding json", err, w)
 				return
 			}
-			fmt.Println(data.DesiredWidth)
+
+			// not critical to rest of function
+			go func() {
+				// TODO keep track of user inputs(valid ones). From there we can generate "popular bundles"
+				_, err := db.Exec("INSERT INTO bundle_sizes(type, size) VALUES ('pressure fit', ?)", data.DesiredWidth)
+				if err != nil {
+					fmt.Println(err)
+				}
+			}()
+
 			// fetch gates & compatible extensions from db
 			rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM gates")
 			if err != nil {
@@ -140,21 +149,11 @@ func main() {
 				}
 			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			byt, err := json.Marshal(bundles)
-			if err != nil {
-				internalStatusError("error marshalling bundles", err, w)
-				return
-			}
-			err = json.NewEncoder(w).Encode(string(byt))
+			err = json.NewEncoder(w).Encode(bundles)
 			if err != nil {
 				internalStatusError("something went wrong while responding with json", err, w)
 				return
 			}
-
-			// encode each bundle into a json array and send it back
-
-			// temporary
 
 			return
 		}
