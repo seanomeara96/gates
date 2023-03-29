@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"reflect"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/build"
@@ -17,6 +18,7 @@ func main() {
 	}
 	defer db.Close()
 
+	// todo either drop tables or clear all rows before this flow
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS bundles (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		size REAL NOT NULL,
@@ -30,6 +32,7 @@ func main() {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		gate_id INTEGER NOT NULL,
 		bundle_id INTEGER NOT NULL,
+		qty INTEGER NOT NULL,
 		FOREIGN KEY (gate_id) REFERENCES gates(id),
 		FOREIGN KEY (bundle_id) REFERENCES bundles(id)
 	)`)
@@ -40,6 +43,7 @@ func main() {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		extension_id INTEGER NOT NULL,
 		bundle_id INTEGER NOT NULL,
+		qty INTEGER NOT NULL,
 		FOREIGN KEY (extension_id) REFERENCES extensions(id),
 		FOREIGN KEY (bundle_id) REFERENCES bundles(id)
 	)`)
@@ -122,7 +126,45 @@ func main() {
 			bundles = append(bundles, bundle)
 		}
 	}
-	fmt.Println(bundles)
 	// todo filter duplicate bundles && save bundles to the database
-
+	var uniqueBundles components.Bundles
+	for i := 0; i < len(bundles); i++ {
+		bundle := bundles[i]
+		encountered := false
+		for _, value := range uniqueBundles {
+			if reflect.DeepEqual(bundle, value) {
+				encountered = true
+			}
+		}
+		if encountered == false {
+			uniqueBundles = append(uniqueBundles, bundle)
+		}
+	}
+	insertExtensionStmt, err := db.Prepare("INSERT INTO bundle_extensions(extension_id, bundle_id, qty) VALUES (?,?,?)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i := 0; i < len(uniqueBundles); i++ {
+		bundle := uniqueBundles[i]
+		result, err := db.Exec("INSERT INTO bundles(size, price, color) VALUES (?,?,?)", bundle.MaxLength, bundle.Price, bundle.Gate.Color)
+		if err != nil {
+			log.Fatal("something went wrong adding bundle to db", err)
+		}
+		lastInsertId, err := result.LastInsertId()
+		if err != nil {
+			log.Fatal(err)
+		}
+		bundleId := lastInsertId
+		_, err = db.Exec("INSERT INTO bundle_gates(gate_id, bundle_id, qty) VALUES (?, ?, ?)", bundle.Gate.Id, bundleId, bundle.Gate.Qty)
+		if err != nil {
+			log.Panic("somehting went wrong while inserting bundle gates into db", err)
+		}
+		for ii := 0; ii < len(bundle.Extensions); ii++ {
+			extension := bundle.Extensions[ii]
+			_, err := insertExtensionStmt.Exec(extension.Id, bundleId, extension.Qty)
+			if err != nil {
+				log.Fatal("something went wrong inserting extensions into db", err)
+			}
+		}
+	}
 }
