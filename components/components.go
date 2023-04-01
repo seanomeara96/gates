@@ -34,3 +34,13 @@ type Bundle struct {
 }
 
 type Bundles []Bundle
+
+type CachedBundle struct {
+	Id    int
+	Name  string
+	Size  float32
+	Price float32
+	Color string
+}
+
+type CachedBundles []CachedBundle

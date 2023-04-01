@@ -28,8 +28,19 @@ if (buildForm) {
                     const elems = [];
                     for (let i = 0; i < data.length; i++) {
                         const bundle = data[i];
+                        const params = new URLSearchParams();
+                        const extensions = [];
+                        for (let ii = 0; ii < bundle.extensions.length; ii++) {
+                            const extension = bundle.extensions[ii];
+                            extensions.push({
+                                id: extension.id,
+                                qty: extension.qty
+                            });
+                        }
+                        params.set("gate", JSON.stringify({ id: bundle.gate.id, qty: bundle.gate.qty }));
+                        params.set("extensions", JSON.stringify(extensions));
                         const html = /*html*/ `
-          <a id="fade-in-element" class="w-full md:w-1/2 lg:w-1/3 px-2 mb-4 hidden" href="/gates/{{.Id}}">
+          <a id="fade-in-element" class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4 hidden" href="/bundles/?${params.toString()}" >
             <div class="bg-white rounded-lg overflow-hidden shadow-md">
                 <img src="https://via.placeholder.com/500x300" alt="Baby Safety Gate" class="w-full">
                 <div class="p-4">

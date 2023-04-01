@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/build"
@@ -18,9 +19,22 @@ func main() {
 	}
 	defer db.Close()
 
-	// todo either drop tables or clear all rows before this flow
+	// drop tables or clear all rows before this flow
+	_, err = db.Exec(`DROP TABLE bundles`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec(`DROP TABLE bundle_gates`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec(`DROP TABLE bundle_extensions`)
+	if err != nil {
+		log.Fatal(err)
+	}
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS bundles (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
 		size REAL NOT NULL,
 		price REAL,
 		color TEXT
@@ -136,7 +150,7 @@ func main() {
 				encountered = true
 			}
 		}
-		if encountered == false {
+		if !encountered {
 			uniqueBundles = append(uniqueBundles, bundle)
 		}
 	}
@@ -146,7 +160,21 @@ func main() {
 	}
 	for i := 0; i < len(uniqueBundles); i++ {
 		bundle := uniqueBundles[i]
-		result, err := db.Exec("INSERT INTO bundles(size, price, color) VALUES (?,?,?)", bundle.MaxLength, bundle.Price, bundle.Gate.Color)
+		extensionsQtyTotal := 0
+		for _, extension := range bundle.Extensions {
+			extensionsQtyTotal += extension.Qty
+		}
+		bundleName := bundle.Gate.Name
+		if extensionsQtyTotal > 0 {
+			bundleName = bundleName + " and " + strconv.Itoa(extensionsQtyTotal) + " Extensions"
+		}
+		result, err := db.Exec(
+			"INSERT INTO bundles(name, size, price, color) VALUES (?, ?,?,?)",
+			bundleName,
+			bundle.MaxLength,
+			bundle.Price,
+			bundle.Gate.Color,
+		)
 		if err != nil {
 			log.Fatal("something went wrong adding bundle to db", err)
 		}

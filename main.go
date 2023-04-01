@@ -66,10 +66,28 @@ func main() {
 			}
 			rows.Close()
 
+			var popularBundles components.CachedBundles
+			rows, err = db.Query("SELECT id, name, size, price, color FROM bundles LIMIT 4")
+			if err != nil {
+				internalStatusError("something went wrong while fetching bundles", err, w)
+				return
+			}
+			for rows.Next() {
+				var bundle components.CachedBundle
+				err = rows.Scan(&bundle.Id, &bundle.Name, &bundle.Size, &bundle.Price, &bundle.Color)
+				if err != nil {
+					internalStatusError("somehting went wrong whie scanning bundle rows", err, w)
+					return
+				}
+				popularBundles = append(popularBundles, bundle)
+			}
+
 			pageData := struct {
-				FeaturedGates components.Gates
+				FeaturedGates  components.Gates
+				PopularBundles components.CachedBundles
 			}{
-				FeaturedGates: featuredGates,
+				FeaturedGates:  featuredGates,
+				PopularBundles: popularBundles,
 			}
 
 			err = tmpl.ExecuteTemplate(w, "index.tmpl", pageData)
