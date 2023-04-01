@@ -80,8 +80,16 @@ func inValidRequest(w http.ResponseWriter) {
 func internalStatusError(description string, err error, w http.ResponseWriter) {
 	fmt.Println(description)
 	fmt.Println(err)
-	templateErr := tmpl.ExecuteTemplate(w, "notfound.tmpl", nil)
+	templateErr := tmpl.ExecuteTemplate(w, "notFound.tmpl", nil)
 	if templateErr != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func notFound(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNotFound)
+	err := tmpl.ExecuteTemplate(w, "notFound.tmpl", nil)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -101,7 +109,7 @@ func main() {
 	assetsPathHandler := http.StripPrefix(assetsDirPath, staticFileHttpHandler)
 	http.Handle(assetsDirPath, assetsPathHandler)
 
-	tmpl := template.Must(template.ParseGlob("./templates/*.tmpl"))
+	tmpl = template.Must(template.ParseGlob("./templates/*.tmpl"))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/" {
@@ -133,8 +141,7 @@ func main() {
 			return
 		}
 
-		w.WriteHeader(http.StatusNotFound)
-		tmpl.ExecuteTemplate(w, "notFound.tmpl", nil)
+		notFound(w)
 	})
 
 	http.HandleFunc("/build/", func(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +165,7 @@ func main() {
 			}()
 
 			// fetch gates & compatible extensions from db
-			rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM gates")
+			rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM gates WHERE width < ?", data.DesiredWidth)
 			if err != nil {
 				internalStatusError("failed to query gates from db", err, w)
 				return
@@ -313,7 +320,7 @@ func main() {
 				return
 			}
 		}
-		inValidRequest(w)
+		notFound(w)
 	})
 
 	http.HandleFunc("/gates/", func(w http.ResponseWriter, r *http.Request) {
@@ -336,7 +343,7 @@ func main() {
 
 			return
 		}
-		inValidRequest(w)
+		notFound(w)
 	})
 
 	http.HandleFunc("/extensions/", func(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +366,7 @@ func main() {
 
 			return
 		}
-		inValidRequest(w)
+		notFound(w)
 	})
 
 	http.ListenAndServe(":3000", nil)
