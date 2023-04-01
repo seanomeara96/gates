@@ -1,0 +1,20 @@
+{{ template "header.tmpl" }}
+
+
+    <div class="container my-4 mx-auto px-4">
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">{{ .Gate.Name }} Bundle</h2>
+            <img  src="https://via.placeholder.com/500x300" data-src="{{ .Gate.Img }}" alt="{{ .Gate.Name }}" class="rounded-lg mb-4">
+            <p class="text-gray-700 mb-4">Price: {{ .Price }}</p>
+            <p class="text-gray-700 mb-4">Max Length: {{ .MaxLength }}</p>
+            <h3 class="text-lg font-bold text-gray-800 mb-2">Extensions:</h3>
+            <ul class="list-disc ml-4">
+                {{ range .Extensions }}
+                <li class="text-gray-700">{{ .Name }} ({{ .Qty }})</li>
+                {{ end }}
+            </ul>
+        </div>
+    </div>
+
+
+{{ template "footer.tmpl"}}

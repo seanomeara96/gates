@@ -44,3 +44,16 @@ type CachedBundle struct {
 }
 
 type CachedBundles []CachedBundle
+
+func (bundle *Bundle) ComputeMetaData() {
+	bundle.MaxLength = bundle.Gate.Width
+	bundle.Price = bundle.Gate.Price
+	for _, extension := range bundle.Extensions {
+		bundle.MaxLength += extension.Width * float32(extension.Qty)
+		bundle.Price += extension.Price * float32(extension.Qty)
+	}
+
+	// need to test if the width of the bundle minus the threshold actuall accomodates the requested size
+	// if it doesnt set the qty of the bundle to 0
+	bundle.Qty = 1
+}

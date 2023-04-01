@@ -13,6 +13,62 @@ import (
 )
 
 var tmpl *template.Template
+var db *sql.DB
+var err error
+
+func fetchPopularBundles() (components.CachedBundles, error) {
+	var popularBundles components.CachedBundles
+	rows, err := db.Query("SELECT id, name, size, price, color FROM bundles LIMIT 4")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var bundle components.CachedBundle
+		err = rows.Scan(&bundle.Id, &bundle.Name, &bundle.Size, &bundle.Price, &bundle.Color)
+		if err != nil {
+			return nil, err
+		}
+		popularBundles = append(popularBundles, bundle)
+	}
+	return popularBundles, nil
+}
+
+func fetchAllGates() (components.Gates, error) {
+	var featuredGates components.Gates
+	rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM gates")
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var gate components.Gate
+		err := rows.Scan(&gate.Id, &gate.Name, &gate.Width, &gate.Price, &gate.Img, &gate.Tolerance, &gate.Color)
+		if err != nil {
+			return nil, err
+		}
+		featuredGates = append(featuredGates, gate)
+	}
+	defer rows.Close()
+	return featuredGates, nil
+}
+
+func fetchAllExtensions() (components.Extensions, error) {
+	var extensions components.Extensions
+	rows, err := db.Query("SELECT id, name, width, price, img, color FROM extensions")
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var extension components.Extension
+		err := rows.Scan(&extension.Id, &extension.Name, &extension.Width, &extension.Price, &extension.Img, &extension.Color)
+		if err != nil {
+			return nil, err
+		}
+		extensions = append(extensions, extension)
+	}
+	defer rows.Close()
+	return extensions, nil
+}
 
 func inValidRequest(w http.ResponseWriter) {
 	//templateErr := tmpl.ExecuteTemplate(w, "inavlidRequest.tmpl", nil)
@@ -31,8 +87,9 @@ func internalStatusError(description string, err error, w http.ResponseWriter) {
 }
 
 func main() {
-	db, err := sql.Open("sqlite3", "main.db")
+	db, err = sql.Open("sqlite3", "main.db")
 	if err != nil {
+		fmt.Println(err)
 		panic(err)
 	}
 	defer db.Close()
@@ -48,38 +105,16 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/" {
-
-			rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM gates")
+			featuredGates, err := fetchAllGates()
 			if err != nil {
 				internalStatusError("could not fetch gates from db", err, w)
 				return
 			}
-			var featuredGates components.Gates
-			for rows.Next() {
-				var gate components.Gate
-				err := rows.Scan(&gate.Id, &gate.Name, &gate.Width, &gate.Price, &gate.Img, &gate.Tolerance, &gate.Color)
-				if err != nil {
-					internalStatusError("error scanning gates", err, w)
-					return
-				}
-				featuredGates = append(featuredGates, gate)
-			}
-			rows.Close()
 
-			var popularBundles components.CachedBundles
-			rows, err = db.Query("SELECT id, name, size, price, color FROM bundles LIMIT 4")
+			popularBundles, err := fetchPopularBundles()
 			if err != nil {
-				internalStatusError("something went wrong while fetching bundles", err, w)
+				internalStatusError("error fetching bundles", err, w)
 				return
-			}
-			for rows.Next() {
-				var bundle components.CachedBundle
-				err = rows.Scan(&bundle.Id, &bundle.Name, &bundle.Size, &bundle.Price, &bundle.Color)
-				if err != nil {
-					internalStatusError("somehting went wrong whie scanning bundle rows", err, w)
-					return
-				}
-				popularBundles = append(popularBundles, bundle)
 			}
 
 			pageData := struct {
@@ -92,6 +127,7 @@ func main() {
 
 			err = tmpl.ExecuteTemplate(w, "index.tmpl", pageData)
 			if err != nil {
+				fmt.Println(err)
 				panic(err)
 			}
 			return
@@ -99,7 +135,6 @@ func main() {
 
 		w.WriteHeader(http.StatusNotFound)
 		tmpl.ExecuteTemplate(w, "notFound.tmpl", nil)
-
 	})
 
 	http.HandleFunc("/build/", func(w http.ResponseWriter, r *http.Request) {
@@ -172,6 +207,155 @@ func main() {
 				internalStatusError("something went wrong while responding with json", err, w)
 				return
 			}
+
+			return
+		}
+		inValidRequest(w)
+	})
+
+	http.HandleFunc("/bundles/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			query := r.URL.Query()
+			if len(query) > 0 {
+				fmt.Println(query)
+				q := query.Get("gate")
+				e := query.Get("extensions")
+				type ItemQuantities struct {
+					Id  int `json:"id"`
+					Qty int `json:"qty"`
+				}
+				var gateQuantity ItemQuantities
+				err := json.Unmarshal([]byte(q), &gateQuantity)
+				if err != nil {
+					internalStatusError("error decoding gate data", err, w)
+					return
+				}
+
+				var extensionQuantities []ItemQuantities
+				err = json.Unmarshal([]byte(e), &extensionQuantities)
+				if err != nil {
+					internalStatusError("error decoding extensions", err, w)
+					return
+				}
+
+				var bundle components.Bundle
+				var gate components.Gate
+				err = db.QueryRow(
+					"SELECT id, name, width, price, img, tolerance, color FROM gates WHERE id = ?",
+					gateQuantity.Id,
+				).Scan(
+					&gate.Id,
+					&gate.Name,
+					&gate.Width,
+					&gate.Price,
+					&gate.Img,
+					&gate.Tolerance,
+					&gate.Color,
+				)
+				if err != nil {
+					internalStatusError("error fetching gate from db for route /bundles/", err, w)
+					return
+				}
+				gate.Qty = gateQuantity.Qty
+				bundle.Gate = gate
+
+				var extensions components.Extensions
+				for _, extensionQuantity := range extensionQuantities {
+					var extension components.Extension
+					err := db.QueryRow(
+						"SELECT id, name, width, price, img, color FROM extensions WHERE id = ?",
+						extensionQuantity.Id,
+					).Scan(
+						&extension.Id,
+						&extension.Name,
+						&extension.Width,
+						&extension.Price,
+						&extension.Img,
+						&extension.Color,
+					)
+					if err != nil {
+						internalStatusError("error fetching extension from db route /build/", err, w)
+						return
+					}
+					extension.Qty = extensionQuantity.Qty
+					extensions = append(extensions, extension)
+				}
+				bundle.Extensions = extensions
+				// add bundle meta data
+				bundle.ComputeMetaData()
+				fmt.Println(bundle)
+				err = tmpl.ExecuteTemplate(w, "single-bundle.tmpl", bundle)
+				if err != nil {
+					internalStatusError("error creating bundle page", err, w)
+					return
+				}
+				return
+			}
+
+			if r.URL.Path == "/bundles/" {
+				popularBundles, err := fetchPopularBundles()
+				if err != nil {
+					internalStatusError("error fetching popular bundles for route /bundles/", err, w)
+					return
+				}
+				pageData := struct {
+					PopularBundles components.CachedBundles
+				}{
+					PopularBundles: popularBundles,
+				}
+
+				err = tmpl.ExecuteTemplate(w, "bundles.tmpl", pageData)
+				if err != nil {
+					internalStatusError("error executing bundles template", err, w)
+					return
+				}
+
+				return
+			}
+		}
+		inValidRequest(w)
+	})
+
+	http.HandleFunc("/gates/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/gates/" {
+
+			gates, err := fetchAllGates()
+			if err != nil {
+				internalStatusError("error fetching gates for route /gates/", err, w)
+				return
+			}
+			pageData := struct {
+				Heading  string
+				Products components.Gates
+			}{
+				Heading:  "Shop Gates",
+				Products: gates,
+			}
+
+			tmpl.ExecuteTemplate(w, "products.tmpl", pageData)
+
+			return
+		}
+		inValidRequest(w)
+	})
+
+	http.HandleFunc("/extensions/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/extensions/" {
+
+			extensions, err := fetchAllExtensions()
+			if err != nil {
+				internalStatusError("error fetching extensions for route /extensions/", err, w)
+				return
+			}
+			pageData := struct {
+				Heading  string
+				Products components.Extensions
+			}{
+				Heading:  "Shop Extensions",
+				Products: extensions,
+			}
+
+			tmpl.ExecuteTemplate(w, "products.tmpl", pageData)
 
 			return
 		}

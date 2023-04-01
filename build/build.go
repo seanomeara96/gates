@@ -9,6 +9,7 @@ import (
 func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth float32) components.Bundle {
 	var bundle components.Bundle
 	bundle.Gate = gate
+	bundle.Gate.Qty = 1
 
 	sort.Slice(extensions, func(i int, j int) bool {
 		return extensions[i].Width > extensions[j].Width
@@ -52,15 +53,7 @@ func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth
 
 	}
 
-	bundle.MaxLength = bundle.Gate.Width
-	bundle.Price = bundle.Gate.Price
-	for _, extension := range bundle.Extensions {
-		bundle.MaxLength += extension.Width * float32(extension.Qty)
-		bundle.Price += extension.Price * float32(extension.Qty)
-	}
+	bundle.ComputeMetaData()
 
-	// need to test if the width of the bundle minus the threshold actuall accomodates the requested size
-	// if it doesnt set the qty of the bundle to 0
-	bundle.Qty = 1
 	return bundle
 }
