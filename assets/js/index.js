@@ -24,7 +24,7 @@ if (buildForm) {
                     body: JSON.stringify({ width }),
                 });
                 if (res.ok) {
-                    const data = yield res.json();
+                    const data = (yield res.json());
                     const elems = [];
                     for (let i = 0; i < data.length; i++) {
                         const bundle = data[i];
@@ -34,7 +34,7 @@ if (buildForm) {
                             const extension = bundle.extensions[ii];
                             extensions.push({
                                 id: extension.id,
-                                qty: extension.qty
+                                qty: extension.qty,
                             });
                         }
                         params.set("gate", JSON.stringify({ id: bundle.gate.id, qty: bundle.gate.qty }));
@@ -44,7 +44,11 @@ if (buildForm) {
             <div class="bg-white rounded-lg overflow-hidden shadow-md">
                 <img src="https://via.placeholder.com/500x300" alt="Baby Safety Gate" class="w-full">
                 <div class="p-4">
-                    <h3 class="font-bold mb-2">${bundle.gate.name}${bundle.gate.color}${bundle.extensions.length ? " &amp; " + bundle.extensions.reduce((a, c) => a + c.qty, 0) + " Extensions" : ""}</h3>
+                    <h3 class="font-bold mb-2">${bundle.gate.name}${bundle.gate.color}${bundle.extensions.length
+                            ? " &amp; " +
+                                bundle.extensions.reduce((a, c) => a + c.qty, 0) +
+                                " Extensions"
+                            : ""}</h3>
                     <p class="text-gray-600 mb-4">This baby safety gate is perfect for keeping your baby safe in any room of your house.</p>
                     <div class="flex justify-between items-center">
                         <span class="text-xl font-bold">€${bundle.price}</span>
@@ -88,4 +92,23 @@ if (buildForm) {
 }
 else {
     console.log("no build form");
+}
+/**add to cart functionality */
+try {
+    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const addToCartButtons = document.querySelectorAll(".atc-btn");
+    if (!addToCartButtons || !addToCartButtons.length) {
+        // not a product page
+        throw null;
+    }
+    const cartWidget = document.querySelector("#cart-widget");
+    for (const btn of addToCartButtons) {
+        btn.addEventListener("click", function (e) {
+            console.log(e.target.dataset.product);
+        });
+    }
+}
+catch (err) {
+    if (err)
+        console.error(err);
 }

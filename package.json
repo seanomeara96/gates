@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "nodemon": "^2.0.22"
+  },
+  "devDependencies": {
+    "sqlite3": "^5.1.6"
   }
 }

@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/build"
-	"github.com/seanomeara96/gates/components"
+	"github.com/seanomeara96/gates/types"
 )
 
 func main() {
@@ -98,7 +98,7 @@ func main() {
 	defer getGates.Close()
 	defer getExtensions.Close()
 
-	var bundles components.Bundles
+	var bundles types.Bundles
 
 	for i := 0; i < len(data); i++ {
 		desiredWidth := data[i].Size
@@ -108,9 +108,9 @@ func main() {
 		}
 		defer rows.Close()
 
-		var gates []components.Gate
+		var gates []types.Gate
 		for rows.Next() {
-			var gate components.Gate
+			var gate types.Gate
 			err := rows.Scan(&gate.Id, &gate.Name, &gate.Width, &gate.Price, &gate.Img, &gate.Tolerance, &gate.Color)
 			if err != nil {
 				log.Fatal(err)
@@ -126,9 +126,9 @@ func main() {
 			}
 			defer rows.Close()
 
-			var extensions components.Extensions
+			var extensions types.Extensions
 			for rows.Next() {
-				var extension components.Extension
+				var extension types.Extension
 				err := rows.Scan(&extension.Id, &extension.Name, &extension.Width, &extension.Price, &extension.Img, &extension.Color)
 				if err != nil {
 					log.Fatal(err)
@@ -141,7 +141,7 @@ func main() {
 		}
 	}
 	// todo filter duplicate bundles && save bundles to the database
-	var uniqueBundles components.Bundles
+	var uniqueBundles types.Bundles
 	for i := 0; i < len(bundles); i++ {
 		bundle := bundles[i]
 		encountered := false
@@ -164,16 +164,16 @@ func main() {
 		for _, extension := range bundle.Extensions {
 			extensionsQtyTotal += extension.Qty
 		}
-		bundleName := bundle.Gate.Name
+		bundleName := bundle.Gates[0].Name
 		if extensionsQtyTotal > 0 {
 			bundleName = bundleName + " and " + strconv.Itoa(extensionsQtyTotal) + " Extensions"
 		}
 		result, err := db.Exec(
 			"INSERT INTO bundles(name, size, price, color) VALUES (?, ?,?,?)",
 			bundleName,
-			bundle.MaxLength,
+			bundle.MaxWidth,
 			bundle.Price,
-			bundle.Gate.Color,
+			bundle.Gates[0].Color,
 		)
 		if err != nil {
 			log.Fatal("something went wrong adding bundle to db", err)
@@ -183,7 +183,7 @@ func main() {
 			log.Fatal(err)
 		}
 		bundleId := lastInsertId
-		_, err = db.Exec("INSERT INTO bundle_gates(gate_id, bundle_id, qty) VALUES (?, ?, ?)", bundle.Gate.Id, bundleId, bundle.Gate.Qty)
+		_, err = db.Exec("INSERT INTO bundle_gates(gate_id, bundle_id, qty) VALUES (?, ?, ?)", bundle.Gates[0].Id, bundleId, bundle.Gates[0].Qty)
 		if err != nil {
 			log.Panic("somehting went wrong while inserting bundle gates into db", err)
 		}

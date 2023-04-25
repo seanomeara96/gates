@@ -9,39 +9,22 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/build"
-	"github.com/seanomeara96/gates/components"
+	"github.com/seanomeara96/gates/types"
 )
 
 var tmpl *template.Template
 var db *sql.DB
 var err error
 
-func fetchPopularBundles() (components.CachedBundles, error) {
-	var popularBundles components.CachedBundles
-	rows, err := db.Query("SELECT id, name, size, price, color FROM bundles LIMIT 4")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var bundle components.CachedBundle
-		err = rows.Scan(&bundle.Id, &bundle.Name, &bundle.Size, &bundle.Price, &bundle.Color)
-		if err != nil {
-			return nil, err
-		}
-		popularBundles = append(popularBundles, bundle)
-	}
-	return popularBundles, nil
-}
-
-func fetchAllGates() (components.Gates, error) {
-	var featuredGates components.Gates
-	rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM gates")
+func fetchAllGates() (types.Gates, error) {
+	var featuredGates types.Gates
+	rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM products WHERE type = 'gate'")
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var gate components.Gate
+		var gate types.Gate
+		gate.Qty = 1
 		err := rows.Scan(&gate.Id, &gate.Name, &gate.Width, &gate.Price, &gate.Img, &gate.Tolerance, &gate.Color)
 		if err != nil {
 			return nil, err
@@ -52,14 +35,15 @@ func fetchAllGates() (components.Gates, error) {
 	return featuredGates, nil
 }
 
-func fetchAllExtensions() (components.Extensions, error) {
-	var extensions components.Extensions
-	rows, err := db.Query("SELECT id, name, width, price, img, color FROM extensions")
+func fetchAllExtensions() (types.Extensions, error) {
+	var extensions types.Extensions
+	rows, err := db.Query("SELECT id, name, width, price, img, color FROM products WHERE type = 'extension'")
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var extension components.Extension
+		var extension types.Extension
+		extension.Qty = 1
 		err := rows.Scan(&extension.Id, &extension.Name, &extension.Width, &extension.Price, &extension.Img, &extension.Color)
 		if err != nil {
 			return nil, err
@@ -119,18 +103,12 @@ func main() {
 				return
 			}
 
-			popularBundles, err := fetchPopularBundles()
-			if err != nil {
-				internalStatusError("error fetching bundles", err, w)
-				return
-			}
-
 			pageData := struct {
-				FeaturedGates  components.Gates
-				PopularBundles components.CachedBundles
+				FeaturedGates  types.Gates
+				PopularBundles types.Bundles
 			}{
 				FeaturedGates:  featuredGates,
-				PopularBundles: popularBundles,
+				PopularBundles: types.Bundles{},
 			}
 
 			err = tmpl.ExecuteTemplate(w, "index.tmpl", pageData)
@@ -165,15 +143,15 @@ func main() {
 			}()
 
 			// fetch gates & compatible extensions from db
-			rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM gates WHERE width < ?", data.DesiredWidth)
+			rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM products WHERE width < ? AND type = 'gate'", data.DesiredWidth)
 			if err != nil {
 				internalStatusError("failed to query gates from db", err, w)
 				return
 			}
 			defer rows.Close()
-			var gates components.Gates
+			var gates types.Gates
 			for rows.Next() {
-				var gate components.Gate
+				var gate types.Gate
 				err := rows.Scan(&gate.Id, &gate.Name, &gate.Width, &gate.Price, &gate.Img, &gate.Tolerance, &gate.Color)
 				if err != nil {
 					//internalStatusError("somehting went wrong while scanning gate rows", err, w)
@@ -184,18 +162,18 @@ func main() {
 				}
 				gates = append(gates, gate)
 			}
-			var bundles components.Bundles
+			var bundles types.Bundles
 			for i := 0; i < len(gates); i++ {
 				gate := gates[i]
-				rows, err := db.Query("SELECT e.id, name, width, price, img, color FROM extensions e INNER JOIN compatibles c ON e.id = c.extension_id WHERE c.gate_id = ?", gate.Id)
+				rows, err := db.Query("SELECT p.id, name, width, price, img, color FROM products p INNER JOIN compatibles c ON p.id = c.extension_id WHERE c.gate_id = ?", gate.Id)
 				if err != nil {
 					internalStatusError("could not query compatible extensions", err, w)
 					return
 				}
 				defer rows.Close()
-				var compatibleExtensions components.Extensions
+				var compatibleExtensions types.Extensions
 				for rows.Next() {
-					var extension components.Extension
+					var extension types.Extension
 					err := rows.Scan(&extension.Id, &extension.Name, &extension.Width, &extension.Price, &extension.Img, &extension.Color)
 					if err != nil {
 						fmt.Println("something went wrong while scanning extension rows", err)
@@ -224,7 +202,6 @@ func main() {
 		if r.Method == http.MethodGet {
 			query := r.URL.Query()
 			if len(query) > 0 {
-				fmt.Println(query)
 				q := query.Get("gate")
 				e := query.Get("extensions")
 				type ItemQuantities struct {
@@ -245,10 +222,10 @@ func main() {
 					return
 				}
 
-				var bundle components.Bundle
-				var gate components.Gate
+				var bundle types.Bundle
+				var gate types.Gate
 				err = db.QueryRow(
-					"SELECT id, name, width, price, img, tolerance, color FROM gates WHERE id = ?",
+					"SELECT id, name, width, price, img, tolerance, color FROM products WHERE id = ? AND type = 'gate'",
 					gateQuantity.Id,
 				).Scan(
 					&gate.Id,
@@ -264,13 +241,13 @@ func main() {
 					return
 				}
 				gate.Qty = gateQuantity.Qty
-				bundle.Gate = gate
+				bundle.Gates = append(bundle.Gates, gate)
 
-				var extensions components.Extensions
+				var extensions types.Extensions
 				for _, extensionQuantity := range extensionQuantities {
-					var extension components.Extension
+					var extension types.Extension
 					err := db.QueryRow(
-						"SELECT id, name, width, price, img, color FROM extensions WHERE id = ?",
+						"SELECT id, name, width, price, img, color FROM products WHERE id = ? AND type = 'extension'",
 						extensionQuantity.Id,
 					).Scan(
 						&extension.Id,
@@ -299,14 +276,14 @@ func main() {
 				return
 			}
 
-			if r.URL.Path == "/bundles/" {
+			/*if r.URL.Path == "/bundles/" {
 				popularBundles, err := fetchPopularBundles()
 				if err != nil {
 					internalStatusError("error fetching popular bundles for route /bundles/", err, w)
 					return
 				}
 				pageData := struct {
-					PopularBundles components.CachedBundles
+					PopularBundles types.CachedBundles
 				}{
 					PopularBundles: popularBundles,
 				}
@@ -318,7 +295,7 @@ func main() {
 				}
 
 				return
-			}
+			}*/
 		}
 		notFound(w)
 	})
@@ -333,7 +310,7 @@ func main() {
 			}
 			pageData := struct {
 				Heading  string
-				Products components.Gates
+				Products types.Gates
 			}{
 				Heading:  "Shop Gates",
 				Products: gates,
@@ -356,7 +333,7 @@ func main() {
 			}
 			pageData := struct {
 				Heading  string
-				Products components.Extensions
+				Products types.Extensions
 			}{
 				Heading:  "Shop Extensions",
 				Products: extensions,

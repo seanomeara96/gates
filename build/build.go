@@ -3,13 +3,15 @@ package build
 import (
 	"sort"
 
-	"github.com/seanomeara96/gates/components"
+	"github.com/seanomeara96/gates/types"
 )
 
-func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth float32) components.Bundle {
-	var bundle components.Bundle
-	bundle.Gate = gate
-	bundle.Gate.Qty = 1
+func Bundle(gate types.Gate, extensions types.Extensions, desiredWidth float32) types.Bundle {
+	var bundle types.Bundle
+	if gate.Qty < 1 {
+		gate.Qty = 1
+	}
+	bundle.Gates = append(bundle.Gates, gate)
 
 	sort.Slice(extensions, func(i int, j int) bool {
 		return extensions[i].Width > extensions[j].Width
@@ -17,7 +19,13 @@ func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth
 
 	smallestExtension := extensions[len(extensions)-1]
 
-	widthRemaining := desiredWidth - gate.Width
+	widthRemaining := desiredWidth
+	for i := 0; i < len(bundle.Gates); i++ {
+		currentGate := bundle.Gates[i]
+		desiredWidth -= currentGate.Width * float32(currentGate.Qty)
+	}
+
+	//widthRemaining := desiredWidth - gate.Width
 
 	index := 0
 	for widthRemaining > 0 {
@@ -29,7 +37,7 @@ func Bundle(gate components.Gate, extensions components.Extensions, desiredWidth
 		currentExtension.Qty = 1
 
 		if widthRemaining >= currentExtension.Width || (widthRemaining < smallestExtension.Width && widthRemaining > 0) {
-			var matchingExtension *components.Extension
+			var matchingExtension *types.Extension
 			// find matching extension
 			for i := 0; i < len(bundle.Extensions); i++ {
 				if currentExtension.Id == bundle.Extensions[i].Id {
