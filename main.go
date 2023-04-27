@@ -10,6 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/build"
 	"github.com/seanomeara96/gates/types"
+	"github.com/seanomeara96/gates/utils"
 )
 
 var tmpl *template.Template
@@ -22,36 +23,28 @@ func fetchAllGates() (types.Gates, error) {
 	if err != nil {
 		return nil, err
 	}
-	for rows.Next() {
-		var gate types.Gate
-		gate.Qty = 1
-		err := rows.Scan(&gate.Id, &gate.Name, &gate.Width, &gate.Price, &gate.Img, &gate.Tolerance, &gate.Color)
-		if err != nil {
-			return nil, err
-		}
-		featuredGates = append(featuredGates, gate)
-	}
 	defer rows.Close()
+
+	featuredGates, err = utils.ParseGates(rows)
+	if err != nil {
+		return nil, err
+	}
+
 	return featuredGates, nil
 }
 
 func fetchAllExtensions() (types.Extensions, error) {
-	var extensions types.Extensions
 	rows, err := db.Query("SELECT id, name, width, price, img, color FROM products WHERE type = 'extension'")
 	if err != nil {
 		return nil, err
 	}
-	for rows.Next() {
-		var extension types.Extension
-		extension.Qty = 1
-		err := rows.Scan(&extension.Id, &extension.Name, &extension.Width, &extension.Price, &extension.Img, &extension.Color)
-		if err != nil {
-			return nil, err
-		}
-		extensions = append(extensions, extension)
-	}
 	defer rows.Close()
+	extensions, err := utils.ParseExtensions(rows)
+	if err != nil {
+		return nil, err
+	}
 	return extensions, nil
+
 }
 
 func inValidRequest(w http.ResponseWriter) {
@@ -149,19 +142,13 @@ func main() {
 				return
 			}
 			defer rows.Close()
-			var gates types.Gates
-			for rows.Next() {
-				var gate types.Gate
-				err := rows.Scan(&gate.Id, &gate.Name, &gate.Width, &gate.Price, &gate.Img, &gate.Tolerance, &gate.Color)
-				if err != nil {
-					//internalStatusError("somehting went wrong while scanning gate rows", err, w)
-					// return
-					// maybe just print?
-					fmt.Println(err)
-					continue
-				}
-				gates = append(gates, gate)
+
+			gates, err := utils.ParseGates(rows)
+			if err != nil {
+				internalStatusError("failed to parse gates", err, w)
+				return
 			}
+
 			var bundles types.Bundles
 			for i := 0; i < len(gates); i++ {
 				gate := gates[i]
@@ -172,15 +159,11 @@ func main() {
 				}
 				defer rows.Close()
 				var compatibleExtensions types.Extensions
-				for rows.Next() {
-					var extension types.Extension
-					err := rows.Scan(&extension.Id, &extension.Name, &extension.Width, &extension.Price, &extension.Img, &extension.Color)
-					if err != nil {
-						fmt.Println("something went wrong while scanning extension rows", err)
-						continue
-					}
-					compatibleExtensions = append(compatibleExtensions, extension)
+				compatibleExtensions, err = utils.ParseExtensions(rows)
+				if err != nil {
+					internalStatusError("could not parse extensions", err, w)
 				}
+
 				bundle := build.Bundle(gate, compatibleExtensions, float32(data.DesiredWidth))
 				if bundle.Qty > 0 {
 					bundles = append(bundles, bundle)

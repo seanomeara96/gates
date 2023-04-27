@@ -20,26 +20,31 @@ func main() {
 	defer db.Close()
 
 	// drop tables or clear all rows before this flow
-	_, err = db.Exec(`DROP TABLE bundles`)
+	_, err = db.Exec(`DROP TABLE IF EXISTS bundles`)
 	if err != nil {
+		fmt.Println("error dropping bundles table")
 		log.Fatal(err)
 	}
-	_, err = db.Exec(`DROP TABLE bundle_gates`)
+	_, err = db.Exec(`DROP TABLE IF EXISTS bundle_gates`)
 	if err != nil {
+		fmt.Println("error dropping bundle gates table")
 		log.Fatal(err)
 	}
-	_, err = db.Exec(`DROP TABLE bundle_extensions`)
+	_, err = db.Exec(`DROP TABLE IF EXISTS bundle_extensions`)
 	if err != nil {
+		fmt.Println("error dropping bundle extensions table")
 		log.Fatal(err)
 	}
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS bundles (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
-		size REAL NOT NULL,
+		width REAL NOT NULL,
+		img TEXT DEFAULT '',
 		price REAL,
 		color TEXT
 	)`)
 	if err != nil {
+		fmt.Println("Error creating bundles table")
 		log.Fatal(err)
 	}
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS bundle_gates (
@@ -51,6 +56,7 @@ func main() {
 		FOREIGN KEY (bundle_id) REFERENCES bundles(id)
 	)`)
 	if err != nil {
+		fmt.Println("Error creating bundle gates table")
 		log.Fatal(err)
 	}
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS bundle_extensions (
@@ -62,12 +68,14 @@ func main() {
 		FOREIGN KEY (bundle_id) REFERENCES bundles(id)
 	)`)
 	if err != nil {
+		fmt.Println("error dropping bundle extensions table")
 		log.Fatal(err)
 	}
 
 	// get most searched for sizes
 	rows, err := db.Query("SELECT size, COUNT(*) AS count FROM bundle_sizes GROUP BY size ORDER BY count DESC LIMIT 3")
 	if err != nil {
+		fmt.Println("Error finding most searched-for sizes")
 		log.Fatal(err)
 	}
 
@@ -87,21 +95,27 @@ func main() {
 	}
 	rows.Close()
 
-	getGates, gStmtErr := db.Prepare("SELECT id, name, width, price, img, tolerance, color FROM gates WHERE width < ?")
+	getGates, gStmtErr := db.Prepare("SELECT id, name, width, price, img, tolerance, color FROM products WHERE width < ? AND type = 'gate'")
 	if gStmtErr != nil {
-		log.Fatal(err)
+		fmt.Println("Error occured trying to prepare select gate statement", err)
+		panic(err)
 	}
-	getExtensions, eStmtErr := db.Prepare("SELECT e.id, name, width, price, img, color FROM extensions e INNER JOIN compatibles c on e.id = c.extension_id WHERE c.gate_id = ?")
+	getExtensions, eStmtErr := db.Prepare("SELECT p.id, name, width, price, img, color FROM products p INNER JOIN compatibles c on p.id = c.extension_id WHERE c.gate_id = ?")
 	if eStmtErr != nil {
-		log.Fatal(err)
+		fmt.Println("Error occured trying to prepare select extension statement", err)
+		panic(err)
 	}
 	defer getGates.Close()
 	defer getExtensions.Close()
 
 	var bundles types.Bundles
 
+	// for each common size request build a bundle and save it to the database
 	for i := 0; i < len(data); i++ {
+
 		desiredWidth := data[i].Size
+		fmt.Println("desiredWidth", desiredWidth)
+
 		rows, err := getGates.Query(desiredWidth)
 		if err != nil {
 			log.Fatal(err)
@@ -116,6 +130,11 @@ func main() {
 				log.Fatal(err)
 			}
 			gates = append(gates, gate)
+		}
+
+		// no gates matched the request
+		if len(gates) < 1 {
+			continue
 		}
 
 		for i := 0; i < len(gates); i++ {
@@ -140,7 +159,12 @@ func main() {
 			bundles = append(bundles, bundle)
 		}
 	}
-	// todo filter duplicate bundles && save bundles to the database
+
+	for _, bundle := range bundles {
+		fmt.Println(bundle.MaxWidth, bundle.Color)
+	}
+
+	// filter duplicate bundles && save bundles to the database
 	var uniqueBundles types.Bundles
 	for i := 0; i < len(bundles); i++ {
 		bundle := bundles[i]
@@ -164,14 +188,22 @@ func main() {
 		for _, extension := range bundle.Extensions {
 			extensionsQtyTotal += extension.Qty
 		}
+
 		bundleName := bundle.Gates[0].Name
 		if extensionsQtyTotal > 0 {
-			bundleName = bundleName + " and " + strconv.Itoa(extensionsQtyTotal) + " Extensions"
+			var trailing string = " Extension"
+			if extensionsQtyTotal > 1 {
+				trailing = " Extensions"
+			}
+			bundleName = bundleName + " and " + strconv.Itoa(extensionsQtyTotal) + trailing
 		}
+		bundle.Name = bundleName
+
 		result, err := db.Exec(
-			"INSERT INTO bundles(name, size, price, color) VALUES (?, ?,?,?)",
-			bundleName,
+			"INSERT INTO bundles(name, width, img, price, color) VALUES (?, ?, ?, ?, ?)",
+			bundle.Name,
 			bundle.MaxWidth,
+			bundle.Gates[0].Img,
 			bundle.Price,
 			bundle.Gates[0].Color,
 		)
@@ -183,9 +215,12 @@ func main() {
 			log.Fatal(err)
 		}
 		bundleId := lastInsertId
-		_, err = db.Exec("INSERT INTO bundle_gates(gate_id, bundle_id, qty) VALUES (?, ?, ?)", bundle.Gates[0].Id, bundleId, bundle.Gates[0].Qty)
-		if err != nil {
-			log.Panic("somehting went wrong while inserting bundle gates into db", err)
+		for iii := 0; iii < len(bundle.Gates); iii++ {
+			gate := bundle.Gates[iii]
+			_, err = db.Exec("INSERT INTO bundle_gates(gate_id, bundle_id, qty) VALUES (?, ?, ?)", gate.Id, bundleId, gate.Qty)
+			if err != nil {
+				log.Panic("somehting went wrong while inserting bundle gates into db", err)
+			}
 		}
 		for ii := 0; ii < len(bundle.Extensions); ii++ {
 			extension := bundle.Extensions[ii]
