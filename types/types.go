@@ -30,6 +30,8 @@ type Bundle struct {
 	MaxWidth   float32     `json:"max_width"`
 }
 
+type Bundles []Bundle
+
 func (b *Bundle) ComputeMetaData() {
 	for i := 0; i < len(b.Gates); i++ {
 		gate := b.Gates[i]
@@ -45,5 +47,3 @@ func (b *Bundle) ComputeMetaData() {
 		b.Qty = 1
 	}
 }
-
-type Bundles []Bundle

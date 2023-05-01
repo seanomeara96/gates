@@ -1,33 +1,33 @@
-interface Gate {
-  id: number;
-  name: string;
-  width: number;
-  price: number;
-  img: string;
-  tolerance: number;
-  color: string;
-  qty: number;
-}
+interface Product {
+  id: number,
+  name: string,
+  width: number,
+  price: number,
+  img: string,
+  color: string,
+  qty: number
+};
 
-interface Extension {
-  id: number;
-  name: string;
-  width: number;
-  price: number;
-  img: string;
-  color: string;
-  qty: number;
-}
+interface Gate extends Product {
+  tolerance: number
+};
 
-interface Bundle {
-  gate: Gate;
-  extensions: Extension[];
-  price: number;
-  max_width: number;
-  qty: number;
-}
+type Gates = Gate[];
+
+interface Extension extends Product {
+};
+
+
+type Extensions = Extension[];
+
+interface Bundle extends Product {
+  gates: Gates,
+  extensions: Extensions,
+  max_width: number
+};
 
 type Bundles = Bundle[];
+
 
 const buildForm = document.querySelector("#build-gate");
 if (buildForm) {
@@ -67,18 +67,18 @@ if (buildForm) {
 
           params.set(
             "gate",
-            JSON.stringify({ id: bundle.gate.id, qty: bundle.gate.qty })
+            JSON.stringify({ id: bundle.gates[0].id, qty: bundle.gates[0].qty })
           );
           params.set("extensions", JSON.stringify(extensions));
 
-          const html = /*html*/ `
+          const html = /*htm*/ `
           <a id="fade-in-element" class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4 hidden" href="/bundles/?${params.toString()}" >
             <div class="bg-white rounded-lg overflow-hidden shadow-md">
                 <img src="https://via.placeholder.com/500x300" alt="Baby Safety Gate" class="w-full">
                 <div class="p-4">
-                    <h3 class="font-bold mb-2">${bundle.gate.name}${
-            bundle.gate.color
-          }${
+                    <h3 class="font-bold mb-2">${bundle.gates[0].name} ${
+            bundle.gates[0].color
+          } ${
             bundle.extensions.length
               ? " &amp; " +
                 bundle.extensions.reduce((a, c) => a + c.qty, 0) +

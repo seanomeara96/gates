@@ -17,6 +17,16 @@ var tmpl *template.Template
 var db *sql.DB
 var err error
 
+type User struct {
+	Email string
+}
+
+type BasePageData struct {
+	MetaDescription string
+	PageTitle       string
+	User            User
+}
+
 func fetchAllGates() (types.Gates, error) {
 	var featuredGates types.Gates
 	rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM products WHERE type = 'gate'")
@@ -92,16 +102,126 @@ func main() {
 		if r.Method == http.MethodGet && r.URL.Path == "/" {
 			featuredGates, err := fetchAllGates()
 			if err != nil {
-				internalStatusError("could not fetch gates from db", err, w)
+				internalStatusError(
+					"could not fetch gates from db",
+					err,
+					w,
+				)
 				return
 			}
 
-			pageData := struct {
+			var popularBundles types.Bundles
+			rows, err := db.Query("SELECT id, name, width, img, price, color FROM bundles LIMIT 3")
+			if err != nil {
+				internalStatusError(
+					"could not fetch bundles from db",
+					err,
+					w,
+				)
+				return
+			}
+
+			for rows.Next() {
+				var bundle types.Bundle
+				if err := rows.Scan(
+					&bundle.Id,
+					&bundle.Name,
+					&bundle.Width,
+					&bundle.Img,
+					&bundle.Price,
+					&bundle.Color,
+				); err != nil {
+					internalStatusError(
+						"could not scan bundle to bundle struct",
+						err,
+						w,
+					)
+					return
+				}
+				popularBundles = append(popularBundles, bundle)
+			}
+
+			for i := 0; i < len(popularBundles); i++ {
+				var currentBundle *types.Bundle = &popularBundles[i]
+
+				// get the bundle's gates
+				rows, err = db.Query(
+					"SELECT gate_id, qty FROM bundle_gates WHERE bundle_id = ?",
+					currentBundle.Id,
+				)
+				if err != nil {
+					internalStatusError(
+						"Something ent wrong while looking for the bundle's gates",
+						err,
+						w,
+					)
+					return
+				}
+				for rows.Next() {
+					var gate types.Gate
+					if err := rows.Scan(
+						&gate.Id,
+						&gate.Qty,
+					); err != nil {
+						internalStatusError(
+							"could not scan gates to bundle",
+							err,
+							w,
+						)
+						return
+					}
+					currentBundle.Gates = append(currentBundle.Gates, gate)
+				}
+
+				// get the bundle's extensions
+				rows, err = db.Query(
+					"SELECT extension_id, qty FROM bundle_extensions WHERE bundle_id = ?",
+					currentBundle.Id,
+				)
+				if err != nil {
+					internalStatusError(
+						"something went wrong while looking for bundle's extensions",
+						err,
+						w,
+					)
+					return
+				}
+				for rows.Next() {
+					var extension types.Extension
+					if err := rows.Scan(
+						&extension.Id,
+						&extension.Qty,
+					); err != nil {
+						internalStatusError(
+							"could not scan extensions to bundle",
+							err,
+							w,
+						)
+						return
+					}
+					currentBundle.Extensions = append(currentBundle.Extensions, extension)
+				}
+
+				// make sure to call compute metadata
+				currentBundle.ComputeMetaData()
+			}
+
+			type HomePageData struct {
 				FeaturedGates  types.Gates
 				PopularBundles types.Bundles
-			}{
+				BasePageData
+			}
+
+			pageData := HomePageData{
+				BasePageData: BasePageData{
+					PageTitle:       "Build your own safety gate",
+					MetaDescription: "This is a place to build the perfect safety gate for your home",
+					User: User{
+						"sean@example.com",
+					},
+				},
 				FeaturedGates:  featuredGates,
-				PopularBundles: types.Bundles{},
+				PopularBundles: popularBundles,
 			}
 
 			err = tmpl.ExecuteTemplate(w, "index.tmpl", pageData)
@@ -183,15 +303,19 @@ func main() {
 
 	http.HandleFunc("/bundles/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
+
+			// if theres a query for a specific custom bundle
 			query := r.URL.Query()
 			if len(query) > 0 {
 				q := query.Get("gate")
 				e := query.Get("extensions")
+
 				type ItemQuantities struct {
 					Id  int `json:"id"`
 					Qty int `json:"qty"`
 				}
 				var gateQuantity ItemQuantities
+
 				err := json.Unmarshal([]byte(q), &gateQuantity)
 				if err != nil {
 					internalStatusError("error decoding gate data", err, w)
@@ -250,8 +374,21 @@ func main() {
 				bundle.Extensions = extensions
 				// add bundle meta data
 				bundle.ComputeMetaData()
-				fmt.Println(bundle)
-				err = tmpl.ExecuteTemplate(w, "single-bundle.tmpl", bundle)
+
+				type SingleBundlePageData struct {
+					BasePageData
+					Bundle types.Bundle
+				}
+
+				pageData := SingleBundlePageData{
+					BasePageData: BasePageData{
+						PageTitle:       "Single Bundle: " + bundle.Name,
+						MetaDescription: "Buy Bundle " + bundle.Name + " Online and enjoy super fast delivery",
+					},
+					Bundle: bundle,
+				}
+
+				err = tmpl.ExecuteTemplate(w, "single-bundle.tmpl", pageData)
 				if err != nil {
 					internalStatusError("error creating bundle page", err, w)
 					return

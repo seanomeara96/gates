@@ -8,6 +8,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+;
+;
+;
+;
 const buildForm = document.querySelector("#build-gate");
 if (buildForm) {
     buildForm.addEventListener("submit", function (e) {
@@ -37,14 +41,14 @@ if (buildForm) {
                                 qty: extension.qty,
                             });
                         }
-                        params.set("gate", JSON.stringify({ id: bundle.gate.id, qty: bundle.gate.qty }));
+                        params.set("gate", JSON.stringify({ id: bundle.gates[0].id, qty: bundle.gates[0].qty }));
                         params.set("extensions", JSON.stringify(extensions));
-                        const html = /*html*/ `
+                        const html = /*htm*/ `
           <a id="fade-in-element" class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4 hidden" href="/bundles/?${params.toString()}" >
             <div class="bg-white rounded-lg overflow-hidden shadow-md">
                 <img src="https://via.placeholder.com/500x300" alt="Baby Safety Gate" class="w-full">
                 <div class="p-4">
-                    <h3 class="font-bold mb-2">${bundle.gate.name}${bundle.gate.color}${bundle.extensions.length
+                    <h3 class="font-bold mb-2">${bundle.gates[0].name} ${bundle.gates[0].color} ${bundle.extensions.length
                             ? " &amp; " +
                                 bundle.extensions.reduce((a, c) => a + c.qty, 0) +
                                 " Extensions"

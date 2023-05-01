@@ -1,4 +1,4 @@
-{{ template "header.tmpl" }}
+{{ template "header.tmpl" . }}
 
 
     <header class="py-20 bg-gray-100">
@@ -55,17 +55,13 @@
                             <a href="/bundles/{{.Id}}"><h3 class="font-bold mb-2">{{ .Name }}</h3></a>
                             <p class="text-gray-600 mb-4">
                                 <ul>
-                                    <li>Size: {{ .Size }}</li>
+                                    <li>Size: {{ .Width }}</li>
                                     <li>Colour: {{ .Color }}</li>
                                 </ul>
                             </p>
                             <div class="flex justify-between items-center">
                                 <span class="text-xl font-bold">€{{ .Price }}</span>
-                                <button data-product='{ "type":"bundle", "data": {
-                                    "gate": {
-                                        "id": {{ .Gate.Id }}
-                                    }
-                                }, "qty":{{.Qty}}, "price":{{.Price}} }' class="atc-btn bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Add to Cart</button>
+                                <button class="atc-btn bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Add to Cart</button>
                             </div>
                         </div>
                     </div>
