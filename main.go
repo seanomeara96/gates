@@ -249,14 +249,20 @@ func main() {
 			// not critical to rest of function
 			go func() {
 				// TODO keep track of user inputs(valid ones). From there we can generate "popular bundles"
-				_, err := db.Exec("INSERT INTO bundle_sizes(type, size) VALUES ('pressure fit', ?)", data.DesiredWidth)
+				_, err := db.Exec(
+					"INSERT INTO bundle_sizes(type, size) VALUES ('pressure fit', ?)",
+					data.DesiredWidth,
+				)
 				if err != nil {
 					fmt.Println(err)
 				}
 			}()
 
 			// fetch gates & compatible extensions from db
-			rows, err := db.Query("SELECT id, name, width, price, img, tolerance, color FROM products WHERE width < ? AND type = 'gate'", data.DesiredWidth)
+			rows, err := db.Query(
+				"SELECT id, name, width, price, img, tolerance, color FROM products WHERE width < ? AND type = 'gate'",
+				data.DesiredWidth,
+			)
 			if err != nil {
 				internalStatusError("failed to query gates from db", err, w)
 				return
@@ -265,14 +271,21 @@ func main() {
 
 			gates, err := utils.ParseGates(rows)
 			if err != nil {
-				internalStatusError("failed to parse gates", err, w)
+				internalStatusError(
+					"failed to parse gates",
+					err,
+					w,
+				)
 				return
 			}
 
 			var bundles types.Bundles
 			for i := 0; i < len(gates); i++ {
 				gate := gates[i]
-				rows, err := db.Query("SELECT p.id, name, width, price, img, color FROM products p INNER JOIN compatibles c ON p.id = c.extension_id WHERE c.gate_id = ?", gate.Id)
+				rows, err := db.Query(
+					"SELECT p.id, name, width, price, img, color FROM products p INNER JOIN compatibles c ON p.id = c.extension_id WHERE c.gate_id = ?",
+					gate.Id,
+				)
 				if err != nil {
 					internalStatusError("could not query compatible extensions", err, w)
 					return
@@ -466,5 +479,6 @@ func main() {
 		notFound(w)
 	})
 
+	fmt.Println("Lsitening on 3000")
 	http.ListenAndServe(":3000", nil)
 }

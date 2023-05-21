@@ -161,7 +161,7 @@ func main() {
 	}
 
 	for _, bundle := range bundles {
-		fmt.Println(bundle.MaxWidth, bundle.Color)
+		fmt.Println(bundle.Width, bundle.Color)
 	}
 
 	// filter duplicate bundles && save bundles to the database
@@ -202,7 +202,7 @@ func main() {
 		result, err := db.Exec(
 			"INSERT INTO bundles(name, width, img, price, color) VALUES (?, ?, ?, ?, ?)",
 			bundle.Name,
-			bundle.MaxWidth,
+			bundle.Width,
 			bundle.Gates[0].Img,
 			bundle.Price,
 			bundle.Gates[0].Color,
