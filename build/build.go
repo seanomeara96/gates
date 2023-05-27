@@ -1,67 +1,74 @@
 package build
 
 import (
+	"errors"
 	"sort"
 
 	"github.com/seanomeara96/gates/types"
 )
 
-func Bundle(gate types.Gate, extensions types.Extensions, desiredWidth float32) types.Bundle {
-	var bundle types.Bundle
+func BuildPressureFitBundle(limit float32, gate types.Gate, extensions types.Extensions) (types.Bundle, error) {
+	widthLimit := limit
+
+	var bundle types.Bundle = types.Bundle{}
+	// returning a single bundle
+	bundle.Qty = 1
+
+	//  add gate to the bundle. Ensure Qty is at least 1
+	if gate.Width > widthLimit {
+		return bundle, errors.New("gate too big")
+	}
+
 	if gate.Qty < 1 {
 		gate.Qty = 1
 	}
+
 	bundle.Gates = append(bundle.Gates, gate)
 
+	widthLimit -= gate.Width
+
+	// sort extensions to ensure width descending
 	sort.Slice(extensions, func(i int, j int) bool {
 		return extensions[i].Width > extensions[j].Width
 	})
 
-	smallestExtension := extensions[len(extensions)-1]
+	extensionIndex := 0
+	for widthLimit > 0 {
 
-	widthRemaining := desiredWidth
-	for i := 0; i < len(bundle.Gates); i++ {
-		currentGate := bundle.Gates[i]
-		desiredWidth -= currentGate.Width * float32(currentGate.Qty)
-	}
-
-	//widthRemaining := desiredWidth - gate.Width
-
-	index := 0
-	for widthRemaining > 0 {
-		if index > len(extensions) {
-			break
+		// we want to add one more extension if the width remaining > 0 but we've reached the last extension
+		var override bool = false
+		if extensionIndex >= len(extensions) {
+			extensionIndex--
+			override = true
 		}
 
-		currentExtension := extensions[index]
-		currentExtension.Qty = 1
-
-		if widthRemaining >= currentExtension.Width || (widthRemaining < smallestExtension.Width && widthRemaining > 0) {
-			var matchingExtension *types.Extension
-			// find matching extension
-			for i := 0; i < len(bundle.Extensions); i++ {
-				if currentExtension.Id == bundle.Extensions[i].Id {
-					matchingExtension = &bundle.Extensions[i]
-				}
-			}
-
-			if matchingExtension != nil {
-				matchingExtension.Qty++
-			} else {
-				bundle.Extensions = append(bundle.Extensions, currentExtension)
-			}
-
-			widthRemaining = widthRemaining - currentExtension.Width
+		extension := extensions[extensionIndex]
+		if extension.Width > widthLimit && !override {
+			//  extension too big, try next extension size down
+			extensionIndex++
 			continue
 		}
 
-		if currentExtension.Width > widthRemaining && currentExtension.Id != smallestExtension.Id {
-			index++
+		// check if extension already exists in the bundle and if so, increment the qty, else add it with a qty of 1
+		var existingExtension *types.Extension
+		for ii := 0; ii < len(bundle.Extensions); ii++ {
+			var bundleExtension *types.Extension = &bundle.Extensions[ii]
+
+			if bundleExtension.Id == extension.Id {
+				existingExtension = bundleExtension
+			}
 		}
 
+		if existingExtension != nil {
+			existingExtension.Qty++
+			widthLimit -= existingExtension.Width
+		} else {
+			extension.Qty = 1
+			bundle.Extensions = append(bundle.Extensions, extension)
+			widthLimit -= extension.Width
+		}
 	}
 
 	bundle.ComputeMetaData()
-
-	return bundle
+	return bundle, nil
 }

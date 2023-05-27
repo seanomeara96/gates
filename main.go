@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -297,7 +298,11 @@ func main() {
 					internalStatusError("could not parse extensions", err, w)
 				}
 
-				bundle := build.Bundle(gate, compatibleExtensions, float32(data.DesiredWidth))
+				bundle, err := build.BuildPressureFitBundle(float32(data.DesiredWidth), gate, compatibleExtensions)
+				if err != nil {
+					log.Print("error building bundle")
+					continue
+				}
 				if bundle.Qty > 0 {
 					bundles = append(bundles, bundle)
 				}

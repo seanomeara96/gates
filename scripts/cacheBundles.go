@@ -155,7 +155,11 @@ func main() {
 				extensions = append(extensions, extension)
 			}
 
-			bundle := build.Bundle(gate, extensions, float32(desiredWidth))
+			bundle, err := build.BuildPressureFitBundle(desiredWidth, gate, extensions)
+			if err != nil {
+				log.Print("errorbuilding bundle")
+				continue
+			}
 			bundles = append(bundles, bundle)
 		}
 	}
