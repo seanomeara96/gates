@@ -1,16 +1,14 @@
-package build
+package main
 
 import (
 	"fmt"
 	"testing"
-
-	"github.com/seanomeara96/gates/types"
 )
 
 func TestBuildPressureFitBundle(t *testing.T) {
 	// Initialize two Gate structs
-	blackGate := types.Gate{
-		Product: types.Product{
+	blackGate := Gate{
+		Product: Product{
 			Id:    1,
 			Name:  "Black Gate",
 			Width: 76,
@@ -22,8 +20,8 @@ func TestBuildPressureFitBundle(t *testing.T) {
 		Tolerance: 6,
 	}
 
-	whiteGate := types.Gate{
-		Product: types.Product{
+	whiteGate := Gate{
+		Product: Product{
 			Id:    2,
 			Name:  "White Gate",
 			Width: 76,
@@ -36,8 +34,8 @@ func TestBuildPressureFitBundle(t *testing.T) {
 	}
 
 	// Initialize three Extension structs for each Gate
-	blackGateExtensions := make([]types.Extension, 3)
-	whiteGateExtensions := make([]types.Extension, 3)
+	blackGateExtensions := make([]Extension, 3)
+	whiteGateExtensions := make([]Extension, 3)
 
 	for i := 0; i < 3; i++ {
 		width := 7
@@ -47,8 +45,8 @@ func TestBuildPressureFitBundle(t *testing.T) {
 		if i == 2 {
 			width = 64
 		}
-		blackGateExtensions[i] = types.Extension{
-			Product: types.Product{
+		blackGateExtensions[i] = Extension{
+			Product: Product{
 				Id:    i + 1,
 				Name:  fmt.Sprintf("Black Extension %d", i+1),
 				Width: float32(width),
@@ -59,8 +57,8 @@ func TestBuildPressureFitBundle(t *testing.T) {
 			},
 		}
 
-		whiteGateExtensions[i] = types.Extension{
-			Product: types.Product{
+		whiteGateExtensions[i] = Extension{
+			Product: Product{
 				Id:    i + 1,
 				Name:  fmt.Sprintf("White Extension %d", i+1),
 				Width: float32(width),
@@ -72,7 +70,7 @@ func TestBuildPressureFitBundle(t *testing.T) {
 		}
 	}
 
-	var gates types.Gates = make(types.Gates, 2)
+	var gates Gates = make(Gates, 2)
 	gates[0] = blackGate
 	gates[1] = whiteGate
 

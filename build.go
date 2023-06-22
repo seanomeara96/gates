@@ -1,16 +1,14 @@
-package build
+package main
 
 import (
 	"errors"
 	"sort"
-
-	"github.com/seanomeara96/gates/types"
 )
 
-func BuildPressureFitBundle(limit float32, gate types.Gate, extensions types.Extensions) (types.Bundle, error) {
+func BuildPressureFitBundle(limit float32, gate Gate, extensions Extensions) (Bundle, error) {
 	widthLimit := limit
 
-	var bundle types.Bundle = types.Bundle{}
+	var bundle Bundle = Bundle{}
 	// returning a single bundle
 	bundle.Qty = 1
 
@@ -50,9 +48,9 @@ func BuildPressureFitBundle(limit float32, gate types.Gate, extensions types.Ext
 		}
 
 		// check if extension already exists in the bundle and if so, increment the qty, else add it with a qty of 1
-		var existingExtension *types.Extension
+		var existingExtension *Extension
 		for ii := 0; ii < len(bundle.Extensions); ii++ {
-			var bundleExtension *types.Extension = &bundle.Extensions[ii]
+			var bundleExtension *Extension = &bundle.Extensions[ii]
 
 			if bundleExtension.Id == extension.Id {
 				existingExtension = bundleExtension

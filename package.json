@@ -4,5 +4,8 @@
   },
   "devDependencies": {
     "sqlite3": "^5.1.6"
+  },
+  "scripts": {
+    "start": "nodemon --exec go run main.go --signal SIGTERM"
   }
 }

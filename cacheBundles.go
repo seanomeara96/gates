@@ -8,11 +8,9 @@ import (
 	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/seanomeara96/gates/build"
-	"github.com/seanomeara96/gates/types"
 )
 
-func main() {
+func cacheBundles() {
 	db, err := sql.Open("sqlite3", "main.db")
 	if err != nil {
 		log.Fatal(err)
@@ -73,7 +71,7 @@ func main() {
 	}
 
 	// get most searched for sizes
-	rows, err := db.Query("SELECT size, COUNT(*) AS count FROM bundle_sizes GROUP BY size ORDER BY count DESC LIMIT 3")
+	rows, err := db.Query("SELECT size, COUNT(*) AS count FROM bundle_sizes WHERE size > 0 GROUP BY size ORDER BY count DESC LIMIT 3")
 	if err != nil {
 		fmt.Println("Error finding most searched-for sizes")
 		log.Fatal(err)
@@ -108,7 +106,7 @@ func main() {
 	defer getGates.Close()
 	defer getExtensions.Close()
 
-	var bundles types.Bundles
+	var bundles Bundles
 
 	// for each common size request build a bundle and save it to the database
 	for i := 0; i < len(data); i++ {
@@ -122,9 +120,9 @@ func main() {
 		}
 		defer rows.Close()
 
-		var gates []types.Gate
+		var gates []Gate
 		for rows.Next() {
-			var gate types.Gate
+			var gate Gate
 			err := rows.Scan(&gate.Id, &gate.Name, &gate.Width, &gate.Price, &gate.Img, &gate.Tolerance, &gate.Color)
 			if err != nil {
 				log.Fatal(err)
@@ -145,9 +143,9 @@ func main() {
 			}
 			defer rows.Close()
 
-			var extensions types.Extensions
+			var extensions Extensions
 			for rows.Next() {
-				var extension types.Extension
+				var extension Extension
 				err := rows.Scan(&extension.Id, &extension.Name, &extension.Width, &extension.Price, &extension.Img, &extension.Color)
 				if err != nil {
 					log.Fatal(err)
@@ -155,7 +153,7 @@ func main() {
 				extensions = append(extensions, extension)
 			}
 
-			bundle, err := build.BuildPressureFitBundle(desiredWidth, gate, extensions)
+			bundle, err := BuildPressureFitBundle(desiredWidth, gate, extensions)
 			if err != nil {
 				log.Print("errorbuilding bundle")
 				continue
@@ -169,7 +167,7 @@ func main() {
 	}
 
 	// filter duplicate bundles && save bundles to the database
-	var uniqueBundles types.Bundles
+	var uniqueBundles Bundles
 	for i := 0; i < len(bundles); i++ {
 		bundle := bundles[i]
 		encountered := false
