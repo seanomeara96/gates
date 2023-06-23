@@ -4,26 +4,25 @@ import (
 	"errors"
 	"time"
 
-	"github.com/your_project/models"
-	"github.com/your_project/repositories"
+	"github.com/seanomeara96/gates/repositories"
 )
 
-type UserService struct {
-	userRepository *repositories.UserRepository
+type ProductService struct {
+	userRepository *repositories.ProductRepository
 }
 
-func NewUserService(userRepository *repositories.UserRepository) *UserService {
+func NewUserService(userRepository *repositories.ProductRepository) *ProductService {
 	return &UserService{userRepository: userRepository}
 }
 
-func (s *UserService) CreateUser(name string, email string) (*models.User, error) {
+func (s *ProductService) CreateUser(name string, email string) (*models.User, error) {
 	// Validate input parameters
 	if name == "" || email == "" {
 		return nil, errors.New("name and email are required")
 	}
 
 	// Check if the email is already registered
-	existingUser, err := s.userRepository.GetByEmail(email)
+	existingUser, err := s.productRepository.GetByEmail(email)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +38,7 @@ func (s *UserService) CreateUser(name string, email string) (*models.User, error
 	}
 
 	// Save the user to the database
-	err = s.userRepository.Create(user)
+	err = s.productRepository.Create(user)
 	if err != nil {
 		return nil, err
 	}
@@ -47,9 +46,9 @@ func (s *UserService) CreateUser(name string, email string) (*models.User, error
 	return user, nil
 }
 
-func (s *UserService) GetUserByID(userID int) (*models.User, error) {
+func (s *ProductService) GetUserByID(userID int) (*models.User, error) {
 	// Fetch the user from the database
-	user, err := s.userRepository.GetByID(userID)
+	user, err := s.productRepository.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
