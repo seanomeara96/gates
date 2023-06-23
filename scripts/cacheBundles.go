@@ -10,29 +10,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func cacheBundles() {
-	db, err := sql.Open("sqlite3", "main.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+func CacheBundles(db *sql.DB) {
 
-	// drop tables or clear all rows before this flow
-	_, err = db.Exec(`DROP TABLE IF EXISTS bundles`)
-	if err != nil {
-		fmt.Println("error dropping bundles table")
-		log.Fatal(err)
-	}
-	_, err = db.Exec(`DROP TABLE IF EXISTS bundle_gates`)
-	if err != nil {
-		fmt.Println("error dropping bundle gates table")
-		log.Fatal(err)
-	}
-	_, err = db.Exec(`DROP TABLE IF EXISTS bundle_extensions`)
-	if err != nil {
-		fmt.Println("error dropping bundle extensions table")
-		log.Fatal(err)
-	}
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS bundles (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
@@ -70,6 +49,23 @@ func cacheBundles() {
 		log.Fatal(err)
 	}
 
+	// drop tables or clear all rows before this flow
+	_, err = db.Exec(`DELETE FROM bundles`)
+	if err != nil {
+		fmt.Println("error clearing bundles table")
+		log.Fatal(err)
+	}
+	_, err = db.Exec(`DELETE FROM bundle_gates`)
+	if err != nil {
+		fmt.Println("error clearing bundle gates table")
+		log.Fatal(err)
+	}
+	_, err = db.Exec(`DELETE FROM bundle_extensions`)
+	if err != nil {
+		fmt.Println("error clearing bundle extensions table")
+		log.Fatal(err)
+	}
+
 	// get most searched for sizes
 	rows, err := db.Query("SELECT size, COUNT(*) AS count FROM bundle_sizes WHERE size > 0 GROUP BY size ORDER BY count DESC LIMIT 3")
 	if err != nil {
@@ -98,12 +94,13 @@ func cacheBundles() {
 		fmt.Println("Error occured trying to prepare select gate statement", err)
 		panic(err)
 	}
+	defer getGates.Close()
+
 	getExtensions, eStmtErr := db.Prepare("SELECT p.id, name, width, price, img, color FROM products p INNER JOIN compatibles c on p.id = c.extension_id WHERE c.gate_id = ?")
 	if eStmtErr != nil {
 		fmt.Println("Error occured trying to prepare select extension statement", err)
 		panic(err)
 	}
-	defer getGates.Close()
 	defer getExtensions.Close()
 
 	var bundles Bundles
@@ -166,7 +163,7 @@ func cacheBundles() {
 		fmt.Println(bundle.Width, bundle.Color)
 	}
 
-	// filter duplicate bundles && save bundles to the database
+	// filter duplicate bundles && save unique bundles to the database
 	var uniqueBundles Bundles
 	for i := 0; i < len(bundles); i++ {
 		bundle := bundles[i]
@@ -180,10 +177,12 @@ func cacheBundles() {
 			uniqueBundles = append(uniqueBundles, bundle)
 		}
 	}
+
 	insertExtensionStmt, err := db.Prepare("INSERT INTO bundle_extensions(extension_id, bundle_id, qty) VALUES (?,?,?)")
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	for i := 0; i < len(uniqueBundles); i++ {
 		bundle := uniqueBundles[i]
 		extensionsQtyTotal := 0

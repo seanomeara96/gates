@@ -2,7 +2,7 @@ to make a purchase possible i need to send the following info to the server:
 - product id
 - qty
 
-example: [{ id: 1, qty: 1}, { id: 2, qty: 1]]
+example: [{ id: 1, qty: 1}, { id: 2, qty: 1}]
 
 
 for the cart to function as normally id need:

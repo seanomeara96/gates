@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -105,6 +104,7 @@ func main() {
 		panic(err)
 	}
 	defer db.Close()
+	CacheBundles(db)
 
 	// init assets dir
 	assetsDirPath := "/assets/"
@@ -266,11 +266,12 @@ func main() {
 				compatibleExtensions, err := ParseExtensions(rows)
 				if err != nil {
 					internalStatusError("could not parse extensions", err, w)
+					return
 				}
 
 				bundle, err := BuildPressureFitBundle(float32(data.DesiredWidth), gate, compatibleExtensions)
 				if err != nil {
-					log.Print("error building bundle")
+					internalStatusError("error building bundle", err, w)
 					continue
 				}
 
