@@ -4,9 +4,9 @@ import "strconv"
 
 type Bundle struct {
 	Product
-	Gates      []Gate      `json:"gates"`
-	Extensions []Extension `json:"extensions"`
-	Tolerance  float32     `json:"tolerance"`
+	Gates      []Product `json:"gates"`
+	Extensions []Product `json:"extensions"`
+	Tolerance  float32   `json:"tolerance"`
 }
 
 type Bundles []Bundle
