@@ -20,26 +20,33 @@ func (r *ProductRepository) Create(product *models.Product) error {
 	return nil
 }
 
-func productFields(product *models.Product) (*int, *string, *string, *float32, *float32, *string, *string, *float32) {
-	return &product.Id,
+func scanProductFromRow(row *sql.Row, product *models.Product) (*models.Product, error) {
+	err := row.Scan(
+		&product.Id,
 		&product.Type,
 		&product.Name,
 		&product.Width,
 		&product.Price,
 		&product.Img,
 		&product.Color,
-		&product.Tolerance
-}
-
-func scanProductFromRow(row *sql.Row, product *models.Product) (*models.Product, error) {
-	err := row.Scan(productFields(product))
+		&product.Tolerance,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return product, nil
 }
 func scanProductFromRows(rows *sql.Rows, product *models.Product) (*models.Product, error) {
-	err := rows.Scan(productFields(product))
+	err := rows.Scan(
+		&product.Id,
+		&product.Type,
+		&product.Name,
+		&product.Width,
+		&product.Price,
+		&product.Img,
+		&product.Color,
+		&product.Tolerance,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -47,12 +54,11 @@ func scanProductFromRows(rows *sql.Rows, product *models.Product) (*models.Produ
 }
 
 func (r *ProductRepository) GetByID(productID int) (*models.Product, error) {
-	var product *models.Product
 	// Code to fetch a user from the database
 	// based on the provided user ID (userID)
 	// using the provided SQL database connection (r.db)
 	row := r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE id = ?", productID)
-	product, err := scanProductFromRow(row, product)
+	product, err := scanProductFromRow(row, &models.Product{})
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +66,8 @@ func (r *ProductRepository) GetByID(productID int) (*models.Product, error) {
 }
 
 func (r *ProductRepository) GetByName(name string) (*models.Product, error) {
-	var product *models.Product
 	row := r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE name = ?", name)
-	product, err := scanProductFromRow(row, product)
+	product, err := scanProductFromRow(row, &models.Product{})
 	if err != nil {
 		return nil, err
 	}

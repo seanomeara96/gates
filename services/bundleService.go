@@ -1,14 +1,46 @@
-package main
+package services
 
 import (
 	"errors"
 	"sort"
+
+	"github.com/seanomeara96/gates/models"
+	"github.com/seanomeara96/gates/repositories"
 )
 
-func BuildPressureFitBundle(limit float32, gate Gate, extensions Extensions) (Bundle, error) {
+type BundleService struct {
+	productRepository *repositories.ProductRepository
+}
+
+func NewBundleRepository(productRepository *repositories.ProductRepository) *BundleService {
+	return &BundleService{productRepository: productRepository}
+}
+
+func (s *BundleService) BuildPressureFitBundles(limit float32) ([]models.Bundle, error) {
+	//	struct{ MaxWidth float32 }{limit}
+	gates, err := s.productRepository.GetGates()
+	if err != nil {
+		return nil, err
+	}
+	var bundles []models.Bundle
+	for _, gate := range gates {
+		compatibleExtensions, err := s.productRepository.GetCompatibleExtensions(gate.Id)
+		if err != nil {
+			return nil, err
+		}
+		bundle, err := s.BuildPressureFitBundle(limit, gate, compatibleExtensions)
+		if err != nil {
+			return nil, err
+		}
+		bundles = append(bundles, bundle)
+	}
+	return bundles, nil
+}
+
+func (s *BundleService) BuildPressureFitBundle(limit float32, gate models.Product, extensions []models.Product) (models.Bundle, error) {
 	widthLimit := limit
 
-	var bundle Bundle = Bundle{}
+	var bundle models.Bundle = models.Bundle{}
 	// returning a single bundle
 	bundle.Qty = 1
 
@@ -48,9 +80,9 @@ func BuildPressureFitBundle(limit float32, gate Gate, extensions Extensions) (Bu
 		}
 
 		// check if extension already exists in the bundle and if so, increment the qty, else add it with a qty of 1
-		var existingExtension *Extension
+		var existingExtension *models.Product
 		for ii := 0; ii < len(bundle.Extensions); ii++ {
-			var bundleExtension *Extension = &bundle.Extensions[ii]
+			var bundleExtension *models.Product = &bundle.Extensions[ii]
 
 			if bundleExtension.Id == extension.Id {
 				existingExtension = bundleExtension

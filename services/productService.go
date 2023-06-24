@@ -2,8 +2,8 @@ package services
 
 import (
 	"errors"
-	"time"
 
+	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repositories"
 )
 
@@ -36,14 +36,14 @@ func (s *ProductService) CreateProduct(params createProductParams) (*models.Prod
 	}
 
 	hasValidType := false
-	for _, validProductType range validProductTypes {
-		if params.type == validProductType {
+	for _, validProductType := range validProductTypes {
+		if params.Type == validProductType {
 			hasValidType = true
 		}
 	}
 
 	if !hasValidType {
-		return nil,  errors.New("does not have a valid product type")
+		return nil, errors.New("does not have a valid product type")
 	}
 
 	if params.Price == 0.0 || params.Width == 0.0 {
@@ -61,17 +61,17 @@ func (s *ProductService) CreateProduct(params createProductParams) (*models.Prod
 
 	// Create a new user instance
 	product := &models.Product{
-		Id: 0,
-		Type: params.Type
+		Id:   0,
+		Type: params.Type,
 	}
 
 	// Save the user to the database
-	err = s.productRepository.Create(user)
+	err = s.productRepository.Create(product)
 	if err != nil {
 		return nil, err
 	}
 
-	return user, nil
+	return product, nil
 }
 
 func (s *ProductService) GetProductByID(productID int) (*models.Product, error) {
@@ -82,6 +82,22 @@ func (s *ProductService) GetProductByID(productID int) (*models.Product, error) 
 	}
 
 	return product, nil
+}
+
+func (s *ProductService) GetGates() ([]*models.Product, error) {
+	gates, err := s.productRepository.GetGates()
+	if err != nil {
+		return nil, err
+	}
+	return gates, nil
+}
+
+func (s *ProductService) GetExtensions() ([]*models.Product, error) {
+	extensions, err := s.productRepository.GetExtensions()
+	if err != nil {
+		return nil, err
+	}
+	return extensions, nil
 }
 
 // Other methods for user-related operations (e.g., UpdateUser, DeleteUser, etc.)
