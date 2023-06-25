@@ -84,16 +84,18 @@ func (s *ProductService) GetProductByID(productID int) (*models.Product, error) 
 	return product, nil
 }
 
-func (s *ProductService) GetGates() ([]*models.Product, error) {
-	gates, err := s.productRepository.GetGates()
+type ProductFilterParams = repositories.ProductFilterParams
+
+func (s *ProductService) GetGates(params ProductFilterParams) ([]*models.Product, error) {
+	gates, err := s.productRepository.GetGates(params)
 	if err != nil {
 		return nil, err
 	}
 	return gates, nil
 }
 
-func (s *ProductService) GetExtensions() ([]*models.Product, error) {
-	extensions, err := s.productRepository.GetExtensions()
+func (s *ProductService) GetExtensions(params ProductFilterParams) ([]*models.Product, error) {
+	extensions, err := s.productRepository.GetExtensions(params)
 	if err != nil {
 		return nil, err
 	}

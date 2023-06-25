@@ -12,32 +12,38 @@ type BundleService struct {
 	productRepository *repositories.ProductRepository
 }
 
-func NewBundleRepository(productRepository *repositories.ProductRepository) *BundleService {
+func NewBundleService(productRepository *repositories.ProductRepository) *BundleService {
 	return &BundleService{productRepository: productRepository}
 }
 
 func (s *BundleService) BuildPressureFitBundles(limit float32) ([]models.Bundle, error) {
-	//	struct{ MaxWidth float32 }{limit}
-	gates, err := s.productRepository.GetGates()
-	if err != nil {
-		return nil, err
-	}
 	var bundles []models.Bundle
+
+	gates, err := s.productRepository.GetGates(struct{ MaxWidth float32 }{limit})
+	if err != nil {
+		return bundles, err
+	}
+	if len(gates) < 1 {
+		return bundles, nil
+	}
+
 	for _, gate := range gates {
 		compatibleExtensions, err := s.productRepository.GetCompatibleExtensions(gate.Id)
 		if err != nil {
-			return nil, err
+			return bundles, err
 		}
+
 		bundle, err := s.BuildPressureFitBundle(limit, gate, compatibleExtensions)
 		if err != nil {
-			return nil, err
+			return bundles, err
 		}
 		bundles = append(bundles, bundle)
 	}
+
 	return bundles, nil
 }
 
-func (s *BundleService) BuildPressureFitBundle(limit float32, gate models.Product, extensions []models.Product) (models.Bundle, error) {
+func (s *BundleService) BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*models.Product) (models.Bundle, error) {
 	widthLimit := limit
 
 	var bundle models.Bundle = models.Bundle{}
@@ -53,7 +59,7 @@ func (s *BundleService) BuildPressureFitBundle(limit float32, gate models.Produc
 		gate.Qty = 1
 	}
 
-	bundle.Gates = append(bundle.Gates, gate)
+	bundle.Gates = append(bundle.Gates, *gate)
 
 	widthLimit -= gate.Width
 
@@ -94,7 +100,7 @@ func (s *BundleService) BuildPressureFitBundle(limit float32, gate models.Produc
 			widthLimit -= existingExtension.Width
 		} else {
 			extension.Qty = 1
-			bundle.Extensions = append(bundle.Extensions, extension)
+			bundle.Extensions = append(bundle.Extensions, *extension)
 			widthLimit -= extension.Width
 		}
 	}

@@ -74,9 +74,19 @@ func (r *ProductRepository) GetByName(name string) (*models.Product, error) {
 	return product, nil
 }
 
-func (r *ProductRepository) GetGates() ([]*models.Product, error) {
+type ProductFilterParams struct {
+	MaxWidth float32
+}
+
+func (r *ProductRepository) GetGates(params ProductFilterParams) ([]*models.Product, error) {
+	filters := []any{}
+	baseQuery := "SELECT id, type, name, width, price,  img, color, tolerance FROM products WHERE type = 'gate'"
+	if params.MaxWidth > 0 {
+		baseQuery = baseQuery + " AND width < ?"
+		filters = append(filters, params.MaxWidth)
+	}
 	var gates []*models.Product
-	rows, err := r.db.Query("SELECT id, type, name, width, price,  img, color, tolerance FROM products WHERE type = 'gate'")
+	rows, err := r.db.Query(baseQuery, filters...)
 	if err != nil {
 		return nil, err
 	}
@@ -91,9 +101,32 @@ func (r *ProductRepository) GetGates() ([]*models.Product, error) {
 	return gates, nil
 }
 
-func (r *ProductRepository) GetExtensions() ([]*models.Product, error) {
+func (r *ProductRepository) GetCompatibleExtensions(gateID int) ([]*models.Product, error) {
 	var extensions []*models.Product
-	rows, err := r.db.Query("SELECT id, type, name, width, price, img, color, tolerance FROM products where type = 'extension'")
+	rows, err := r.db.Query("SELECT p.id, p.type, p.name, p.width, p.price, p.img, p.color, p.tolerance FROM products p INNER JOIN compatibles c ON p.id = c.extension_id WHERE gate_id = ?", gateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		extension, err := scanProductFromRows(rows, &models.Product{})
+		if err != nil {
+			return nil, err
+		}
+		extensions = append(extensions, extension)
+	}
+	return extensions, nil
+}
+
+func (r *ProductRepository) GetExtensions(params ProductFilterParams) ([]*models.Product, error) {
+	filters := []any{}
+	query := "SELECT id, type, name, width, price, img, color, tolerance FROM products where type = 'extension'"
+	if params.MaxWidth > 0 {
+		query += " AND width < ?"
+		filters = append(filters, params.MaxWidth)
+	}
+	var extensions []*models.Product
+	rows, err := r.db.Query(query, filters...)
 	if err != nil {
 		return nil, err
 	}
