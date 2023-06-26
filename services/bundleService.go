@@ -3,17 +3,45 @@ package services
 import (
 	"errors"
 	"sort"
+	"strconv"
 
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repositories"
 )
 
 type BundleService struct {
+	bundleRepository  *repositories.BundleRepository
 	productRepository *repositories.ProductRepository
 }
 
-func NewBundleService(productRepository *repositories.ProductRepository) *BundleService {
-	return &BundleService{productRepository: productRepository}
+func NewBundleService(productRepository *repositories.ProductRepository, bundleRepository *repositories.BundleRepository) *BundleService {
+	return &BundleService{productRepository: productRepository, bundleRepository: bundleRepository}
+}
+
+func (s *BundleService) CreateTables() error {
+	err := s.bundleRepository.CreateTables()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *BundleService) ClearAll() error {
+	err := s.bundleRepository.ClearAll()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type PopularSizes = []repositories.PopularSize
+
+func (s *BundleService) PopularSizes(limit int) (PopularSizes, error) {
+	popularSizes, err := s.bundleRepository.PopularSizes(limit)
+	if err != nil {
+		return popularSizes, err
+	}
+	return popularSizes, nil
 }
 
 func (s *BundleService) BuildPressureFitBundles(limit float32) ([]models.Bundle, error) {
@@ -107,4 +135,41 @@ func (s *BundleService) BuildPressureFitBundle(limit float32, gate *models.Produ
 
 	bundle.ComputeMetaData()
 	return bundle, nil
+}
+
+func (s *BundleService) SaveBundle(bundle models.Bundle) error {
+	extensionsQtyTotal := 0
+	for _, extension := range bundle.Extensions {
+		extensionsQtyTotal += extension.Qty
+	}
+
+	bundleName := bundle.Gates[0].Name
+	if extensionsQtyTotal > 0 {
+		var trailing string = " Extension"
+		if extensionsQtyTotal > 1 {
+			trailing = " Extensions"
+		}
+		bundleName = bundleName + " and " + strconv.Itoa(extensionsQtyTotal) + trailing
+	}
+	bundle.Name = bundleName
+
+	bundleId, err := s.bundleRepository.SaveBundle(bundle)
+	if err != nil {
+		return err
+	}
+	for iii := 0; iii < len(bundle.Gates); iii++ {
+		gate := bundle.Gates[iii]
+		err = s.bundleRepository.SaveBundleGate(gate.Id, bundleId, gate.Qty)
+		if err != nil {
+			return err
+		}
+	}
+	for ii := 0; ii < len(bundle.Extensions); ii++ {
+		extension := bundle.Extensions[ii]
+		err := s.bundleRepository.SaveBundleExtension(extension.Id, bundleId, extension.Qty)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

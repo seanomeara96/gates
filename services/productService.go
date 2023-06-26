@@ -102,4 +102,12 @@ func (s *ProductService) GetExtensions(params ProductFilterParams) ([]*models.Pr
 	return extensions, nil
 }
 
+func (s *ProductService) GetCompatibleExtensions(gateID int) ([]*models.Product, error) {
+	extensions, err := s.productRepository.GetCompatibleExtensions(gateID)
+	if err != nil {
+		return nil, err
+	}
+	return extensions, nil
+}
+
 // Other methods for user-related operations (e.g., UpdateUser, DeleteUser, etc.)
