@@ -9,16 +9,12 @@ import (
 	"github.com/seanomeara96/gates/services"
 )
 
-func loadDB() *sql.DB {
+func TestGetProductById(t *testing.T) {
 	db, err := sql.Open("sqlite3", "../main.db")
 	if err != nil {
 		panic(err)
 	}
-	return db
-}
-
-func TestGetProductById(t *testing.T) {
-	db := loadDB()
+	defer db.Close()
 	productRepo := repositories.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
 
@@ -33,12 +29,16 @@ func TestGetProductById(t *testing.T) {
 
 }
 
-func TestGetGates(t *testing.T) {
-	db := loadDB()
+func TestGetGatesService(t *testing.T) {
+	db, err := sql.Open("sqlite3", "../main.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 	productRepo := repositories.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
 
-	gates, err := productService.GetGates()
+	gates, err := productService.GetGates(services.ProductFilterParams{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -48,10 +48,14 @@ func TestGetGates(t *testing.T) {
 }
 
 func TestGetExtensions(t *testing.T) {
-	db := loadDB()
+	db, err := sql.Open("sqlite3", "../main.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 	productRepo := repositories.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
-	extensions, err := productService.GetExtensions()
+	extensions, err := productService.GetExtensions(services.ProductFilterParams{})
 	if err != nil {
 		t.Error(err)
 	}

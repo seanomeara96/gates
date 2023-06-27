@@ -10,18 +10,15 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func loadDB() *sql.DB {
+func TestBuildPressureFitBundles(t *testing.T) {
 	db, err := sql.Open("sqlite3", "../main.db")
 	if err != nil {
 		panic(err)
 	}
-	return db
-}
-
-func TestBuildPressureFitBundles(t *testing.T) {
-	db := loadDB()
+	defer db.Close()
 	productRepo := repositories.NewProductRepository(db)
-	bundleService := services.NewBundleService(productRepo)
+	bundleRepo := repositories.NewBundleRepository(db)
+	bundleService := services.NewBundleService(productRepo, bundleRepo)
 	bundles, err := bundleService.BuildPressureFitBundles(125)
 	if err != nil {
 		t.Error(err)

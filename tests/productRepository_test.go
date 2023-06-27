@@ -8,16 +8,12 @@ import (
 	"github.com/seanomeara96/gates/repositories"
 )
 
-func loadDB() *sql.DB {
+func TestGetCompatibleExtensions(t *testing.T) {
 	db, err := sql.Open("sqlite3", "../main.db")
 	if err != nil {
 		panic(err)
 	}
-	return db
-}
-
-func TestGetCompatibleExtensions(t *testing.T) {
-	db := loadDB()
+	defer db.Close()
 	productRepo := repositories.NewProductRepository(db)
 	extensions, err := productRepo.GetCompatibleExtensions(1)
 	if err != nil {
@@ -29,9 +25,13 @@ func TestGetCompatibleExtensions(t *testing.T) {
 }
 
 func TestMaxWidthFilter(t *testing.T) {
-	db := loadDB()
+	db, err := sql.Open("sqlite3", "../main.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 	productRepo := repositories.NewProductRepository(db)
-	filters := repositories.FilterParams{
+	filters := repositories.ProductFilterParams{
 		MaxWidth: 35,
 	}
 	extensions, err := productRepo.GetExtensions(filters)
@@ -44,9 +44,13 @@ func TestMaxWidthFilter(t *testing.T) {
 }
 
 func TestNoGates(t *testing.T) {
-	db := loadDB()
+	db, err := sql.Open("sqlite3", "../main.db")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
 	productRepo := repositories.NewProductRepository(db)
-	filters := repositories.FilterParams{
+	filters := repositories.ProductFilterParams{
 		MaxWidth: 70,
 	}
 	gates, err := productRepo.GetGates(filters)
