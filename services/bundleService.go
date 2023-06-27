@@ -47,7 +47,7 @@ func (s *BundleService) PopularSizes(limit int) (PopularSizes, error) {
 func (s *BundleService) BuildPressureFitBundles(limit float32) ([]models.Bundle, error) {
 	var bundles []models.Bundle
 
-	gates, err := s.productRepository.GetGates(struct{ MaxWidth float32 }{limit})
+	gates, err := s.productRepository.GetGates(ProductFilterParams{MaxWidth: limit})
 	if err != nil {
 		return bundles, err
 	}

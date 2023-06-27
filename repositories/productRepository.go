@@ -76,6 +76,7 @@ func (r *ProductRepository) GetByName(name string) (*models.Product, error) {
 
 type ProductFilterParams struct {
 	MaxWidth float32
+	Limit    int
 }
 
 func (r *ProductRepository) GetGates(params ProductFilterParams) ([]*models.Product, error) {
@@ -85,6 +86,12 @@ func (r *ProductRepository) GetGates(params ProductFilterParams) ([]*models.Prod
 		baseQuery = baseQuery + " AND width < ?"
 		filters = append(filters, params.MaxWidth)
 	}
+
+	if params.Limit > 0 {
+		baseQuery += " LIMIT ?"
+		filters = append(filters, params.Limit)
+	}
+
 	var gates []*models.Product
 	rows, err := r.db.Query(baseQuery, filters...)
 	if err != nil {
@@ -125,6 +132,12 @@ func (r *ProductRepository) GetExtensions(params ProductFilterParams) ([]*models
 		query += " AND width < ?"
 		filters = append(filters, params.MaxWidth)
 	}
+
+	if params.Limit > 0 {
+		query += " LIMIT ?"
+		filters = append(filters, params.Limit)
+	}
+
 	var extensions []*models.Product
 	rows, err := r.db.Query(query, filters...)
 	if err != nil {
@@ -139,6 +152,35 @@ func (r *ProductRepository) GetExtensions(params ProductFilterParams) ([]*models
 		extensions = append(extensions, product)
 	}
 	return extensions, nil
+}
+
+func (r *ProductRepository) GetBundles(params ProductFilterParams) ([]*models.Product, error) {
+	filters := []any{}
+	query := "SELECT id, type, name, width, price,  img, color, tolerance FROM products WHERE type = 'bundle'"
+	if params.MaxWidth > 0 {
+		query = query + " AND width < ?"
+		filters = append(filters, params.MaxWidth)
+	}
+
+	if params.Limit > 0 {
+		query += " LIMIT ?"
+		filters = append(filters, params.Limit)
+	}
+
+	var bundles []*models.Product
+	rows, err := r.db.Query(query, filters...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		product, err := scanProductFromRows(rows, &models.Product{})
+		if err != nil {
+			return nil, err
+		}
+		bundles = append(bundles, product)
+	}
+	return bundles, nil
 }
 
 func (r *ProductRepository) Update(product *models.Product) error {

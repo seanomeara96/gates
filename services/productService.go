@@ -102,6 +102,14 @@ func (s *ProductService) GetExtensions(params ProductFilterParams) ([]*models.Pr
 	return extensions, nil
 }
 
+func (s *ProductService) GetBundles(params ProductFilterParams) ([]*models.Product, error) {
+	bundles, err := s.productRepository.GetBundles(params)
+	if err != nil {
+		return nil, err
+	}
+	return bundles, nil
+}
+
 func (s *ProductService) GetCompatibleExtensions(gateID int) ([]*models.Product, error) {
 	extensions, err := s.productRepository.GetCompatibleExtensions(gateID)
 	if err != nil {

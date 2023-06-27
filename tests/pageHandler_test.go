@@ -23,7 +23,7 @@ func TestGetGates(t *testing.T) {
 	tmpl := template.Must(template.ParseGlob("../templates/*.tmpl"))
 	productRepo := repositories.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
-	productHandler := handlers.NewProductHandler(productService, tmpl)
+	productHandler := handlers.NewPageHandler(productService, tmpl)
 
 	req, err := http.NewRequest("GET", "/gates/", nil)
 	if err != nil {
@@ -32,7 +32,7 @@ func TestGetGates(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 
-	productHandler.GetGates(recorder, req)
+	productHandler.Gates(recorder, req)
 
 	resp := recorder.Result()
 

@@ -33,19 +33,71 @@ func NotFound(w http.ResponseWriter, tmpl *template.Template) {
 	}
 }
 
-type ProductHandler struct {
+type PageHandler struct {
 	productService *services.ProductService
 	tmpl           *template.Template
 }
 
-func NewProductHandler(productService *services.ProductService, templates *template.Template) *ProductHandler {
-	return &ProductHandler{
+func NewPageHandler(productService *services.ProductService, templates *template.Template) *PageHandler {
+	return &PageHandler{
 		productService: productService,
 		tmpl:           templates,
 	}
 }
+func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("function called")
+	if r.Method == http.MethodGet && r.URL.Path == "/" {
+		featuredGates, err := h.productService.GetGates(services.ProductFilterParams{})
+		if err != nil {
+			InternalStatusError("could not fetch gates from db", err, w, h.tmpl)
+			return
+		}
 
-func (h *ProductHandler) GetGates(w http.ResponseWriter, r *http.Request) {
+		popularBundles, err := h.productService.GetBundles(services.ProductFilterParams{Limit: 3})
+		if err != nil {
+			InternalStatusError("could not fetch bundles from db", err, w, h.tmpl)
+			return
+		}
+
+		type User struct {
+			Email string
+		}
+
+		type BasePageData struct {
+			PageTitle       string
+			MetaDescription string
+			User            User
+		}
+
+		type HomePageData struct {
+			FeaturedGates  []*models.Product
+			PopularBundles []*models.Product
+			BasePageData
+		}
+
+		pageData := HomePageData{
+			BasePageData: BasePageData{
+				PageTitle:       "Build your own safety gate",
+				MetaDescription: "This is a place to build the perfect safety gate for your home",
+				User: User{
+					"sean@example.com",
+				},
+			},
+			FeaturedGates:  featuredGates,
+			PopularBundles: popularBundles,
+		}
+
+		err = h.tmpl.ExecuteTemplate(w, "index.tmpl", pageData)
+		if err != nil {
+			InternalStatusError("could not execute templete fo homepage", err, w, h.tmpl)
+		}
+		return
+	}
+
+	NotFound(w, h.tmpl)
+}
+
+func (h *PageHandler) Gates(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet && r.URL.Path == "/gates/" {
 		gates, err := h.productService.GetGates(services.ProductFilterParams{})
 		if err != nil {
@@ -67,7 +119,7 @@ func (h *ProductHandler) GetGates(w http.ResponseWriter, r *http.Request) {
 	NotFound(w, h.tmpl)
 }
 
-func (h *ProductHandler) GetExtensions(w http.ResponseWriter, r *http.Request) {
+func (h *PageHandler) Extensions(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet && r.URL.Path == "/extensions/" {
 
 		extensions, err := h.productService.GetExtensions(services.ProductFilterParams{})
@@ -88,4 +140,8 @@ func (h *ProductHandler) GetExtensions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	NotFound(w, h.tmpl)
+}
+
+func (h *PageHandler) Bundles(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("okay"))
 }

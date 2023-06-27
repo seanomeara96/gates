@@ -45,16 +45,13 @@ func main() {
 
 	productRepo := repositories.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
-	productHandler := handlers.NewProductHandler(productService, tmpl)
-
-	//	http.HandleFunc("/", handlers.HomeHandler)
+	pageHandler := handlers.NewPageHandler(productService, tmpl)
 
 	//	http.HandleFunc("/build/", handlers.BuildHandler)
-
-	//	http.HandleFunc("/bundles/", handlers.BundleHandler)
-
-	router.HandleFunc("/gates/", productHandler.GetGates)
-	router.HandleFunc("/extensions/", productHandler.GetExtensions)
+	router.HandleFunc("/", pageHandler.Home)
+	router.HandleFunc("/bundles/", pageHandler.Bundles)
+	router.HandleFunc("/gates/", pageHandler.Gates)
+	router.HandleFunc("/extensions/", pageHandler.Extensions)
 
 	fmt.Println("Listening on http://localhost:3000")
 	err := http.ListenAndServe(":3000", router)
