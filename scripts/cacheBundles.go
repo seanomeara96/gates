@@ -1,4 +1,4 @@
-package main
+package scripts
 
 import (
 	"database/sql"
@@ -13,7 +13,7 @@ import (
 	"github.com/seanomeara96/gates/services"
 )
 
-func main() {
+func cache() {
 
 	db, err := sql.Open("sqlite3", filepath.Join("/home/user/gates/scripts", "../main.db"))
 	if err != nil {
