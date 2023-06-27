@@ -3,7 +3,6 @@ package services
 import (
 	"errors"
 	"sort"
-	"strconv"
 
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repositories"
@@ -137,39 +136,24 @@ func (s *BundleService) BuildPressureFitBundle(limit float32, gate *models.Produ
 	return bundle, nil
 }
 
-func (s *BundleService) SaveBundle(bundle models.Bundle) error {
-	extensionsQtyTotal := 0
-	for _, extension := range bundle.Extensions {
-		extensionsQtyTotal += extension.Qty
-	}
-
-	bundleName := bundle.Gates[0].Name
-	if extensionsQtyTotal > 0 {
-		var trailing string = " Extension"
-		if extensionsQtyTotal > 1 {
-			trailing = " Extensions"
-		}
-		bundleName = bundleName + " and " + strconv.Itoa(extensionsQtyTotal) + trailing
-	}
-	bundle.Name = bundleName
-
-	bundleId, err := s.bundleRepository.SaveBundle(bundle)
+func (s *BundleService) SaveBundle(bundle models.Bundle) (int64, error) {
+	bundleId, err := s.bundleRepository.SaveBundleAsProduct(bundle.Product)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	for iii := 0; iii < len(bundle.Gates); iii++ {
 		gate := bundle.Gates[iii]
 		err = s.bundleRepository.SaveBundleGate(gate.Id, bundleId, gate.Qty)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
 	for ii := 0; ii < len(bundle.Extensions); ii++ {
 		extension := bundle.Extensions[ii]
 		err := s.bundleRepository.SaveBundleExtension(extension.Id, bundleId, extension.Qty)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
-	return nil
+	return bundleId, nil
 }

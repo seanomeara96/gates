@@ -1,12 +1,14 @@
 package models
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 type Bundle struct {
 	Product
 	Gates      []Product `json:"gates"`
 	Extensions []Product `json:"extensions"`
-	Tolerance  float32   `json:"tolerance"`
 }
 
 type Bundles []Bundle
@@ -14,6 +16,7 @@ type Bundles []Bundle
 // we can add in error handling retrospectively,
 // for now, lets assume we're not doing anything stupid
 func (b *Bundle) ComputeMetaData() {
+	b.setType()
 	b.setName()
 	b.setPrice()
 	b.setImg()
@@ -23,6 +26,10 @@ func (b *Bundle) ComputeMetaData() {
 	b.setTolerance()
 }
 
+func (b *Bundle) setType() {
+	b.Type = "bundle"
+}
+
 func (b *Bundle) setQty() {
 	if b.Qty < 1 {
 		b.Qty = 1
@@ -30,41 +37,54 @@ func (b *Bundle) setQty() {
 }
 
 func (b *Bundle) setTolerance() {
-	b.Tolerance = b.Gates[0].Tolerance
+	if b.Tolerance == 0 {
+		b.Tolerance = b.Gates[0].Tolerance
+	}
 }
 
 func (b *Bundle) setPrice() {
-	for i := 0; i < len(b.Gates); i++ {
-		b.Price += (b.Gates[i].Price * float32(b.Gates[i].Qty))
-	}
-	for ii := 0; ii < len(b.Extensions); ii++ {
-		b.Price += (b.Extensions[ii].Price * float32(b.Extensions[ii].Qty))
+	if b.Price == 0 {
+		for i := 0; i < len(b.Gates); i++ {
+			b.Price += (b.Gates[i].Price * float32(b.Gates[i].Qty))
+		}
+		for ii := 0; ii < len(b.Extensions); ii++ {
+			b.Price += (b.Extensions[ii].Price * float32(b.Extensions[ii].Qty))
+		}
 	}
 }
 func (b *Bundle) setImg() {
-	b.Img = b.Gates[0].Img
+	if b.Img == "" {
+		b.Img = b.Gates[0].Img
+	}
 }
 func (b *Bundle) setColor() {
-	b.Color = b.Gates[0].Color
+	if b.Color == "" {
+		b.Color = b.Gates[0].Color
+	}
 }
 func (b *Bundle) setName() {
-	gate := b.Gates[0]
-	b.Name = gate.Name
-	extensionCount := 0
-	for i := 0; i < len(b.Extensions); i++ {
-		extensionCount += b.Extensions[i].Qty
-	}
-	if extensionCount == 1 {
-		b.Name += " and 1 extension."
-	} else if extensionCount > 1 {
-		b.Name += " and " + strconv.Itoa(extensionCount) + " extensions."
-	}
+	if b.Name == "" {
+		gate := b.Gates[0]
+		b.Name = gate.Name
+		extensionCount := 0
+		for i := 0; i < len(b.Extensions); i++ {
+			extensionCount += b.Extensions[i].Qty
+		}
+		if extensionCount == 1 {
+			b.Name += " and 1 extension."
+		} else if extensionCount > 1 {
+			b.Name += " and " + strconv.Itoa(extensionCount) + " extensions."
+		}
 
+	}
 }
 
 func (b *Bundle) setWidth() {
-	b.Width = b.Gates[0].Width
-	for i := 0; i < len(b.Extensions); i++ {
-		b.Width += (b.Extensions[i].Width * float32(b.Extensions[i].Qty))
+	if b.Width == 0 {
+		b.Width = b.Gates[0].Width * float32(b.Gates[0].Qty)
+		fmt.Println("set width", b.Width)
+		for i := 0; i < len(b.Extensions); i++ {
+			b.Width += (b.Extensions[i].Width * float32(b.Extensions[i].Qty))
+		}
 	}
 }

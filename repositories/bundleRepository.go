@@ -17,24 +17,13 @@ func NewBundleRepository(db *sql.DB) *BundleRepository {
 }
 
 func (r *BundleRepository) CreateTables() error {
-	_, err := r.db.Exec(`CREATE TABLE IF NOT EXISTS bundles (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		width REAL NOT NULL,
-		img TEXT DEFAULT '',
-		price REAL,
-		color TEXT
-	)`)
-	if err != nil {
-		return err
-	}
-	_, err = r.db.Exec(`CREATE TABLE IF NOT EXISTS bundle_gates (
+	_, err := r.db.Exec(`CREATE TABLE IF NOT EXISTS bundle_gates (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		gate_id INTEGER NOT NULL,
 		bundle_id INTEGER NOT NULL,
 		qty INTEGER NOT NULL,
-		FOREIGN KEY (gate_id) REFERENCES gates(id),
-		FOREIGN KEY (bundle_id) REFERENCES bundles(id)
+		FOREIGN KEY (gate_id) REFERENCES products(id),
+		FOREIGN KEY (bundle_id) REFERENCES products(id)
 	)`)
 	if err != nil {
 		return err
@@ -44,8 +33,8 @@ func (r *BundleRepository) CreateTables() error {
 		extension_id INTEGER NOT NULL,
 		bundle_id INTEGER NOT NULL,
 		qty INTEGER NOT NULL,
-		FOREIGN KEY (extension_id) REFERENCES extensions(id),
-		FOREIGN KEY (bundle_id) REFERENCES bundles(id)
+		FOREIGN KEY (extension_id) REFERENCES products(id),
+		FOREIGN KEY (bundle_id) REFERENCES products(id)
 	)`)
 	if err != nil {
 		return err
@@ -55,7 +44,7 @@ func (r *BundleRepository) CreateTables() error {
 
 func (r *BundleRepository) ClearAll() error {
 	// drop tables or clear all rows before this flow
-	_, err := r.db.Exec(`DELETE FROM bundles`)
+	_, err := r.db.Exec(`DELETE FROM products WHERE type = 'bundle'`)
 	if err != nil {
 		return err
 	}
@@ -111,14 +100,16 @@ func (r *BundleRepository) SaveBundleExtension(extension_id int, bundle_id int64
 	return nil
 }
 
-func (r *BundleRepository) SaveBundle(bundle models.Bundle) (int64, error) {
+func (r *BundleRepository) SaveBundleAsProduct(bundleProductValues models.Product) (int64, error) {
 	result, err := r.db.Exec(
-		"INSERT INTO bundles(name, width, img, price, color) VALUES (?, ?, ?, ?, ?)",
-		bundle.Name,
-		bundle.Width,
-		bundle.Gates[0].Img,
-		bundle.Price,
-		bundle.Gates[0].Color,
+		"INSERT INTO products(type, name, width, price, img, tolerance, color) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"bundle",
+		bundleProductValues.Name,
+		bundleProductValues.Width,
+		bundleProductValues.Price,
+		bundleProductValues.Img,
+		bundleProductValues.Tolerance,
+		bundleProductValues.Color,
 	)
 	if err != nil {
 		return 0, err
