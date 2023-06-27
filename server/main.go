@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/handlers"
@@ -28,7 +27,7 @@ type BasePageData struct {
 }
 
 func main() {
-	db, err = sql.Open("sqlite3", filepath.Join("/home/user/gates/server", "../main.db"))
+	db, err = sql.Open("sqlite3", "main.db")
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
@@ -42,7 +41,7 @@ func main() {
 	assetsPathHandler := http.StripPrefix(assetsDirPath, staticFileHttpHandler)
 	router.Handle(assetsDirPath, assetsPathHandler)
 
-	tmpl = template.Must(template.ParseGlob("../templates/*.tmpl"))
+	tmpl = template.Must(template.ParseGlob("templates/*.tmpl"))
 
 	productRepo := repositories.NewProductRepository(db)
 	bundleRepo := repositories.NewBundleRepository(db)
@@ -58,7 +57,7 @@ func main() {
 	router.HandleFunc("/extensions/", pageHandler.Extensions)
 
 	fmt.Println("Listening on http://localhost:3000")
-	err := http.ListenAndServe(":3000", router)
+	err = http.ListenAndServe(":3000", router)
 	if err != nil {
 		panic(err)
 	}
