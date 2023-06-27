@@ -45,7 +45,6 @@ func NewPageHandler(productService *services.ProductService, templates *template
 	}
 }
 func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("function called")
 	if r.Method == http.MethodGet && r.URL.Path == "/" {
 		featuredGates, err := h.productService.GetGates(services.ProductFilterParams{})
 		if err != nil {
@@ -143,5 +142,23 @@ func (h *PageHandler) Extensions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PageHandler) Bundles(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("okay"))
+	if r.Method == http.MethodGet && r.URL.Path == "/bundles/" {
+		bundles, err := h.productService.GetBundles(services.ProductFilterParams{})
+		if err != nil {
+			InternalStatusError("error fetching bundles for route '/bundles/'", err, w, h.tmpl)
+			return
+		}
+
+		pageData := struct {
+			Heading  string
+			Products []*models.Product
+		}{
+			Heading:  "Shop Bundles",
+			Products: bundles,
+		}
+
+		h.tmpl.ExecuteTemplate(w, "products.tmpl", pageData)
+		return
+	}
+	NotFound(w, h.tmpl)
 }

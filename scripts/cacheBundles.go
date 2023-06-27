@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"path/filepath"
 	"reflect"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -14,7 +15,7 @@ import (
 
 func main() {
 
-	db, err := sql.Open("sqlite3", "../main.db")
+	db, err := sql.Open("sqlite3", filepath.Join("/home/user/gates/scripts", "../main.db"))
 	if err != nil {
 		log.Fatal(err)
 	}

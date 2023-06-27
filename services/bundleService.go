@@ -33,6 +33,14 @@ func (s *BundleService) ClearAll() error {
 	return nil
 }
 
+func (s *BundleService) SaveRequestedBundleSize(desiredWidth float32) error {
+	err := s.bundleRepository.SaveRequestedBundleSize(desiredWidth)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type PopularSizes = []repositories.PopularSize
 
 func (s *BundleService) PopularSizes(limit int) (PopularSizes, error) {

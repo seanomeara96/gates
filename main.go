@@ -44,10 +44,13 @@ func main() {
 	tmpl = template.Must(template.ParseGlob("./templates/*.tmpl"))
 
 	productRepo := repositories.NewProductRepository(db)
+	bundleRepo := repositories.NewBundleRepository(db)
 	productService := services.NewProductService(productRepo)
+	bundleService := services.NewBundleService(productRepo, bundleRepo)
 	pageHandler := handlers.NewPageHandler(productService, tmpl)
+	buildHandler := handlers.NewBuildHandler(bundleService)
 
-	//	http.HandleFunc("/build/", handlers.BuildHandler)
+	router.HandleFunc("/build/", buildHandler.Build)
 	router.HandleFunc("/", pageHandler.Home)
 	router.HandleFunc("/bundles/", pageHandler.Bundles)
 	router.HandleFunc("/gates/", pageHandler.Gates)

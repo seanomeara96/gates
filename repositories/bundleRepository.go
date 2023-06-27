@@ -59,6 +59,14 @@ func (r *BundleRepository) ClearAll() error {
 	return nil
 }
 
+func (r *BundleRepository) SaveRequestedBundleSize(desiredWidth float32) error {
+	_, err := r.db.Exec("INSERT INTO bundle_sizes (type, size) VALUES ('pressure fit', ?)", desiredWidth)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type PopularSize struct {
 	Size  float32
 	Count int
