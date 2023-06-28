@@ -1,5 +1,3 @@
-insert bundles into product table
-
 
 to make a purchase possible i need to send the following info to the server:
 - product id
