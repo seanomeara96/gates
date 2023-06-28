@@ -25,6 +25,8 @@ type createProductParams struct {
 	Color     string
 }
 
+type ProductFilterParams = repositories.ProductFilterParams
+
 func (s *ProductService) CreateProduct(params createProductParams) (*models.Product, error) {
 	validProductTypes := [2]string{
 		"gate",
@@ -75,47 +77,24 @@ func (s *ProductService) CreateProduct(params createProductParams) (*models.Prod
 }
 
 func (s *ProductService) GetProductByID(productID int) (*models.Product, error) {
-	// Fetch the user from the database
-	product, err := s.productRepository.GetByID(productID)
-	if err != nil {
-		return nil, err
-	}
-
-	return product, nil
+	return s.productRepository.GetByID(productID)
 }
 
-type ProductFilterParams = repositories.ProductFilterParams
-
 func (s *ProductService) GetGates(params ProductFilterParams) ([]*models.Product, error) {
-	gates, err := s.productRepository.GetGates(params)
-	if err != nil {
-		return nil, err
-	}
-	return gates, nil
+	return s.productRepository.GetProducts(repositories.Gate, params)
 }
 
 func (s *ProductService) GetExtensions(params ProductFilterParams) ([]*models.Product, error) {
-	extensions, err := s.productRepository.GetExtensions(params)
-	if err != nil {
-		return nil, err
-	}
-	return extensions, nil
+	return s.productRepository.GetProducts(repositories.Extension, params)
+
 }
 
 func (s *ProductService) GetBundles(params ProductFilterParams) ([]*models.Product, error) {
-	bundles, err := s.productRepository.GetBundles(params)
-	if err != nil {
-		return nil, err
-	}
-	return bundles, nil
+	return s.productRepository.GetProducts(repositories.Bundle, params)
 }
 
 func (s *ProductService) GetCompatibleExtensions(gateID int) ([]*models.Product, error) {
-	extensions, err := s.productRepository.GetCompatibleExtensions(gateID)
-	if err != nil {
-		return nil, err
-	}
-	return extensions, nil
+	return s.productRepository.GetCompatibleExtensions(gateID)
 }
 
 // Other methods for user-related operations (e.g., UpdateUser, DeleteUser, etc.)

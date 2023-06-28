@@ -34,7 +34,7 @@ func TestMaxWidthFilter(t *testing.T) {
 	filters := repositories.ProductFilterParams{
 		MaxWidth: 35,
 	}
-	extensions, err := productRepo.GetExtensions(filters)
+	extensions, err := productRepo.GetProducts("gate", filters)
 	if err != nil {
 		t.Error(err)
 	}
@@ -53,7 +53,7 @@ func TestNoGates(t *testing.T) {
 	filters := repositories.ProductFilterParams{
 		MaxWidth: 70,
 	}
-	gates, err := productRepo.GetGates(filters)
+	gates, err := productRepo.GetProducts("gate", filters)
 	if err != nil {
 		t.Error(err)
 	}
