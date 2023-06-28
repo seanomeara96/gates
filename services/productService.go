@@ -2,17 +2,24 @@ package services
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repositories"
 )
 
 type ProductService struct {
 	productRepository *repositories.ProductRepository
+	productCache      *cache.Cache
 }
 
 func NewProductService(productRepository *repositories.ProductRepository) *ProductService {
-	return &ProductService{productRepository: productRepository}
+	defaultExpiration := time.Minute * 5
+	cleanupInterval := time.Minute * 10
+	c := cache.New(defaultExpiration, cleanupInterval)
+	return &ProductService{productRepository: productRepository, productCache: c}
 }
 
 type createProductParams struct {
@@ -81,16 +88,45 @@ func (s *ProductService) GetProductByID(productID int) (*models.Product, error) 
 }
 
 func (s *ProductService) GetGates(params ProductFilterParams) ([]*models.Product, error) {
-	return s.productRepository.GetProducts(repositories.Gate, params)
+	cacheString := fmt.Sprintf("gates;max-width:%f;limit:%d;", params.MaxWidth, params.Limit)
+	g, gatesFound := s.productCache.Get(cacheString)
+	if gatesFound {
+		return g.([]*models.Product), nil
+	}
+	gates, err := s.productRepository.GetProducts(repositories.Gate, params)
+	if err != nil {
+		return nil, err
+	}
+	s.productCache.Set(cacheString, gates, time.Minute*5)
+	return gates, nil
 }
 
 func (s *ProductService) GetExtensions(params ProductFilterParams) ([]*models.Product, error) {
-	return s.productRepository.GetProducts(repositories.Extension, params)
-
+	cacheString := fmt.Sprintf("extensions;max-width:%f;limit:%d;", params.MaxWidth, params.Limit)
+	e, extensionsFound := s.productCache.Get(cacheString)
+	if extensionsFound {
+		return e.([]*models.Product), nil
+	}
+	extensions, err := s.productRepository.GetProducts(repositories.Extension, params)
+	if err != nil {
+		return nil, err
+	}
+	s.productCache.Set(cacheString, extensions, time.Minute*5)
+	return extensions, nil
 }
 
 func (s *ProductService) GetBundles(params ProductFilterParams) ([]*models.Product, error) {
-	return s.productRepository.GetProducts(repositories.Bundle, params)
+	cacheString := fmt.Sprintf("bundles;max-width:%f;limit:%d;", params.MaxWidth, params.Limit)
+	b, bundlesFound := s.productCache.Get(cacheString)
+	if bundlesFound {
+		return b.([]*models.Product), nil
+	}
+	bundles, err := s.productRepository.GetProducts(repositories.Bundle, params)
+	if err != nil {
+		return nil, err
+	}
+	s.productCache.Set(cacheString, bundles, time.Minute*5)
+	return bundles, nil
 }
 
 func (s *ProductService) GetCompatibleExtensions(gateID int) ([]*models.Product, error) {
