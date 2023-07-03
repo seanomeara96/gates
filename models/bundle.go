@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"strconv"
 )
 
@@ -82,7 +81,6 @@ func (b *Bundle) setName() {
 func (b *Bundle) setWidth() {
 	if b.Width == 0 {
 		b.Width = b.Gates[0].Width * float32(b.Gates[0].Qty)
-		fmt.Println("set width", b.Width)
 		for i := 0; i < len(b.Extensions); i++ {
 			b.Width += (b.Extensions[i].Width * float32(b.Extensions[i].Qty))
 		}

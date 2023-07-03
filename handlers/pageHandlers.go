@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -8,6 +9,22 @@ import (
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/services"
 )
+
+type User struct {
+	Email string
+}
+
+type BasePageData struct {
+	PageTitle       string
+	MetaDescription string
+	User            User
+}
+
+type HomePageData struct {
+	FeaturedGates  []*models.Product
+	PopularBundles []*models.Product
+	BasePageData
+}
 
 func InValidRequest(w http.ResponseWriter) {
 	//templateErr := tmpl.ExecuteTemplate(w, "inavlidRequest.tmpl", nil)
@@ -56,22 +73,6 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			InternalStatusError("could not fetch bundles from db", err, w, h.tmpl)
 			return
-		}
-
-		type User struct {
-			Email string
-		}
-
-		type BasePageData struct {
-			PageTitle       string
-			MetaDescription string
-			User            User
-		}
-
-		type HomePageData struct {
-			FeaturedGates  []*models.Product
-			PopularBundles []*models.Product
-			BasePageData
 		}
 
 		pageData := HomePageData{
@@ -142,23 +143,100 @@ func (h *PageHandler) Extensions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PageHandler) Bundles(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet && r.URL.Path == "/bundles/" {
-		bundles, err := h.productService.GetBundles(services.ProductFilterParams{})
-		if err != nil {
-			InternalStatusError("error fetching bundles for route '/bundles/'", err, w, h.tmpl)
+	if r.Method == http.MethodGet {
+		// if theres a query for a specific custom bundle
+		query := r.URL.Query()
+		if len(query) > 0 {
+			q := query.Get("gate")
+			e := query.Get("extensions")
+
+			type ItemQuantities struct {
+				Id  int `json:"id"`
+				Qty int `json:"qty"`
+			}
+			var gateQuantity ItemQuantities
+
+			err := json.Unmarshal([]byte(q), &gateQuantity)
+			if err != nil {
+				InternalStatusError("error decoding gate data", err, w, h.tmpl)
+				return
+			}
+
+			var extensionQuantities []ItemQuantities
+			err = json.Unmarshal([]byte(e), &extensionQuantities)
+			if err != nil {
+				InternalStatusError("error decoding extensions", err, w, h.tmpl)
+				return
+			}
+
+			var bundle models.Bundle
+
+			gate, err := h.productService.GetProductByID(gateQuantity.Id)
+			if err != nil {
+				InternalStatusError("error fetching gate from db for route /bundles/", err, w, h.tmpl)
+				return
+			}
+			gate.Qty = gateQuantity.Qty
+
+			bundle.Gates = append(bundle.Gates, *gate)
+
+			var extensions []models.Product
+			for _, extensionQuantity := range extensionQuantities {
+				extension, err := h.productService.GetProductByID(extensionQuantity.Id)
+				if err != nil {
+					InternalStatusError("error fetching extension from db route /build/", err, w, h.tmpl)
+					return
+				}
+
+				extension.Qty = extensionQuantity.Qty
+				extensions = append(extensions, *extension)
+			}
+			bundle.Extensions = extensions
+			// add bundle meta data
+			bundle.ComputeMetaData()
+
+			type SingleBundlePageData struct {
+				BasePageData BasePageData
+				Bundle       models.Bundle
+			}
+
+			pageData := SingleBundlePageData{
+				BasePageData: BasePageData{
+					PageTitle:       "Single Bundle: " + bundle.Name,
+					MetaDescription: "Buy Bundle " + bundle.Name + " Online and enjoy super fast delivery",
+				},
+				Bundle: bundle,
+			}
+
+			err = h.tmpl.ExecuteTemplate(w, "single-bundle.tmpl", pageData)
+			if err != nil {
+				InternalStatusError("error creating bundle page", err, w, h.tmpl)
+				return
+			}
 			return
 		}
 
-		pageData := struct {
-			Heading  string
-			Products []*models.Product
-		}{
-			Heading:  "Shop Bundles",
-			Products: bundles,
-		}
+		if r.URL.Path == "/bundles/" {
+			popularBundles, err := h.productService.GetBundles(services.ProductFilterParams{})
+			if err != nil {
+				InternalStatusError("error fetching popular bundles for route /bundles/", err, w, h.tmpl)
+				return
+			}
+			pageData := struct {
+				PopularBundles []*models.Product
+			}{
+				PopularBundles: popularBundles,
+			}
 
-		h.tmpl.ExecuteTemplate(w, "products.tmpl", pageData)
-		return
+			err = h.tmpl.ExecuteTemplate(w, "bundles.tmpl", pageData)
+			if err != nil {
+				InternalStatusError("error executing bundles template", err, w, h.tmpl)
+				return
+			}
+
+			return
+		}
 	}
 	NotFound(w, h.tmpl)
+
 }
