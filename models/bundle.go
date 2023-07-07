@@ -25,6 +25,20 @@ func (b *Bundle) ComputeMetaData() {
 	b.setTolerance()
 }
 
+func (b *Bundle) ToProduct() Product {
+	b.ComputeMetaData()
+	return Product{
+		Type:      "bundle",
+		Name:      b.Name,
+		Width:     b.Width,
+		Price:     b.Price,
+		Img:       b.Img,
+		Color:     b.Color,
+		Tolerance: b.Tolerance,
+		Qty:       b.Qty,
+	}
+}
+
 func (b *Bundle) setType() {
 	b.Type = "bundle"
 }
