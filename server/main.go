@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/handlers"
+	"github.com/seanomeara96/gates/render"
 	"github.com/seanomeara96/gates/repositories"
 	"github.com/seanomeara96/gates/services"
 )
@@ -43,11 +44,13 @@ func main() {
 
 	tmpl = template.Must(template.ParseGlob("templates/*.tmpl"))
 
+	renderer := render.NewRenderer(tmpl)
+
 	productRepo := repositories.NewProductRepository(db)
 	bundleRepo := repositories.NewBundleRepository(db)
 	productService := services.NewProductService(productRepo)
 	bundleService := services.NewBundleService(productRepo, bundleRepo)
-	pageHandler := handlers.NewPageHandler(productService, tmpl)
+	pageHandler := handlers.NewPageHandler(productService, renderer)
 	buildHandler := handlers.NewBuildHandler(bundleService)
 
 	router.HandleFunc("/build/", buildHandler.Build)

@@ -29,10 +29,9 @@ if (buildForm) {
                 });
                 if (res.ok) {
                     const data = (yield res.json());
-                    const elems = [];
+                    let elems = ``;
                     for (let i = 0; i < data.length; i++) {
                         const bundle = data[i];
-                        const params = new URLSearchParams();
                         const extensions = [];
                         for (let ii = 0; ii < bundle.extensions.length; ii++) {
                             const extension = bundle.extensions[ii];
@@ -41,29 +40,47 @@ if (buildForm) {
                                 qty: extension.qty,
                             });
                         }
+                        const params = new URLSearchParams();
                         params.set("gate", JSON.stringify({ id: bundle.gates[0].id, qty: bundle.gates[0].qty }));
                         params.set("extensions", JSON.stringify(extensions));
-                        const html = /*htm*/ `
-          <a id="fade-in-element" class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4 hidden" href="/bundles/?${params.toString()}" >
-            <div class="bg-white rounded-lg overflow-hidden shadow-md">
-                <img src="https://via.placeholder.com/500x300" alt="Baby Safety Gate" class="w-full">
-                <div class="p-4">
-                    <h3 class="font-bold mb-2">${bundle.gates[0].name} ${bundle.gates[0].color} ${bundle.extensions.length
-                            ? " &amp; " +
-                                bundle.extensions.reduce((a, c) => a + c.qty, 0) +
-                                " Extensions"
-                            : ""}</h3>
-                    <p class="text-gray-600 mb-4">This baby safety gate is perfect for keeping your baby safe in any room of your house.</p>
-                    <div class="flex justify-between items-center">
-                        <span class="text-xl font-bold">€${bundle.price}</span>
-                        <button class="atc-btn bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Add to Cart</button>
-                    </div>
-                </div>
+                        const bundleURL = params.toString();
+                        const productCard = (id, type, name, color, price, img) => `<div class="x-2 mb-4">
+          <div class="bg-white rounded-lg overflow-hidden shadow-md">
+            <a href="/${type}s/${id}"
+              ><!--src="/assets/${img}"--><img src="https://via.placeholder.com/500x300"  alt="${name}" class="w-full"
+            /></a>
+            <div class="p-4">
+              <a href="/${type}s/${id}"
+                ><h3 class="font-bold mb-2">${name} ${color}</h3></a
+              >
+              <p class="text-gray-600 mb-4">
+                This baby safety gate is perfect for keeping your baby safe in any room
+                of your house.
+              </p>
+              <div class="flex justify-between items-center">
+                <span class="text-xl font-bold">€${price}</span>
+              </div>
             </div>
-          </a>`;
-                        elems.push(html);
+          </div>
+        </div>`;
+                        let gateHTML = ``;
+                        for (const gate of bundle.gates) {
+                            gateHTML += productCard(gate.id, "gate", gate.name, gate.color, gate.price, gate.img);
+                        }
+                        let extensionHTML = ``;
+                        for (const extension of bundle.extensions) {
+                            extensionHTML += productCard(extension.id, "extension", extension.name, extension.color, extension.price, extension.img);
+                        }
+                        const html = /*html*/ `<a id="fade-in-element" class="hidden" href="/bundles/?${bundleURL}">
+          <div class="bg-white rounded-lg overflow-hidden shadow-md">
+            <h3 class="font-bold mb-2">${bundle.name}</h3>
+            <span class="text-xl font-bold flex">€${bundle.price}</span>
+            ${gateHTML + extensionHTML}
+          </div></a>`;
+                        elems += html;
                     }
-                    const htmlToInsert = elems.join("");
+                    const htmlToInsert = elems;
+                    console.log(elems);
                     const resultsArea = document.querySelector("#build-results");
                     if (resultsArea) {
                         resultsArea.classList.remove("hidden");
