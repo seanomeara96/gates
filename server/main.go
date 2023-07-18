@@ -51,7 +51,7 @@ func main() {
 	productService := services.NewProductService(productRepo)
 	bundleService := services.NewBundleService(productRepo, bundleRepo)
 	pageHandler := handlers.NewPageHandler(productService, renderer)
-	buildHandler := handlers.NewBuildHandler(bundleService)
+	buildHandler := handlers.NewBuildHandler(bundleService, renderer)
 
 	router.HandleFunc("/build/", buildHandler.Build)
 	router.HandleFunc("/", pageHandler.Home)

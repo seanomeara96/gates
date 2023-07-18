@@ -1,0 +1,15 @@
+{{ define "build-results" }}
+    {{ range .Bundles }}
+        <div style="animation: fadeIn">
+            <h2 class="text-2xl font-bold mb-4">{{ .Name }}</h2>
+            <div class="flex">
+                {{ range .Gates }}
+                    {{ template "product-card" .}}
+                {{ end }}
+                {{ range .Extensions }}
+                    {{ template "product-card" .}}
+                {{ end }}
+            </div>
+        </div>
+    {{ end }}
+{{ end }}

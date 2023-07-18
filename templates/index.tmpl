@@ -7,17 +7,23 @@
         <div class="container mx-auto px-4">
             <h1 class="text-5xl font-bold mb-2">Build Your Custom Pressure Gate</h1>
             <p class="text-gray-600 mb-8">Just enter the gap your desired width and we'll sort the rest out for you.</p>
-            <form id="build-gate">
+            <form 
+                id="build-gate" 
+                hx-post="/build/"
+                hx-target="#build-results-content"
+            >
                 <label for="desired-width" class="block mb-2">Your desired Width in cm</label>
                 <input id="desired-width" name="desired-width" class="py-2 px-4 mr-4 mb-4 rounded" placeholder="e.g. 100" type="number" />
-                <button class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Build Gate</button>
+                <button 
+                    type="submit" 
+                    class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Build Gate</button>
             </form>
         </div>
     </header>
 
     <div id="build-results" class="container my-4 mx-auto px-4 hidden">
         <h2 class="text-3xl font-bold mb-4">Your Custom Bundles</h2>
-        <div id="build-results-content" class="flex flex-wrap -mx-2">
+        <div id="build-results-content" class="">
             
         </div>
     </div>

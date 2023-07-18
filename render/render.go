@@ -65,7 +65,7 @@ type ProductsPageData struct {
 
 func (r *Renderer) ProductsPage(wr io.Writer, data ProductsPageData) error {
 	if data.Heading == "" {
-		return fmt.Errorf("Products page requires a heading, exoected somethig nother than %s", data.Heading)
+		return fmt.Errorf("products page requires a heading, exoected somethig nother than %s", data.Heading)
 	}
 	return r.tmpl.ExecuteTemplate(wr, "products", data)
 }
@@ -91,4 +91,12 @@ type ProductCardData = models.Product
 
 func (r *Renderer) ProductCard(wr io.Writer, data ProductPageData) error {
 	return r.tmpl.ExecuteTemplate(wr, "product-card", data)
+}
+
+type BundleBuildResultsData struct {
+	Bundles []models.Bundle
+}
+
+func (r *Renderer) BundleBuildResults(wr io.Writer, data BundleBuildResultsData) error {
+	return r.tmpl.ExecuteTemplate(wr, "build-results", data)
 }

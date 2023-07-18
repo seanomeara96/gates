@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/handlers"
+	"github.com/seanomeara96/gates/render"
 	"github.com/seanomeara96/gates/repositories"
 	"github.com/seanomeara96/gates/services"
 )
@@ -23,7 +24,8 @@ func TestGetGates(t *testing.T) {
 	tmpl := template.Must(template.ParseGlob("../templates/*.tmpl"))
 	productRepo := repositories.NewProductRepository(db)
 	productService := services.NewProductService(productRepo)
-	productHandler := handlers.NewPageHandler(productService, tmpl)
+	renderer := render.NewRenderer(tmpl)
+	productHandler := handlers.NewPageHandler(productService, renderer)
 
 	req, err := http.NewRequest("GET", "/gates/", nil)
 	if err != nil {
