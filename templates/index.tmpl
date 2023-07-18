@@ -10,7 +10,8 @@
             <form 
                 id="build-gate" 
                 hx-post="/build/"
-                hx-target="#build-results-content"
+                hx-target="#build-results"
+                hx-swap="outerHTML"
             >
                 <label for="desired-width" class="block mb-2">Your desired Width in cm</label>
                 <input id="desired-width" name="desired-width" class="py-2 px-4 mr-4 mb-4 rounded" placeholder="e.g. 100" type="number" />
