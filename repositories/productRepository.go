@@ -25,7 +25,7 @@ func NewProductRepository(db *sql.DB) *ProductRepository {
 }
 
 func scanProductFromRow(row *sql.Row) (*models.Product, error) {
-	var product *models.Product
+	var product models.Product
 	err := row.Scan(
 		&product.Id,
 		&product.Type,
@@ -36,11 +36,11 @@ func scanProductFromRow(row *sql.Row) (*models.Product, error) {
 		&product.Color,
 		&product.Tolerance,
 	)
-	return product, err
+	return &product, err
 }
 
 func scanProductFromRows(rows *sql.Rows) (*models.Product, error) {
-	var product *models.Product
+	var product models.Product
 	err := rows.Scan(
 		&product.Id,
 		&product.Type,
@@ -51,7 +51,7 @@ func scanProductFromRows(rows *sql.Rows) (*models.Product, error) {
 		&product.Color,
 		&product.Tolerance,
 	)
-	return product, err
+	return &product, err
 }
 
 func (r *ProductRepository) Create(product *models.Product) (sql.Result, error) {
