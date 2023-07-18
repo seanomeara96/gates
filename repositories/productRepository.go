@@ -24,13 +24,8 @@ func NewProductRepository(db *sql.DB) *ProductRepository {
 	return &ProductRepository{db: db}
 }
 
-func (r *ProductRepository) Create(product *models.Product) error {
-	// Code to insert a new user into the database
-	// using the provided SQL database connection (r.db)
-	return nil
-}
-
-func scanProductFromRow(row *sql.Row, product *models.Product) (*models.Product, error) {
+func scanProductFromRow(row *sql.Row) (*models.Product, error) {
+	var product *models.Product
 	err := row.Scan(
 		&product.Id,
 		&product.Type,
@@ -41,12 +36,11 @@ func scanProductFromRow(row *sql.Row, product *models.Product) (*models.Product,
 		&product.Color,
 		&product.Tolerance,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return product, nil
+	return product, err
 }
-func scanProductFromRows(rows *sql.Rows, product *models.Product) (*models.Product, error) {
+
+func scanProductFromRows(rows *sql.Rows) (*models.Product, error) {
+	var product *models.Product
 	err := rows.Scan(
 		&product.Id,
 		&product.Type,
@@ -57,28 +51,33 @@ func scanProductFromRows(rows *sql.Rows, product *models.Product) (*models.Produ
 		&product.Color,
 		&product.Tolerance,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return product, nil
+	return product, err
 }
 
-func (r *ProductRepository) GetByID(productID int) (*models.Product, error) {
-	row := r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE id = ?", productID)
-	product, err := scanProductFromRow(row, &models.Product{})
-	if err != nil {
-		return nil, err
-	}
-	return product, nil
+func (r *ProductRepository) Create(product *models.Product) (sql.Result, error) {
+	return r.db.Exec(
+		`INSERT INTO products (type, name, width, price, img, color, tolerance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		product.Type,
+		product.Name,
+		product.Width,
+		product.Price,
+		product.Img,
+		product.Color,
+		product.Tolerance,
+	)
+
+}
+
+func (r *ProductRepository) GetByID(id int) (*models.Product, error) {
+	return scanProductFromRow(
+		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE id = ?", id),
+	)
 }
 
 func (r *ProductRepository) GetByName(name string) (*models.Product, error) {
-	row := r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE name = ?", name)
-	product, err := scanProductFromRow(row, &models.Product{})
-	if err != nil {
-		return nil, err
-	}
-	return product, nil
+	return scanProductFromRow(
+		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE name = ?", name),
+	)
 }
 
 type ProductFilterParams struct {
@@ -107,7 +106,7 @@ func (r *ProductRepository) GetProducts(productType ProductType, params ProductF
 	}
 	defer rows.Close()
 	for rows.Next() {
-		product, err := scanProductFromRows(rows, &models.Product{})
+		product, err := scanProductFromRows(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -118,13 +117,16 @@ func (r *ProductRepository) GetProducts(productType ProductType, params ProductF
 
 func (r *ProductRepository) GetCompatibleExtensions(gateID int) ([]*models.Product, error) {
 	var extensions []*models.Product
-	rows, err := r.db.Query("SELECT p.id, p.type, p.name, p.width, p.price, p.img, p.color, p.tolerance FROM products p INNER JOIN compatibles c ON p.id = c.extension_id WHERE gate_id = ?", gateID)
+	rows, err := r.db.Query(
+		"SELECT p.id, p.type, p.name, p.width, p.price, p.img, p.color, p.tolerance FROM products p INNER JOIN compatibles c ON p.id = c.extension_id WHERE gate_id = ?",
+		gateID,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		extension, err := scanProductFromRows(rows, &models.Product{})
+		extension, err := scanProductFromRows(rows)
 		if err != nil {
 			return nil, err
 		}

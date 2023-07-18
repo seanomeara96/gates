@@ -75,7 +75,7 @@ func (s *ProductService) CreateProduct(params createProductParams) (*models.Prod
 	}
 
 	// Save the user to the database
-	err = s.productRepository.Create(product)
+	_, err = s.productRepository.Create(product)
 	if err != nil {
 		return nil, err
 	}
