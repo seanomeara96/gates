@@ -42,14 +42,21 @@ func main() {
 	assetsPathHandler := http.StripPrefix(assetsDirPath, staticFileHttpHandler)
 	router.Handle(assetsDirPath, assetsPathHandler)
 
-	tmpl = template.Must(template.ParseGlob("templates/*.tmpl"))
-
+	funcMap := template.FuncMap{
+		"sizeRange": func(width, tolerance float32) float32 {
+			return width - tolerance
+		},
+	}
+	tmpl = template.New("gate-builder").Funcs(funcMap)
+	tmpl = template.Must(tmpl.ParseGlob("templates/*.tmpl"))
 	renderer := render.NewRenderer(tmpl)
 
 	productRepo := repositories.NewProductRepository(db)
 	bundleRepo := repositories.NewBundleRepository(db)
+
 	productService := services.NewProductService(productRepo)
 	bundleService := services.NewBundleService(productRepo, bundleRepo)
+
 	pageHandler := handlers.NewPageHandler(productService, renderer)
 	buildHandler := handlers.NewBuildHandler(bundleService, renderer)
 

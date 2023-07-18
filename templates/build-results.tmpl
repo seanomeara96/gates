@@ -4,15 +4,21 @@
         <div id="build-results-content" class="">
             {{ range .Bundles }}
                 <div style="animation: fadeIn">
-                    <h2 class="text-2xl font-bold mb-4">{{ .Name }}</h2>
-                    <div class="flex">
-                        {{ range .Gates }}
-                            {{ template "product-card" .}}
-                        {{ end }}
-                        {{ range .Extensions }}
-                            {{ template "product-card" .}}
-                        {{ end }}
-                    </div>
+                    <h2 class="text-2xl font-bold mb-4">{{ .Name }} {{ .Color }}</h2>
+                    <ul>
+                        <li>Total Bundle Price €{{ .Price }}</li>
+                        <li>Width: {{ sizeRange .Width .Tolerance }} - {{ .Width }}cm</li>
+                        <button class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Add Bundle To Cart</button>
+                    </ul>
+                        <h3 class="py-4">Components</h3>
+                        <div class="flex flex-wrap">
+                            {{ range .Gates }}
+                                {{ template "product-card" . }}
+                            {{ end }}
+                            {{ range .Extensions }}
+                                {{ template "product-card" . }}
+                            {{ end }}
+                        </div>
                 </div>
             {{ end }}
         </div>
