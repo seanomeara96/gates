@@ -94,7 +94,8 @@ func (r *Renderer) ProductCard(wr io.Writer, data ProductPageData) error {
 }
 
 type BundleBuildResultsData struct {
-	Bundles []models.Bundle
+	RequestedBundleSize float32
+	Bundles             []models.Bundle
 }
 
 func (r *Renderer) BundleBuildResults(wr io.Writer, data BundleBuildResultsData) error {

@@ -1,9 +1,9 @@
 {{ define "build-results" }}
     <div id="build-results" class="container my-4 mx-auto px-4">
-        <h2 class="text-3xl font-bold mb-4">Your Custom Bundles</h2>
+        <h3 class="text-3xl font-bold mb-4">Bundles to fit: {{ .RequestedBundleSize }}cm</h3>
         <div id="build-results-content" class="">
             {{ range .Bundles }}
-                <div style="animation: fadeIn">
+                <div style="animation: fadeIn" class="bg-white rounded-lg p-4 mb-8">
                     <h2 class="text-2xl font-bold mb-4">{{ .Name }} {{ .Color }}</h2>
                     <ul>
                         <li>Total Bundle Price €{{ .Price }}</li>
@@ -13,10 +13,10 @@
                         <h3 class="py-4">Components</h3>
                         <div class="flex flex-wrap">
                             {{ range .Gates }}
-                                {{ template "product-card" . }}
+                                {{ template "bundle-component-card" . }}
                             {{ end }}
                             {{ range .Extensions }}
-                                {{ template "product-card" . }}
+                                {{ template "bundle-component-card" . }}
                             {{ end }}
                         </div>
                 </div>

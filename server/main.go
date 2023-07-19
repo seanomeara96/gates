@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/handlers"
@@ -45,6 +46,9 @@ func main() {
 	funcMap := template.FuncMap{
 		"sizeRange": func(width, tolerance float32) float32 {
 			return width - tolerance
+		},
+		"title": func(str string) string {
+			return strings.Title(str)
 		},
 	}
 	tmpl = template.New("gate-builder").Funcs(funcMap)
