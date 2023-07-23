@@ -53,7 +53,7 @@ func main() {
 	}
 	tmpl = template.New("gate-builder").Funcs(funcMap)
 	tmpl = template.Must(tmpl.ParseGlob("templates/*.tmpl"))
-	renderer := render.NewRenderer(tmpl)
+	renderer := render.NewRenderer(tmpl, "development")
 
 	productRepo := repositories.NewProductRepository(db)
 	bundleRepo := repositories.NewBundleRepository(db)
