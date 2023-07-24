@@ -9,14 +9,16 @@
                         <li>Total Bundle Price €{{ .Price }}</li>
                         <li>Width: {{ sizeRange .Width .Tolerance }} - {{ .Width }}cm</li>
                     </ul>
-                    <h3 class="py-4">Components</h3>
-                    <div class="inline-flex w-full">
-                        {{ range .Gates }}
-                            {{ template "bundle-component-card" . }}
-                        {{ end }}
-                        {{ range .Extensions }}
-                            {{ template "bundle-component-card" . }}
-                        {{ end }}
+                    <strong class="py-4 font-medium mt-4 block">Bundle Includes:</strong>
+                    <div class="overflow-scroll">
+                        <div class="inline-flex">
+                            {{ range .Gates }}
+                                {{ template "bundle-component-card" . }}
+                            {{ end }}
+                            {{ range .Extensions }}
+                                {{ template "bundle-component-card" . }}
+                            {{ end }}
+                        </div>
                     </div>
                     <button 
                         class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"

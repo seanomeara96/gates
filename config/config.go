@@ -29,3 +29,10 @@ func LoadConfig() *Config {
 		// Initialize other configuration parameters from environment variables
 	}
 }
+
+type Environment string
+
+const (
+	Development Environment = "development"
+	Production  Environment = "production"
+)

@@ -5,15 +5,16 @@ import (
 	"html/template"
 	"io"
 
+	"github.com/seanomeara96/gates/config"
 	"github.com/seanomeara96/gates/models"
 )
 
 type Renderer struct {
 	tmpl *template.Template
-	env  Environment
+	env  config.Environment
 }
 
-func NewRenderer(tmpl *template.Template, env Environment) *Renderer {
+func NewRenderer(tmpl *template.Template, env config.Environment) *Renderer {
 	return &Renderer{
 		tmpl,
 		env,
@@ -25,7 +26,7 @@ type User struct {
 }
 
 type TemplateData struct {
-	Env Environment
+	Env config.Environment
 }
 
 type BasePageData struct {
@@ -56,13 +57,6 @@ func (r *Renderer) ProductPage(wr io.Writer, data ProductPageData) error {
 	data.Env = r.env
 	return r.tmpl.ExecuteTemplate(wr, "product", data)
 }
-
-type Environment string
-
-const (
-	Development Environment = "development"
-	Production  Environment = "production"
-)
 
 type BundlePageData struct {
 	BasePageData

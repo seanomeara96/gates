@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/seanomeara96/gates/config"
 	"github.com/seanomeara96/gates/handlers"
 	"github.com/seanomeara96/gates/render"
 	"github.com/seanomeara96/gates/repositories"
@@ -29,12 +30,16 @@ type BasePageData struct {
 }
 
 func main() {
+
+	environment := config.Development
+
 	db, err = sql.Open("sqlite3", "main.db")
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
 	}
 	defer db.Close()
+
 	router := http.NewServeMux()
 	// init assets dir
 	assetsDirPath := "/assets/"
@@ -53,7 +58,7 @@ func main() {
 	}
 	tmpl = template.New("gate-builder").Funcs(funcMap)
 	tmpl = template.Must(tmpl.ParseGlob("templates/*.tmpl"))
-	renderer := render.NewRenderer(tmpl, "development")
+	renderer := render.NewRenderer(tmpl, environment)
 
 	productRepo := repositories.NewProductRepository(db)
 	bundleRepo := repositories.NewBundleRepository(db)
