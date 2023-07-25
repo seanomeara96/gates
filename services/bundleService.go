@@ -14,41 +14,28 @@ type BundleService struct {
 }
 
 func NewBundleService(productRepository *repositories.ProductRepository, bundleRepository *repositories.BundleRepository) *BundleService {
-	return &BundleService{productRepository: productRepository, bundleRepository: bundleRepository}
+	return &BundleService{
+		productRepository: productRepository,
+		bundleRepository:  bundleRepository,
+	}
 }
 
 func (s *BundleService) CreateTables() error {
-	err := s.bundleRepository.CreateTables()
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.bundleRepository.CreateTables()
 }
 
 func (s *BundleService) ClearAll() error {
-	err := s.bundleRepository.ClearAll()
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.bundleRepository.ClearAll()
 }
 
 func (s *BundleService) SaveRequestedBundleSize(desiredWidth float32) error {
-	err := s.bundleRepository.SaveRequestedBundleSize(desiredWidth)
-	if err != nil {
-		return err
-	}
-	return nil
+	return s.bundleRepository.SaveRequestedBundleSize(desiredWidth)
 }
 
 type PopularSizes = []repositories.PopularSize
 
 func (s *BundleService) PopularSizes(limit int) (PopularSizes, error) {
-	popularSizes, err := s.bundleRepository.PopularSizes(limit)
-	if err != nil {
-		return popularSizes, err
-	}
-	return popularSizes, nil
+	return s.bundleRepository.PopularSizes(limit)
 }
 
 func (s *BundleService) BuildPressureFitBundles(limit float32) ([]models.Bundle, error) {
