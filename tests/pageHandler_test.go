@@ -3,7 +3,7 @@ package tests
 import (
 	"database/sql"
 	"html/template"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -48,7 +48,7 @@ func TestGetGates(t *testing.T) {
 		t.Errorf("expected status code %d, got %d instead", http.StatusOK, resp.StatusCode)
 	}
 
-	_, err = ioutil.ReadAll(resp.Body)
+	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 		t.Error(err)
 	}
