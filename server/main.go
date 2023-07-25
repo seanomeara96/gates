@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
-	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/gates/config"
@@ -13,6 +13,8 @@ import (
 	"github.com/seanomeara96/gates/render"
 	"github.com/seanomeara96/gates/repositories"
 	"github.com/seanomeara96/gates/services"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var tmpl *template.Template
@@ -35,8 +37,7 @@ func main() {
 
 	db, err = sql.Open("sqlite3", "main.db")
 	if err != nil {
-		fmt.Println(err)
-		panic(err)
+		log.Fatal(err)
 	}
 	defer db.Close()
 
@@ -53,9 +54,10 @@ func main() {
 			return width - tolerance
 		},
 		"title": func(str string) string {
-			return strings.Title(str)
+			return cases.Title(language.AmericanEnglish).String(str)
 		},
 	}
+
 	tmpl = template.New("gate-builder").Funcs(funcMap)
 	tmpl = template.Must(tmpl.ParseGlob("templates/*.tmpl"))
 	renderer := render.NewRenderer(tmpl, environment)
@@ -76,8 +78,5 @@ func main() {
 	router.HandleFunc("/extensions/", pageHandler.Extensions)
 
 	fmt.Println("Listening on http://localhost:3000")
-	err = http.ListenAndServe(":3000", router)
-	if err != nil {
-		panic(err)
-	}
+	log.Fatal(http.ListenAndServe(":3000", router))
 }
