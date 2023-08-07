@@ -30,6 +30,7 @@ type BasePageData struct {
 func main() {
 
 	environment := config.Development
+	port := "3000"
 
 	db, err = sql.Open("sqlite3", "main.db")
 	if err != nil {
@@ -49,19 +50,23 @@ func main() {
 
 	productRepo := repositories.NewProductRepository(db)
 	bundleRepo := repositories.NewBundleRepository(db)
+	cartRepo := repositories.NewCartRepository(db)
 
 	productService := services.NewProductService(productRepo)
 	bundleService := services.NewBundleService(productRepo, bundleRepo)
+	cartService := services.NewCartService(cartRepo)
 
 	pageHandler := handlers.NewPageHandler(productService, renderer)
 	buildHandler := handlers.NewBuildHandler(bundleService, renderer)
+	cartHandler := handlers.NewCartHandler(cartService, renderer)
 
 	router.HandleFunc("/build/", buildHandler.Build)
 	router.HandleFunc("/", pageHandler.Home)
 	router.HandleFunc("/bundles/", pageHandler.Bundles)
 	router.HandleFunc("/gates/", pageHandler.Gates)
 	router.HandleFunc("/extensions/", pageHandler.Extensions)
+	router.HandleFunc("/cart/", cartHandler.View)
 
-	fmt.Println("Listening on http://localhost:3000")
-	log.Fatal(http.ListenAndServe(":3000", router))
+	fmt.Println("Listening on http://localhost:" + port)
+	log.Fatal(http.ListenAndServe(":"+port, router))
 }

@@ -151,6 +151,31 @@ func (h *PageHandler) Extensions(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	splitPath := strings.Split(r.URL.Path, "/")
+	extensionID, err := strconv.Atoi(splitPath[len(splitPath)-1])
+
+	if r.Method == http.MethodGet && err == nil {
+		extension, err := h.productService.GetProductByID(extensionID)
+		if err != nil {
+			InternalStatusError("error fetching extension", err, w, h.render)
+			return
+		}
+		pageData := render.ProductPageData{
+			BasePageData: render.BasePageData{
+				PageTitle:       extension.Name,
+				MetaDescription: extension.Name,
+			},
+			Product: extension,
+		}
+		err = h.render.ProductPage(w, pageData)
+		if err != nil {
+			InternalStatusError("error rendering extension page", err, w, h.render)
+			return
+		}
+		return
+	}
+
 	NotFound(w, h.render)
 }
 
