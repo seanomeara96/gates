@@ -7,6 +7,8 @@ import (
 
 	"github.com/seanomeara96/gates/config"
 	"github.com/seanomeara96/gates/models"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type Renderer struct {
@@ -14,7 +16,18 @@ type Renderer struct {
 	env  config.Environment
 }
 
-func NewRenderer(tmpl *template.Template, env config.Environment) *Renderer {
+func NewRenderer(pathToTemplates string, env config.Environment) *Renderer {
+	funcMap := template.FuncMap{
+		"sizeRange": func(width, tolerance float32) float32 {
+			return width - tolerance
+		},
+		"title": func(str string) string {
+			return cases.Title(language.AmericanEnglish).String(str)
+		},
+	}
+
+	tmpl := template.New("gate-builder").Funcs(funcMap)
+	tmpl = template.Must(tmpl.ParseGlob(pathToTemplates))
 	return &Renderer{
 		tmpl,
 		env,

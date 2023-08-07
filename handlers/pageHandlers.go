@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/render"
@@ -101,6 +103,31 @@ func (h *PageHandler) Gates(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	splitPath := strings.Split(r.URL.Path, "/")
+	gateID, err := strconv.Atoi(splitPath[len(splitPath)-1])
+
+	if r.Method == http.MethodGet && err == nil {
+		gate, err := h.productService.GetProductByID(gateID)
+		if err != nil {
+			InternalStatusError("error fetching gate", err, w, h.render)
+			return
+		}
+		pageData := render.ProductPageData{
+			BasePageData: render.BasePageData{
+				PageTitle:       gate.Name,
+				MetaDescription: gate.Name,
+			},
+			Product: gate,
+		}
+		err = h.render.ProductPage(w, pageData)
+		if err != nil {
+			InternalStatusError("error rendering gate page", err, w, h.render)
+			return
+		}
+		return
+	}
+
 	NotFound(w, h.render)
 }
 

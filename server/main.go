@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 
@@ -13,11 +12,8 @@ import (
 	"github.com/seanomeara96/gates/render"
 	"github.com/seanomeara96/gates/repositories"
 	"github.com/seanomeara96/gates/services"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
-var tmpl *template.Template
 var db *sql.DB
 var err error
 
@@ -49,18 +45,7 @@ func main() {
 	assetsPathHandler := http.StripPrefix(assetsDirPath, staticFileHttpHandler)
 	router.Handle(assetsDirPath, assetsPathHandler)
 
-	funcMap := template.FuncMap{
-		"sizeRange": func(width, tolerance float32) float32 {
-			return width - tolerance
-		},
-		"title": func(str string) string {
-			return cases.Title(language.AmericanEnglish).String(str)
-		},
-	}
-
-	tmpl = template.New("gate-builder").Funcs(funcMap)
-	tmpl = template.Must(tmpl.ParseGlob("templates/*.tmpl"))
-	renderer := render.NewRenderer(tmpl, environment)
+	renderer := render.NewRenderer("templates/*.tmpl", environment)
 
 	productRepo := repositories.NewProductRepository(db)
 	bundleRepo := repositories.NewBundleRepository(db)
