@@ -22,7 +22,12 @@ func InValidRequest(w http.ResponseWriter) {
 func InternalStatusError(description string, err error, w http.ResponseWriter, r *render.Renderer) {
 	fmt.Println(description)
 	fmt.Println(err)
-	t_err := r.NotFoundPage(w, render.NotFoundPageData{})
+	pageTile := "Internal Status Error"
+	metaDescription := "Unable to load page"
+	user := models.User{}
+
+	basePageData := r.NewBasePageData(pageTile, metaDescription, user)
+	t_err := r.NotFoundPage(w, r.NotFoundPageData(basePageData))
 	if t_err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -30,7 +35,12 @@ func InternalStatusError(description string, err error, w http.ResponseWriter, r
 
 func NotFound(w http.ResponseWriter, r *render.Renderer) {
 	w.WriteHeader(http.StatusNotFound)
-	err := r.NotFoundPage(w, render.NotFoundPageData{})
+	pageTile := "Page Not Found"
+	metaDescription := "Unable to find page"
+	user := models.User{}
+
+	basePageData := r.NewBasePageData(pageTile, metaDescription, user)
+	err := r.NotFoundPage(w, r.NotFoundPageData(basePageData))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -38,10 +48,15 @@ func NotFound(w http.ResponseWriter, r *render.Renderer) {
 
 type PageHandler struct {
 	productService *services.ProductService
+	cartService    *services.CartService
 	render         *render.Renderer
 }
 
-func NewPageHandler(productService *services.ProductService, renderer *render.Renderer) *PageHandler {
+func NewPageHandler(
+	productService *services.ProductService,
+	cartService *services.CartService,
+	renderer *render.Renderer,
+) *PageHandler {
 	return &PageHandler{
 		productService: productService,
 		render:         renderer,
@@ -60,20 +75,17 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 			InternalStatusError("could not fetch bundles from db", err, w, h.render)
 			return
 		}
-		user := render.User{
+
+		pageTitle := "Home Page"
+		metaDescription := "Welcome to the home page"
+		user := models.User{
 			Email: "sean@example.com",
 		}
-		pageData := render.HomePageData{
-			BasePageData: render.BasePageData{
-				PageTitle:       "Build your own safety gate",
-				MetaDescription: "This is a place to build the perfect safety gate for your home",
-				User:            user,
-			},
-			FeaturedGates:  featuredGates,
-			PopularBundles: popularBundles,
-		}
 
-		err = h.render.HomePage(w, pageData)
+		basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
+
+		homepageData := h.render.NewHomePageData(featuredGates, popularBundles, basePageData)
+		err = h.render.HomePage(w, homepageData)
 		if err != nil {
 			InternalStatusError("could not execute templete fo homepage", err, w, h.render)
 		}
@@ -91,12 +103,14 @@ func (h *PageHandler) Gates(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		pageData := render.ProductsPageData{
-			Heading:  "Shop Individual Gates",
-			Products: gates,
-		}
+		pageTitle := "Shop All Gates"
+		metaDescription := "Shop our full range of gates"
+		user := models.User{}
 
-		err = h.render.ProductsPage(w, pageData)
+		basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
+		productsPageData := h.render.NewProductsPageData(basePageData, pageTitle, gates)
+
+		err = h.render.ProductsPage(w, productsPageData)
 		if err != nil {
 			InternalStatusError("error rendering gates page", err, w, h.render)
 			return
@@ -113,14 +127,15 @@ func (h *PageHandler) Gates(w http.ResponseWriter, r *http.Request) {
 			InternalStatusError("error fetching gate", err, w, h.render)
 			return
 		}
-		pageData := render.ProductPageData{
-			BasePageData: render.BasePageData{
-				PageTitle:       gate.Name,
-				MetaDescription: gate.Name,
-			},
-			Product: gate,
-		}
-		err = h.render.ProductPage(w, pageData)
+
+		pageTitle := gate.Name
+		metaDescription := gate.Name
+		user := models.User{}
+
+		basePageDate := h.render.NewBasePageData(pageTitle, metaDescription, user)
+		productPageData := h.render.NewProductPageData(basePageDate, gate)
+
+		err = h.render.ProductPage(w, productPageData)
 		if err != nil {
 			InternalStatusError("error rendering gate page", err, w, h.render)
 			return
@@ -140,12 +155,16 @@ func (h *PageHandler) Extensions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		data := render.ProductsPageData{
-			Heading:  "Shop Individual Extensions",
-			Products: extensions,
-		}
+		pageTitle := "All extensions"
+		metaDescription := "Shop all extensions"
+		user := models.User{}
 
-		err = h.render.ProductsPage(w, data)
+		basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
+
+		heading := pageTitle
+		productsPageData := h.render.NewProductsPageData(basePageData, heading, extensions)
+
+		err = h.render.ProductsPage(w, productsPageData)
 		if err != nil {
 			InternalStatusError("cant render extensions  page", err, w, h.render)
 		}
@@ -161,14 +180,14 @@ func (h *PageHandler) Extensions(w http.ResponseWriter, r *http.Request) {
 			InternalStatusError("error fetching extension", err, w, h.render)
 			return
 		}
-		pageData := render.ProductPageData{
-			BasePageData: render.BasePageData{
-				PageTitle:       extension.Name,
-				MetaDescription: extension.Name,
-			},
-			Product: extension,
-		}
-		err = h.render.ProductPage(w, pageData)
+
+		pageTitle := extension.Name
+		metaDescription := extension.Name
+		user := models.User{}
+
+		basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
+		productPageData := h.render.NewProductPageData(basePageData, extension)
+		err = h.render.ProductPage(w, productPageData)
 		if err != nil {
 			InternalStatusError("error rendering extension page", err, w, h.render)
 			return
@@ -232,13 +251,12 @@ func (h *PageHandler) Bundles(w http.ResponseWriter, r *http.Request) {
 			// add bundle meta data
 			bundle.ComputeMetaData()
 
-			pageData := render.BundlePageData{
-				BasePageData: render.BasePageData{
-					PageTitle:       "Single Bundle: " + bundle.Name,
-					MetaDescription: "Buy Bundle " + bundle.Name + " Online and enjoy super fast delivery",
-				},
-				Bundle: &bundle,
-			}
+			pageTitle := "Single Bundle: " + bundle.Name
+			metaDescription := "Buy Bundle " + bundle.Name + " Online and enjoy super fast delivery"
+			user := models.User{}
+
+			basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
+			pageData := h.render.NewBundlePageData(basePageData, &bundle)
 
 			err = h.render.BundlePage(w, pageData)
 			if err != nil {
@@ -254,9 +272,12 @@ func (h *PageHandler) Bundles(w http.ResponseWriter, r *http.Request) {
 				InternalStatusError("error fetching popular bundles for route /bundles/", err, w, h.render)
 				return
 			}
-			pageData := render.ProductsPageData{
-				Products: popularBundles,
-			}
+			pageTitle := "Bundles Page"
+			metaDescription := "Shop All Bundles"
+			// todo remove
+			user := models.User{}
+			basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
+			pageData := h.render.NewProductsPageData(basePageData, pageTitle, popularBundles)
 
 			err = h.render.ProductsPage(w, pageData)
 			if err != nil {
@@ -269,4 +290,23 @@ func (h *PageHandler) Bundles(w http.ResponseWriter, r *http.Request) {
 	}
 	NotFound(w, h.render)
 
+}
+
+func (h *PageHandler) Cart(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/cart/" && r.Method == http.MethodGet {
+		cart := &models.Cart{}
+		cartItems := []*models.CartItem{}
+		user := models.User{}
+		pageTitle := "Your shopping cart"
+		metaDescription := ""
+		basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
+		cartPageData := h.render.NewCartPageData(basePageData, cart, cartItems)
+
+		err := h.render.CartPage(w, cartPageData)
+		if err != nil {
+			InternalStatusError("error executing cart page template", err, w, h.render)
+		}
+		return
+	}
+	NotFound(w, h.render)
 }

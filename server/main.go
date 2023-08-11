@@ -56,16 +56,19 @@ func main() {
 	bundleService := services.NewBundleService(productRepo, bundleRepo)
 	cartService := services.NewCartService(cartRepo)
 
-	pageHandler := handlers.NewPageHandler(productService, renderer)
 	buildHandler := handlers.NewBuildHandler(bundleService, renderer)
 	cartHandler := handlers.NewCartHandler(cartService, renderer)
+	pageHandler := handlers.NewPageHandler(productService, cartService, renderer)
 
 	router.HandleFunc("/build/", buildHandler.Build)
 	router.HandleFunc("/", pageHandler.Home)
 	router.HandleFunc("/bundles/", pageHandler.Bundles)
 	router.HandleFunc("/gates/", pageHandler.Gates)
 	router.HandleFunc("/extensions/", pageHandler.Extensions)
-	router.HandleFunc("/cart/", cartHandler.View)
+	router.HandleFunc("/cart/", pageHandler.Cart)
+	router.HandleFunc("/cart/add", cartHandler.Add)
+	router.HandleFunc("/cart/update", cartHandler.Update)
+	router.HandleFunc("/cart/new", cartHandler.New)
 
 	fmt.Println("Listening on http://localhost:" + port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
