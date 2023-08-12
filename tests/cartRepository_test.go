@@ -110,4 +110,11 @@ func Test(t *testing.T) {
 		return
 	}
 
+	cart, err = repo.GetCartByUserID(200)
+	noRows := `sql: no rows in result set`
+	if err != nil && err.Error() != noRows {
+		t.Error("something went wrong fetching cart by user")
+		return
+	}
+
 }

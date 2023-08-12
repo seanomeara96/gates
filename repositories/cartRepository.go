@@ -155,3 +155,7 @@ func (r *CartRepository) GetCartItemByProductID(cartID, productID int) (*models.
 	}
 	return &cartItem, nil
 }
+
+func (r *CartRepository) UpdateCartItem(item models.CartItem) (sql.Result, error) {
+	return r.db.Exec(`UPDATE cart_items SET quantity = ? WHERE id = ?`, item.Quantity, item.ID)
+}
