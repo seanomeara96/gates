@@ -47,10 +47,10 @@ func (h *BuildHandler) Build(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// w.Header().Set("Content-Type", "application/json")
-		templateData := render.BundleBuildResultsData{
-			RequestedBundleSize: float32(desiredWidth),
-			Bundles:             bundles,
-		}
+		templateData := h.render.NewBundleBuildResultsData(
+			float32(desiredWidth),
+			bundles,
+		)
 		err = h.render.BundleBuildResults(w, templateData)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
