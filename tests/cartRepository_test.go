@@ -11,8 +11,8 @@ import (
 	"github.com/seanomeara96/gates/repositories"
 )
 
-func Test(t *testing.T) {
-	db, err := sql.Open("sqlite3", "carts_test.db")
+func TestCartRepository(t *testing.T) {
+	db, err := sql.Open("sqlite3", "cart_repo_test.db")
 	if err != nil {
 		t.Error("could not connect to database")
 		return

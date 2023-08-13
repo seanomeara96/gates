@@ -21,10 +21,13 @@ func (s *CartService) NewCart(userID int) (sql.Result, error) {
 	return s.cartRepo.SaveCart(models.NewCart(userID))
 }
 
-func (s *CartService) IncrementCartItem(cartID, productID, qty int) (*models.CartItem, error) {
+func (s *CartService) UpdateCartItem(cartID, productID, qty int) (*models.CartItem, error) {
 	cartItemToAdd, err := s.cartRepo.GetCartItemByProductID(cartID, productID)
 	if err != nil {
 		// doing it this way is going to cause problems because errors are thrown for reasons other than row not found
+		if qty < 0 {
+			qty = 0
+		}
 		newItem := models.NewCartItem(cartID, productID, qty)
 		res, err := s.cartRepo.SaveCartItem(newItem)
 		if err != nil {
@@ -38,16 +41,6 @@ func (s *CartService) IncrementCartItem(cartID, productID, qty int) (*models.Car
 		return &newItem, err
 	}
 	cartItemToAdd.Quantity += qty
-	_, err = s.cartRepo.UpdateCartItem(*cartItemToAdd)
-	return cartItemToAdd, err
-}
-
-func (s *CartService) DecrementCartItem(cartID, productID, qty int) (*models.CartItem, error) {
-	cartItemToAdd, err := s.cartRepo.GetCartItemByProductID(cartID, productID)
-	if err != nil {
-		return nil, err
-	}
-	cartItemToAdd.Quantity -= qty
 	if cartItemToAdd.Quantity < 0 {
 		cartItemToAdd.Quantity = 0
 	}
@@ -56,6 +49,7 @@ func (s *CartService) DecrementCartItem(cartID, productID, qty int) (*models.Car
 }
 
 func (s *CartService) GetCart(userID int) (*models.Cart, []*models.CartItem, error) {
+	//maybe if there is not cartby that user id we should auto call new cart
 	cart, err := s.cartRepo.GetCartByUserID(userID)
 	if err != nil {
 		return nil, nil, err
@@ -65,4 +59,30 @@ func (s *CartService) GetCart(userID int) (*models.Cart, []*models.CartItem, err
 		return nil, nil, err
 	}
 	return cart, items, nil
+}
+
+func (s *CartService) RemoveCartItem(cartID, productID int) error {
+	cartItem, err := s.cartRepo.GetCartItemByProductID(cartID, productID)
+	if err != nil {
+		return err
+	}
+	_, err = s.UpdateCartItem(cartID, productID, -cartItem.Quantity)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *CartService) RemoveAllCartItems(cartID int) error {
+	cartItems, err := s.cartRepo.GetCartItemsByCartID(cartID)
+	if err != nil {
+		return err
+	}
+	for _, item := range cartItems {
+		err = s.RemoveCartItem(cartID, item.ProductID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
