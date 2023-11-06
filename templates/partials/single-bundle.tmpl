@@ -1,0 +1,32 @@
+{{ define "bundle"  }}
+
+{{ template "header" }}
+
+
+    <div class="container my-4 mx-auto px-4">
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            {{ range .Bundle.Gates }}
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">{{ .Name }} Bundle</h2>
+                <img  src="https://via.placeholder.com/500x300" data-src="{{ .Img }}" alt="{{ .Name }}" class="rounded-lg mb-4">
+            {{ end }}
+            <p class="text-gray-700 mb-4">Price: {{ .Bundle.Price }}</p>
+            <p class="text-gray-700 mb-4">Max Length: {{ .Bundle.Width }}</p>
+            <h3 class="text-lg font-bold text-gray-800 mb-2">Gates:</h3>
+            <ul>
+                {{ range  .Bundle.Gates }}
+                <li class="text-gray-700">{{ .Name }} ({{ .Qty }}) {{ .Width }}cm</li>
+                {{ end }}
+            </ul>
+            <h3 class="text-lg font-bold text-gray-800 mb-2">Extensions:</h3>
+            <ul class="list-disc ml-4">
+                {{ range .Bundle.Extensions }}
+                    <li class="text-gray-700">{{ .Name }} ({{ .Qty }}) {{ .Width }}cm</li>
+                {{ end }}
+            </ul>
+        </div>
+    </div>
+
+
+{{ template "footer" }}
+
+{{ end }}

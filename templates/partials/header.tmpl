@@ -1,0 +1,40 @@
+{{ define "header" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ .MetaDescription }}">
+    <title>{{ .PageTitle }}</title>
+    <!-- Include Tailwind CSS styles -->
+    <link href="/assets/css/main.css" rel="stylesheet">
+    {{ if eq .Env "development"}}
+          <script src="https://cdn.tailwindcss.com"></script>
+    {{ end }}
+</head>
+<style>
+    @keyframes fadeIn {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+</style>
+<body>
+    <nav class="bg-gray-800 py-4">
+        <div class="container mx-auto px-4">
+            <div class="md:flex justify-between items-center">
+                <a href="/" class="text-white font-bold text-xl">Baby Safety Gates Ireland</a>
+                <ul class="flex flex-wrap">
+                    <li><a href="/" class="text-gray-300 hover:text-white px-3 py-2">Home</a></li>
+                    <li><a href="/gates" class="text-gray-300 hover:text-white px-3 py-2">Gates</a></li>
+                    <li><a href="/extensions" class="text-gray-300 hover:text-white px-3 py-2">Extensions</a></li>
+                    <li><a href="/contact" class="text-gray-300 hover:text-white px-3 py-2">Contact</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+{{ end }}
