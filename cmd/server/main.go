@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,8 +30,16 @@ type BasePageData struct {
 
 func main() {
 
+	portValue := flag.String("port", "", "port to listen on")
+
+	flag.Parse()
+
+	if *portValue == "" {
+		panic("no port supplied")
+	}
+
 	environment := config.Development
-	port := "3000"
+	port := *portValue
 
 	db, err = sql.Open("sqlite3", "main.db")
 	if err != nil {
