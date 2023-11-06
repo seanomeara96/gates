@@ -64,7 +64,7 @@ func (r *Renderer) NewBasePageData(pageTitle string, metaDescription string, use
 type homePageData struct {
 	FeaturedGates  []*models.Product
 	PopularBundles []*models.Product
-	BasePageData   basePageData
+	basePageData
 }
 
 func (r *Renderer) NewHomePageData(
@@ -75,7 +75,7 @@ func (r *Renderer) NewHomePageData(
 	return homePageData{
 		FeaturedGates:  featuredGates,
 		PopularBundles: popularBundles,
-		BasePageData:   basePageData,
+		basePageData:   basePageData,
 	}
 }
 

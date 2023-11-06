@@ -88,6 +88,7 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 		err = h.render.HomePage(w, homepageData)
 		if err != nil {
 			InternalStatusError("could not execute templete fo homepage", err, w, h.render)
+			return
 		}
 		return
 	}
