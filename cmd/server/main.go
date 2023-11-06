@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -55,7 +54,7 @@ func main() {
 	assetsPathHandler := http.StripPrefix(assetsDirPath, staticFileHttpHandler)
 	router.Handle(assetsDirPath, assetsPathHandler)
 
-	renderer := render.NewRenderer("templates/*.tmpl", environment)
+	renderer := render.NewRenderer("templates/**/*.tmpl", environment)
 
 	productRepo := repositories.NewProductRepository(db)
 	bundleRepo := repositories.NewBundleRepository(db)
@@ -79,6 +78,6 @@ func main() {
 	router.HandleFunc("/cart/update", cartHandler.Update)
 	router.HandleFunc("/cart/new", cartHandler.New)
 
-	fmt.Println("Listening on http://localhost:" + port)
+	log.Println("Listening on http://localhost:" + port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
