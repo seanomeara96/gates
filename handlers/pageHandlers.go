@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,23 +13,21 @@ import (
 )
 
 func InValidRequest(w http.ResponseWriter) {
-	//templateErr := tmpl.ExecuteTemplate(w, "inavlidRequest.tmpl", nil)
-	//if templateErr != nil {
 	http.Error(w, "Invalid Request Method", http.StatusMethodNotAllowed)
-	//}
 }
 
 func InternalStatusError(description string, err error, w http.ResponseWriter, r *render.Renderer) {
-	fmt.Println(description)
-	fmt.Println(err)
+
 	pageTile := "Internal Status Error"
 	metaDescription := "Unable to load page"
 	user := models.User{}
 
 	basePageData := r.NewBasePageData(pageTile, metaDescription, user)
+
+	// TODO replace with InternalErrorPage
 	t_err := r.NotFoundPage(w, r.NotFoundPageData(basePageData))
 	if t_err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
@@ -42,7 +40,7 @@ func NotFound(w http.ResponseWriter, r *render.Renderer) {
 	basePageData := r.NewBasePageData(pageTile, metaDescription, user)
 	err := r.NotFoundPage(w, r.NotFoundPageData(basePageData))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }
 
@@ -66,12 +64,14 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet && r.URL.Path == "/" {
 		featuredGates, err := h.productService.GetGates(services.ProductFilterParams{})
 		if err != nil {
+			log.Println("ERROR: Could not fetch gates from db")
 			InternalStatusError("could not fetch gates from db", err, w, h.render)
 			return
 		}
 
 		popularBundles, err := h.productService.GetBundles(services.ProductFilterParams{Limit: 3})
 		if err != nil {
+			log.Println("ERROR: Could not fetch Extensions from the db")
 			InternalStatusError("could not fetch bundles from db", err, w, h.render)
 			return
 		}
@@ -87,8 +87,8 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 		homepageData := h.render.NewHomePageData(featuredGates, popularBundles, basePageData)
 		err = h.render.HomePage(w, homepageData)
 		if err != nil {
+			log.Printf("ERROR: Could not render homepage %v", err)
 			InternalStatusError("could not execute templete fo homepage", err, w, h.render)
-			return
 		}
 		return
 	}
@@ -113,6 +113,7 @@ func (h *PageHandler) Gates(w http.ResponseWriter, r *http.Request) {
 
 		err = h.render.ProductsPage(w, productsPageData)
 		if err != nil {
+			log.Printf("ERROR: Could not render Gates page %v", err)
 			InternalStatusError("error rendering gates page", err, w, h.render)
 			return
 		}
