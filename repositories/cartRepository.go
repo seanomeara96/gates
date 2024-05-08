@@ -18,8 +18,7 @@ func NewCartRepository(db *sql.DB) *CartRepository {
 
 func (r *CartRepository) CreateTables() (sql.Result, error) {
 	res, err := r.db.Exec(`CREATE TABLE IF NOT EXISTS carts(
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		user_id INTEGER,
+		id STRING PRIMARY KEY,
 		created_at DATETIME,
 		last_updated_at DATETIME
 	)`)
@@ -30,7 +29,7 @@ func (r *CartRepository) CreateTables() (sql.Result, error) {
 
 	res, err = r.db.Exec(`CREATE TABLE IF NOT EXISTS cart_items(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		cart_id INTEGER NOT NULL,
+		cart_id STRING NOT NULL,
 		product_id INTEGER NOT NULL,
 		quantity INTEGER DEFAULT 1,
 		created_at DATETIME,
@@ -44,12 +43,12 @@ func (r *CartRepository) CreateTables() (sql.Result, error) {
 func (r *CartRepository) SaveCart(cart models.Cart) (sql.Result, error) {
 	return r.db.Exec(`INSERT INTO 
 		carts(
-			user_id, 
+			id, 
 			created_at, 
 			last_updated_at) 
 		VALUES 
 			(?, ?, ?)`,
-		cart.UserID,
+		cart.ID,
 		cart.CreatedAt,
 		cart.LastUpdatedAt,
 	)
@@ -76,13 +75,12 @@ func (r *CartRepository) SaveCartItem(cartItem models.CartItem) (sql.Result, err
 func (r *CartRepository) GetCartByUserID(userID int) (*models.Cart, error) {
 	var cart models.Cart
 	err := r.db.QueryRow(`SELECT 
-			id, user_id, created_at, last_updated_at 
+			id, created_at, last_updated_at 
 		FROM carts 
 		WHERE user_id = ?`,
 		userID,
 	).Scan(
 		&cart.ID,
-		&cart.UserID,
 		&cart.CreatedAt,
 		&cart.LastUpdatedAt,
 	)
@@ -92,7 +90,7 @@ func (r *CartRepository) GetCartByUserID(userID int) (*models.Cart, error) {
 	return &cart, nil
 }
 
-func (r *CartRepository) GetCartItemsByCartID(cartID int) ([]*models.CartItem, error) {
+func (r *CartRepository) GetCartItemsByCartID(cartID string) ([]*models.CartItem, error) {
 	var items []*models.CartItem
 	rows, err := r.db.Query(`SELECT id, cart_id, product_id, quantity, created_at FROM cart_items WHERE cart_id = ?`, cartID)
 	if err != nil {
@@ -136,7 +134,7 @@ func (r *CartRepository) GetCartItemByID(cartItemID int) (*models.CartItem, erro
 	return &cartItem, nil
 }
 
-func (r *CartRepository) GetCartItemByProductID(cartID, productID int) (*models.CartItem, error) {
+func (r *CartRepository) GetCartItemByProductID(cartID string, productID int) (*models.CartItem, error) {
 	var cartItem models.CartItem
 	err := r.db.QueryRow(`SELECT
 			id, cart_id, product_id, quantity, created_at

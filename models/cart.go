@@ -1,17 +1,21 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Cart struct {
-	ID            int       `json:"id"`
-	UserID        int       `json:"user_id"`
+	ID            string    `json:"id"`
 	CreatedAt     time.Time `json:"created_at"`
 	LastUpdatedAt time.Time `json:"last_updated_at"`
 }
 
-func NewCart(userID int) Cart {
+func NewCart() Cart {
+	cartID := uuid.New().String()
 	return Cart{
-		UserID:        userID,
+		ID:            cartID,
 		CreatedAt:     time.Now(),
 		LastUpdatedAt: time.Now(),
 	}
@@ -19,13 +23,13 @@ func NewCart(userID int) Cart {
 
 type CartItem struct {
 	ID        int       `json:"id"`
-	CartID    int       `json:"cart_id"`
+	CartID    string    `json:"cart_id"`
 	ProductID int       `json:"product_id"`
 	Quantity  int       `json:"quantity"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func NewCartItem(cartID, productID, quantity int) CartItem {
+func NewCartItem(cartID string, productID, quantity int) CartItem {
 	return CartItem{
 		CartID:    cartID,
 		ProductID: productID,

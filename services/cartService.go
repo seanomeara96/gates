@@ -1,8 +1,6 @@
 package services
 
 import (
-	"database/sql"
-
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repositories"
 )
@@ -17,11 +15,15 @@ func NewCartService(repo *repositories.CartRepository) *CartService {
 	}
 }
 
-func (s *CartService) NewCart(userID int) (sql.Result, error) {
-	return s.cartRepo.SaveCart(models.NewCart(userID))
+func (s *CartService) NewCart() (string, error) {
+	cart := models.NewCart()
+	if _, err := s.cartRepo.SaveCart(cart); err != nil {
+		return "", err
+	}
+	return cart.ID, nil
 }
 
-func (s *CartService) UpdateCartItem(cartID, productID, qty int) (*models.CartItem, error) {
+func (s *CartService) UpdateCartItem(cartID string, productID, qty int) (*models.CartItem, error) {
 	cartItemToAdd, err := s.cartRepo.GetCartItemByProductID(cartID, productID)
 	if err != nil {
 		// doing it this way is going to cause problems because errors are thrown for reasons other than row not found
@@ -61,7 +63,7 @@ func (s *CartService) GetCart(userID int) (*models.Cart, []*models.CartItem, err
 	return cart, items, nil
 }
 
-func (s *CartService) RemoveCartItem(cartID, productID int) error {
+func (s *CartService) RemoveCartItem(cartID string, productID int) error {
 	cartItem, err := s.cartRepo.GetCartItemByProductID(cartID, productID)
 	if err != nil {
 		return err
@@ -73,7 +75,7 @@ func (s *CartService) RemoveCartItem(cartID, productID int) error {
 	return nil
 }
 
-func (s *CartService) RemoveAllCartItems(cartID int) error {
+func (s *CartService) RemoveAllCartItems(cartID string) error {
 	cartItems, err := s.cartRepo.GetCartItemsByCartID(cartID)
 	if err != nil {
 		return err

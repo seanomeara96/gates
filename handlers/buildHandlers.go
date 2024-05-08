@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -21,42 +20,34 @@ func NewBuildHandler(bundleService *services.BundleService, renderer *render.Ren
 	}
 }
 
-func (h *BuildHandler) Build(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodPost {
-		r.ParseForm()
-		value := r.Form["desired-width"][0]
-		desiredWidth, err := strconv.ParseFloat(value, 32)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+func (h *BuildHandler) Build(w http.ResponseWriter, r *http.Request) error {
+	r.ParseForm()
 
-		// not critical to rest of function
-		go func() {
-			// TODO keep track of user inputs(valid ones). From there we can generate "popular bundles"
-			err := h.bundleService.SaveRequestedBundleSize(float32(desiredWidth))
-			if err != nil {
-				fmt.Println(err)
-			}
-		}()
+	_desiredWidth := r.Form["desired-width"][0]
 
-		bundles, err := h.bundleService.BuildPressureFitBundles(float32(desiredWidth))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// w.Header().Set("Content-Type", "application/json")
-		templateData := h.render.NewBundleBuildResultsData(
-			float32(desiredWidth),
-			bundles,
-		)
-		err = h.render.BundleBuildResults(w, templateData)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		return
+	desiredWidth, err := strconv.ParseFloat(_desiredWidth, 32)
+	if err != nil {
+		return err
 	}
-	http.Error(w, "Invalid Request", http.StatusBadRequest)
+
+	// TODO keep track of user inputs(valid ones). From there we can generate "popular bundles"
+	if err := h.bundleService.SaveRequestedBundleSize(float32(desiredWidth)); err != nil {
+		return err
+	}
+
+	bundles, err := h.bundleService.BuildPressureFitBundles(float32(desiredWidth))
+	if err != nil {
+		return err
+	}
+
+	templateData := h.render.NewBundleBuildResultsData(
+		float32(desiredWidth),
+		bundles,
+	)
+
+	if err = h.render.BundleBuildResults(w, templateData); err != nil {
+		return err
+	}
+
+	return nil
 }
