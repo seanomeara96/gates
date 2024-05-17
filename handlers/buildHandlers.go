@@ -21,7 +21,9 @@ func NewBuildHandler(bundleService *services.BundleService, renderer *render.Ren
 }
 
 func (h *BuildHandler) Build(w http.ResponseWriter, r *http.Request) error {
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
 
 	_desiredWidth := r.Form["desired-width"][0]
 

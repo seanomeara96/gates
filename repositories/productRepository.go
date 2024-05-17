@@ -74,6 +74,14 @@ func (r *ProductRepository) GetByID(id int) (*models.Product, error) {
 	)
 }
 
+func (r *ProductRepository) GetPrice(id int) (float64, error) {
+	var price float64
+	if err := r.db.QueryRow("SELECT price FROM products WHERE id = ?", id).Scan(&price); err != nil {
+		return 0, err
+	}
+	return price, nil
+}
+
 func (r *ProductRepository) GetByName(name string) (*models.Product, error) {
 	return scanProductFromRow(
 		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE name = ?", name),

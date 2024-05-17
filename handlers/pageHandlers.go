@@ -66,8 +66,7 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) error {
 		basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
 
 		homepageData := h.render.NewHomePageData(featuredGates, popularBundles, basePageData)
-		err = h.render.HomePage(w, homepageData)
-		if err != nil {
+		if err = h.render.HomePage(w, homepageData); err != nil {
 			return err
 		}
 		return nil
@@ -268,5 +267,14 @@ func (h *PageHandler) Cart(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (h *PageHandler) SomethingWentWrong(w http.ResponseWriter, r *http.Request) error {
+	basePageData := h.render.NewBasePageData("Something went wrong", "There was an problem processing your request. Please try again later", models.User{})
+	if err := h.render.SomethingWentWrong(w, basePageData); err != nil {
+		return err
+	}
+
 	return nil
 }

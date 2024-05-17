@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"database/sql"
+	"errors"
 
 	"github.com/seanomeara96/gates/models"
 )
@@ -54,22 +55,8 @@ func (r *CartRepository) SaveCart(cart models.Cart) (sql.Result, error) {
 	)
 }
 
-func (r *CartRepository) SaveCartItem(cartItem models.CartItem) (sql.Result, error) {
-	return r.db.Exec(`INSERT INTO
-		cart_items(
-			cart_id,
-			product_id,
-			quantity,
-			created_at
-		)
-		VALUES
-			(?, ?, ?, ?)`,
-		cartItem.CartID,
-		cartItem.ProductID,
-		cartItem.Quantity,
-		cartItem.CreatedAt,
-	)
-
+func (r *CartRepository) SaveCartItem(cartItem models.CartItem) error {
+	return errors.New("Save cart item not implemented")
 }
 
 func (r *CartRepository) GetCartByUserID(userID int) (*models.Cart, error) {
@@ -91,69 +78,13 @@ func (r *CartRepository) GetCartByUserID(userID int) (*models.Cart, error) {
 }
 
 func (r *CartRepository) GetCartItemsByCartID(cartID string) ([]*models.CartItem, error) {
-	var items []*models.CartItem
-	rows, err := r.db.Query(`SELECT id, cart_id, product_id, quantity, created_at FROM cart_items WHERE cart_id = ?`, cartID)
-	if err != nil {
-		return items, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		cartItem := models.CartItem{}
-		err := rows.Scan(
-			&cartItem.ID,
-			&cartItem.CartID,
-			&cartItem.ProductID,
-			&cartItem.Quantity,
-			&cartItem.CreatedAt,
-		)
-		if err != nil {
-			return items, err
-		}
-		items = append(items, &cartItem)
-	}
-	return items, nil
+	return nil, errors.New("Getting cart items not implemented")
 }
 
 func (r *CartRepository) GetCartItemByID(cartItemID int) (*models.CartItem, error) {
-	var cartItem models.CartItem
-	err := r.db.QueryRow(`SELECT 
-			id, cart_id, product_id, quantity, created_at 
-		FROM cart_items 
-		WHERE id = ?`,
-		cartItemID,
-	).Scan(
-		&cartItem.ID,
-		&cartItem.CartID,
-		&cartItem.ProductID,
-		&cartItem.Quantity,
-		&cartItem.CreatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &cartItem, nil
+	return nil, errors.New("Getting cart item not implemented")
 }
+func (r *CartRepository) UpdateCartItem(item models.CartItem) error {
 
-func (r *CartRepository) GetCartItemByProductID(cartID string, productID int) (*models.CartItem, error) {
-	var cartItem models.CartItem
-	err := r.db.QueryRow(`SELECT
-			id, cart_id, product_id, quantity, created_at
-		FROM cart_items
-		WHERE cart_id = ? AND product_id = ?`,
-		cartID, productID,
-	).Scan(
-		&cartItem.ID,
-		&cartItem.CartID,
-		&cartItem.ProductID,
-		&cartItem.Quantity,
-		&cartItem.CreatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &cartItem, nil
-}
-
-func (r *CartRepository) UpdateCartItem(item models.CartItem) (sql.Result, error) {
-	return r.db.Exec(`UPDATE cart_items SET quantity = ? WHERE id = ?`, item.Quantity, item.ID)
+	return errors.New("Updating cart item not implemented")
 }

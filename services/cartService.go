@@ -6,12 +6,28 @@ import (
 )
 
 type CartService struct {
-	cartRepo *repositories.CartRepository
+	cartRepo    *repositories.CartRepository
+	productRepo *repositories.ProductRepository
 }
 
-func NewCartService(repo *repositories.CartRepository) *CartService {
+func (c *CartService) TotalValue(cart models.Cart) (float64, error) {
+	value := 0.0
+	for _, item := range cart.Items {
+		for _, component := range item.Components {
+			productPrice, err := c.productRepo.GetPrice(component.ProductID)
+			if err != nil {
+				return 0, err
+			}
+			value += (productPrice * float64(component.Qty))
+		}
+	}
+	return value, nil
+}
+
+func NewCartService(cartRepo *repositories.CartRepository, productRepo *repositories.ProductRepository) *CartService {
 	return &CartService{
-		repo,
+		cartRepo,
+		productRepo,
 	}
 }
 
@@ -21,33 +37,6 @@ func (s *CartService) NewCart() (string, error) {
 		return "", err
 	}
 	return cart.ID, nil
-}
-
-func (s *CartService) UpdateCartItem(cartID string, productID, qty int) (*models.CartItem, error) {
-	cartItemToAdd, err := s.cartRepo.GetCartItemByProductID(cartID, productID)
-	if err != nil {
-		// doing it this way is going to cause problems because errors are thrown for reasons other than row not found
-		if qty < 0 {
-			qty = 0
-		}
-		newItem := models.NewCartItem(cartID, productID, qty)
-		res, err := s.cartRepo.SaveCartItem(newItem)
-		if err != nil {
-			return nil, err
-		}
-		lastID, err := res.LastInsertId()
-		if err != nil {
-			return nil, err
-		}
-		newItem.ID = int(lastID)
-		return &newItem, err
-	}
-	cartItemToAdd.Quantity += qty
-	if cartItemToAdd.Quantity < 0 {
-		cartItemToAdd.Quantity = 0
-	}
-	_, err = s.cartRepo.UpdateCartItem(*cartItemToAdd)
-	return cartItemToAdd, err
 }
 
 func (s *CartService) GetCart(userID int) (*models.Cart, []*models.CartItem, error) {
@@ -63,28 +52,13 @@ func (s *CartService) GetCart(userID int) (*models.Cart, []*models.CartItem, err
 	return cart, items, nil
 }
 
-func (s *CartService) RemoveCartItem(cartID string, productID int) error {
-	cartItem, err := s.cartRepo.GetCartItemByProductID(cartID, productID)
-	if err != nil {
+func (s *CartService) AddItem(cartID string, components []models.CartItemComponent) error {
+	cartItem := models.NewCartItem(cartID)
+	if err := s.cartRepo.SaveCartItem(cartItem); err != nil {
 		return err
 	}
-	_, err = s.UpdateCartItem(cartID, productID, -cartItem.Quantity)
-	if err != nil {
+	if err := s.cartRepo.SaveCartItemComponents(cartItem.ID, components); err != nil {
 		return err
-	}
-	return nil
-}
-
-func (s *CartService) RemoveAllCartItems(cartID string) error {
-	cartItems, err := s.cartRepo.GetCartItemsByCartID(cartID)
-	if err != nil {
-		return err
-	}
-	for _, item := range cartItems {
-		err = s.RemoveCartItem(cartID, item.ProductID)
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }

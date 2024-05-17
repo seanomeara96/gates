@@ -183,6 +183,10 @@ func (r *Renderer) NotFoundPage(wr io.Writer, data notFoundPageData) error {
 	return r.tmpl.ExecuteTemplate(wr, "not-found", data)
 }
 
+func (r *Renderer) SomethingWentWrong(wr io.Writer, data basePageData) error {
+	return r.tmpl.ExecuteTemplate(wr, "internalerr", data)
+}
+
 type productCardData struct {
 	TemplateData templateData
 	Product      models.Product

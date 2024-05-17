@@ -10,6 +10,7 @@ type Cart struct {
 	ID            string    `json:"id"`
 	CreatedAt     time.Time `json:"created_at"`
 	LastUpdatedAt time.Time `json:"last_updated_at"`
+	Items         []CartItem
 }
 
 func NewCart() Cart {
@@ -22,18 +23,23 @@ func NewCart() Cart {
 }
 
 type CartItem struct {
-	ID        int       `json:"id"`
-	CartID    string    `json:"cart_id"`
-	ProductID int       `json:"product_id"`
-	Quantity  int       `json:"quantity"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         string `json:"id"`
+	CartID     string `json:"cart_id"`
+	Components []CartItemComponent
+	CreatedAt  time.Time `json:"created_at"`
 }
 
-func NewCartItem(cartID string, productID, quantity int) CartItem {
+func NewCartItem(cartID string) CartItem {
+	id := uuid.New().String()
 	return CartItem{
+		ID:        id,
 		CartID:    cartID,
-		ProductID: productID,
-		Quantity:  quantity,
 		CreatedAt: time.Now(),
 	}
+}
+
+type CartItemComponent struct {
+	CartItemID string
+	ProductID  int
+	Qty        int
 }
