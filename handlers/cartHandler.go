@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/sessions"
+	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/render"
 	"github.com/seanomeara96/gates/services"
 )
@@ -67,6 +68,14 @@ func (h *CartHandler) MiddleWare(w http.ResponseWriter, r *http.Request) (bool, 
 
 	return true, nil
 }
+
+func validateCartID(cartID interface{}) (valid bool) {
+	if _, ok := cartID.(string); !ok {
+		return false
+	}
+	return true
+}
+
 func (h *CartHandler) Update(w http.ResponseWriter, r *http.Request) error {
 	session, err := h.getSession(r)
 	if err != nil {
@@ -78,24 +87,23 @@ func (h *CartHandler) Update(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	if ok := validateCartID(cartID); !ok {
+		return errors.New("Invalid cart id")
+	}
+
 	r.ParseForm()
 
-	type Item struct {
-		ID  int `json:"id"`
-		Qty int `json:"qty"`
-	}
-
-	items := []Item{}
+	components := []models.CartItemComponent{}
 
 	for _, d := range r.Form["data"] {
-		var item Item
-		if err := json.Unmarshal([]byte(d), &item); err != nil {
+		var component models.CartItemComponent
+		if err := json.Unmarshal([]byte(d), &component); err != nil {
 			return err
 		}
-		items = append(items, item)
+		components = append(components, component)
 	}
 
-	if err := h.cartService.AddItems(items); err != nil {
+	if err := h.cartService.AddItem(cartID.(string), components); err != nil {
 		return err
 	}
 

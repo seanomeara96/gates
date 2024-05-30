@@ -138,6 +138,9 @@ func main() {
 	put := func(path string, fn customHandleFunc) {
 		handle("PUT "+path, fn)
 	}
+	del := func(path string, fn customHandleFunc) {
+		handle("DELETE"+path, fn)
+	}
 
 	handle("/", pageHandler.Home) // cant use 'get' because it causes conflicts
 	post("/build/", buildHandler.Build)
@@ -147,6 +150,11 @@ func main() {
 	get("/extensions/", pageHandler.Extensions)
 	get("/cart/", pageHandler.Cart)
 	put("/cart/", cartHandler.Update) // TODO consolidate add & update methods
+	del("/cart/{itemID}", func(w http.ResponseWriter, r *http.Request) error {
+		itemID := r.PathValue("itemID")
+		fmt.Println(itemID)
+		return errors.New("testing")
+	})
 
 	get("/error/", func(w http.ResponseWriter, r *http.Request) error {
 		err := errors.New("Super low level error")

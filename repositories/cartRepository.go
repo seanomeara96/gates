@@ -3,6 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/seanomeara96/gates/models"
 )
@@ -41,8 +42,8 @@ func (r *CartRepository) CreateTables() (sql.Result, error) {
 	return res, err
 }
 
-func (r *CartRepository) SaveCart(cart models.Cart) (sql.Result, error) {
-	return r.db.Exec(`INSERT INTO 
+func (r *CartRepository) SaveCart(cart models.Cart) (*sql.Result, error) {
+	res, err := r.db.Exec(`INSERT INTO 
 		carts(
 			id, 
 			created_at, 
@@ -53,6 +54,10 @@ func (r *CartRepository) SaveCart(cart models.Cart) (sql.Result, error) {
 		cart.CreatedAt,
 		cart.LastUpdatedAt,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to save cart. %v", err)
+	}
+	return &res, nil
 }
 
 func (r *CartRepository) SaveCartItem(cartItem models.CartItem) error {
@@ -87,4 +92,10 @@ func (r *CartRepository) GetCartItemByID(cartItemID int) (*models.CartItem, erro
 func (r *CartRepository) UpdateCartItem(item models.CartItem) error {
 
 	return errors.New("Updating cart item not implemented")
+}
+
+func (r *CartRepository) SaveCartItemComponents(cartID string, components []models.CartItemComponent) error {
+
+	return errors.New("Save Cart Item Components not yet implemented")
+
 }

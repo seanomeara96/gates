@@ -40,6 +40,6 @@ func NewCartItem(cartID string) CartItem {
 
 type CartItemComponent struct {
 	CartItemID string
-	ProductID  int
-	Qty        int
+	ProductID  int `json:"id"`
+	Qty        int `json:"qty"`
 }
