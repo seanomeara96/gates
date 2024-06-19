@@ -76,7 +76,7 @@ func validateCartID(cartID interface{}) (valid bool) {
 	return true
 }
 
-func (h *CartHandler) Update(w http.ResponseWriter, r *http.Request) error {
+func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) error {
 	session, err := h.getSession(r)
 	if err != nil {
 		return err
@@ -104,6 +104,32 @@ func (h *CartHandler) Update(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if err := h.cartService.AddItem(cartID.(string), components); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *CartHandler) RemoveItem(w http.ResponseWriter, r *http.Request) error {
+	session, err := h.getSession(r)
+	if err != nil {
+		return err
+	}
+
+	cartID, err := h.getCartID(session)
+	if err != nil {
+		return err
+	}
+
+	if ok := validateCartID(cartID); !ok {
+		return errors.New("Invalid cart id")
+	}
+
+	r.ParseForm()
+
+	itemID := r.Form.Get("item_id")
+
+	if err := h.cartService.RemoveItem(cartID.(string), itemID); err != nil {
 		return err
 	}
 

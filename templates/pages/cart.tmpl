@@ -1,0 +1,37 @@
+{{ define "cart" }}
+    {{ template "header" . }}
+    <main class="container mx-auto p-4">
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <h1 class="text-2xl font-bold mb-4">Shopping Cart</h1>
+
+            <!-- Cart Items -->
+            <div class="mb-4">
+                <div class="flex justify-between items-center border-b pb-2 mb-2">
+                    <div class="flex items-center">
+                        <img class="w-20 h-20 object-cover mr-4" src="https://via.placeholder.com/80" alt="Product Image">
+                        <div>
+                            <h2 class="text-lg font-semibold">Product Name</h2>
+                            <p class="text-gray-600">Product Description</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-semibold">$25.00</p>
+                        <button class="text-red-600 hover:underline">Remove</button>
+                    </div>
+                </div>
+
+                <!-- Repeat similar blocks for more items -->
+            </div>
+
+            <!-- Checkout Section -->
+            <div class="border-t pt-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-lg font-semibold">Total</span>
+                    <span class="text-lg font-semibold">$75.00</span>
+                </div>
+                <button class="mt-4 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Proceed to Checkout</button>
+            </div>
+        </div>
+    </main>  
+    {{ template "footer" . }}
+{{ end }}

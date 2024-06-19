@@ -99,3 +99,11 @@ func (r *CartRepository) SaveCartItemComponents(cartID string, components []mode
 	return errors.New("Save Cart Item Components not yet implemented")
 
 }
+
+func (r *CartRepository) RemoveCartItem(cartID, itemID string) error {
+	return errors.New("Remove cart item not implemented")
+}
+
+func (r *CartRepository) RemoveCartItemComponents(itemID string) error {
+	return errors.New("Remove Cart Item Components not yet implemented")
+}

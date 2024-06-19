@@ -26,6 +26,7 @@ type CartItem struct {
 	ID         string `json:"id"`
 	CartID     string `json:"cart_id"`
 	Components []CartItemComponent
+	Qty        int       `json:"qty"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
@@ -35,6 +36,7 @@ func NewCartItem(cartID string) CartItem {
 		ID:        id,
 		CartID:    cartID,
 		CreatedAt: time.Now(),
+		Qty:       1,
 	}
 }
 

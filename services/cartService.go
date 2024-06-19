@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repositories"
 )
@@ -59,6 +61,16 @@ func (s *CartService) AddItem(cartID string, components []models.CartItemCompone
 	}
 	if err := s.cartRepo.SaveCartItemComponents(cartItem.ID, components); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (s *CartService) RemoveItem(cartID, itemID string) error {
+	if err := s.cartRepo.RemoveCartItem(cartID, itemID); err != nil {
+		return fmt.Errorf("Failed to remove item. %w", err)
+	}
+	if err := s.cartRepo.RemoveCartItemComponents(itemID); err != nil {
+		return fmt.Errorf("Failed to remove item components. %w", err)
 	}
 	return nil
 }
