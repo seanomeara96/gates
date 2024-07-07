@@ -18,7 +18,6 @@ import (
 )
 
 var db *sql.DB
-var err error
 
 type User struct {
 	Email string
@@ -29,7 +28,6 @@ type BasePageData struct {
 	PageTitle       string
 	User            User
 }
-type handleFunc func(w http.ResponseWriter, r *http.Request)
 type customHandleFunc func(w http.ResponseWriter, r *http.Request) error
 type middlewareFn func(w http.ResponseWriter, r *http.Request) (execNextFunc bool, err error)
 type middlewaresFunc func(w http.ResponseWriter, r *http.Request, fn customHandleFunc) error
@@ -82,9 +80,7 @@ func main() {
 	pageHandler := handlers.NewPageHandler(productService, cartService, renderer)
 
 	// ROUTING LOGIC
-	middlewareFuncs := []middlewareFn{
-		cartHandler.MiddleWare,
-	}
+	middlewareFuncs := []middlewareFn{cartHandler.MiddleWare}
 
 	/*
 		Call the middlewares func for each request
