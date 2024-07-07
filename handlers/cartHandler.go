@@ -76,6 +76,10 @@ func validateCartID(cartID interface{}) (valid bool) {
 	return true
 }
 
+func (h *CartHandler) ClearCart(w http.ResponseWriter, r *http.Request) error {
+	return errors.New("clear cart not implemented")
+}
+
 func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) error {
 	session, err := h.getSession(r)
 	if err != nil {
@@ -88,7 +92,7 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if ok := validateCartID(cartID); !ok {
-		return errors.New("Invalid cart id")
+		return errors.New("invalid cart id")
 	}
 
 	r.ParseForm()
@@ -122,7 +126,7 @@ func (h *CartHandler) RemoveItem(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if ok := validateCartID(cartID); !ok {
-		return errors.New("Invalid cart id")
+		return errors.New("invalid cart id")
 	}
 
 	r.ParseForm()
@@ -137,5 +141,5 @@ func (h *CartHandler) RemoveItem(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (h *CartHandler) View(w http.ResponseWriter, r *http.Request) error {
-	return errors.New("Not implemented.")
+	return errors.New("not implemented")
 }
