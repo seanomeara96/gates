@@ -85,13 +85,13 @@ func (r *Renderer) HomePage(wr io.Writer, data homePageData) error {
 }
 
 type productPageData struct {
-	BasePageData basePageData
-	Product      *models.Product
+	basePageData
+	Product *models.Product
 }
 
 func (r *Renderer) NewProductPageData(basePageData basePageData, product *models.Product) productPageData {
 	return productPageData{
-		BasePageData: basePageData,
+		basePageData: basePageData,
 		Product:      product,
 	}
 }
@@ -101,13 +101,13 @@ func (r *Renderer) ProductPage(wr io.Writer, data productPageData) error {
 }
 
 type bundlePageData struct {
-	BasePageData basePageData
-	Bundle       *models.Bundle
+	basePageData
+	Bundle *models.Bundle
 }
 
 func (r *Renderer) NewBundlePageData(basePageData basePageData, bundle *models.Bundle) bundlePageData {
 	return bundlePageData{
-		BasePageData: basePageData,
+		basePageData: basePageData,
 		Bundle:       bundle,
 	}
 }
@@ -117,15 +117,15 @@ func (r *Renderer) BundlePage(wr io.Writer, data bundlePageData) error {
 }
 
 type productsPageData struct {
-	Heading      string
-	BasePageData basePageData
-	Products     []*models.Product
+	Heading string
+	basePageData
+	Products []*models.Product
 }
 
 func (r *Renderer) NewProductsPageData(basePageData basePageData, heading string, products []*models.Product) productsPageData {
 	return productsPageData{
 		Heading:      heading,
-		BasePageData: basePageData,
+		basePageData: basePageData,
 		Products:     products,
 	}
 }
@@ -138,31 +138,33 @@ func (r *Renderer) ProductsPage(wr io.Writer, data productsPageData) error {
 }
 
 type cartPageData struct {
-	BasePageData basePageData
-	Cart         *models.Cart
-	CartItems    []*models.CartItem
+	Cart *models.Cart
+	basePageData
 }
 
-func (r *Renderer) NewCartPageData(basePageData basePageData, cart *models.Cart, cartItems []*models.CartItem) cartPageData {
+func (r *Renderer) NewCartPageData(basePageData basePageData, cart *models.Cart) cartPageData {
 	return cartPageData{
-		BasePageData: basePageData,
+		basePageData: basePageData,
 		Cart:         cart,
-		CartItems:    cartItems,
 	}
 }
 
 func (r *Renderer) CartPage(wr io.Writer, cartPageData cartPageData) error {
-	return r.tmpl.ExecuteTemplate(wr, "cart", cartPageData)
+	err := r.tmpl.ExecuteTemplate(wr, "cart", cartPageData)
+	if err != nil {
+		return fmt.Errorf("issue while executing template for cart page. %w", err)
+	}
+	return err
 }
 
 type webPageData struct {
-	BasePageData basePageData
-	CustomHTML   string
+	basePageData
+	CustomHTML string
 }
 
 func (r *Renderer) NewWebPageData(basePageData basePageData, customHTML string) webPageData {
 	return webPageData{
-		BasePageData: basePageData,
+		basePageData: basePageData,
 		CustomHTML:   customHTML,
 	}
 }
@@ -172,11 +174,11 @@ func (r *Renderer) WebPage(wr io.Writer, data webPageData) error {
 }
 
 type notFoundPageData struct {
-	BasePageData basePageData
+	basePageData
 }
 
 func (r *Renderer) NotFoundPageData(basePageData basePageData) notFoundPageData {
-	return notFoundPageData{BasePageData: basePageData}
+	return notFoundPageData{basePageData: basePageData}
 }
 
 func (r *Renderer) NotFoundPage(wr io.Writer, data notFoundPageData) error {

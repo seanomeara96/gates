@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -256,16 +257,15 @@ func (h *PageHandler) Bundles(w http.ResponseWriter, r *http.Request) error {
 
 func (h *PageHandler) Cart(w http.ResponseWriter, r *http.Request) error {
 	cart := &models.Cart{}
-	cartItems := []*models.CartItem{}
 	user := models.User{}
 	pageTitle := "Your shopping cart"
 	metaDescription := ""
 	basePageData := h.render.NewBasePageData(pageTitle, metaDescription, user)
-	cartPageData := h.render.NewCartPageData(basePageData, cart, cartItems)
+	cartPageData := h.render.NewCartPageData(basePageData, cart)
 
 	err := h.render.CartPage(w, cartPageData)
 	if err != nil {
-		return err
+		return fmt.Errorf("proble rendering cart page. %w", err)
 	}
 	return nil
 }
