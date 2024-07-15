@@ -138,7 +138,7 @@ func (r *Renderer) ProductsPage(wr io.Writer, data productsPageData) error {
 }
 
 type cartPageData struct {
-	Cart *models.Cart
+	Cart *models.cart
 	basePageData
 }
 
