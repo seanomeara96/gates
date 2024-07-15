@@ -42,7 +42,7 @@
                                 <div class="flex justify-between items-center">
                                     <span class="text-xl font-bold">€{{ .Price }}</span>
                                     <button 
-                                        hx-put="/cart/" 
+                                        hx-post="/cart/add" 
                                         hx-trigger="click" 
                                         hx-vals='{"data": [{ "id":{{ .Id }}, "qty":{{.Qty}}}]}' 
                                         class="atc-btn bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Add to Cart</button>

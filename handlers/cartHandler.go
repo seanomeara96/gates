@@ -95,7 +95,9 @@ func (h *CartHandler) AddItem(w http.ResponseWriter, r *http.Request) error {
 		return errors.New("invalid cart id")
 	}
 
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
 
 	components := []models.CartItemComponent{}
 
