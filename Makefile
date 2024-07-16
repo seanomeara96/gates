@@ -1,8 +1,8 @@
 run:
-	go run cmd/server/main.go -port 3000
+	go run ./cmd/server/ -port 3000
 
 build:
-	go build -o bin/server cmd/server/main.go && systemctl restart gates.service && systemctl status gates.service
+	go build -o bin/server ./cmd/server/
 
 bundles:
 	go run scripts/cacheBundles.go
