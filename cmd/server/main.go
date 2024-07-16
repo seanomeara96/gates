@@ -122,8 +122,8 @@ func main() {
 			}
 
 			data := map[string]any{
-				"pageTitle":       "Home Page",
-				"metaDescription": "Welcome to the home page",
+				"PageTitle":       "Home Page",
+				"MetaDescription": "Welcome to the home page",
 				"FeaturedGates":   featuredGates,
 				"PopularBundles":  popularBundles,
 			}
@@ -136,8 +136,8 @@ func main() {
 
 	handle.get("/contact/", func(w http.ResponseWriter, r *http.Request) error {
 		data := map[string]any{
-			"pageTitle":       "Contact BabyGate Builders",
-			"metaDescription": "Contact form for Babygate builders",
+			"PageTitle":       "Contact BabyGate Builders",
+			"MetaDescription": "Contact form for Babygate builders",
 		}
 		return renderPage(w, "contact", data)
 	})
@@ -186,8 +186,8 @@ func main() {
 
 		data := map[string]any{
 			"Heading":         "Shop All Gates",
-			"pageTitle":       "Shop All Gates",
-			"metaDescription": "Shop our full range of gates",
+			"PageTitle":       "Shop All Gates",
+			"MetaDescription": "Shop our full range of gates",
 			"Products":        gates,
 		}
 
@@ -206,8 +206,8 @@ func main() {
 		}
 
 		data := map[string]any{
-			"pageTitle":       gate.Name,
-			"metaDescription": gate.Name,
+			"PageTitle":       gate.Name,
+			"MetaDescription": gate.Name,
 			"Product":         gate,
 		}
 
@@ -223,8 +223,8 @@ func main() {
 
 		data := map[string]any{
 			"Heading":         "All extensions",
-			"pageTitle":       "All extensions",
-			"metaDescription": "Shop all extensions",
+			"PageTitle":       "All extensions",
+			"MetaDescription": "Shop all extensions",
 			"Products":        extensions,
 		}
 
@@ -243,8 +243,8 @@ func main() {
 		}
 
 		data := map[string]any{
-			"pageTitle":       extension.Name,
-			"metaDescription": extension.Name,
+			"PageTitle":       extension.Name,
+			"MetaDescription": extension.Name,
 		}
 
 		return renderPage(w, "products", data)
@@ -257,8 +257,8 @@ func main() {
 		cart := models.Cart{}
 
 		data := map[string]any{
-			"pageTitle":       "Your shopping cart",
-			"metaDescription": "",
+			"PageTitle":       "Your shopping cart",
+			"MetaDescription": "",
 			"Cart":            cart,
 		}
 
@@ -390,9 +390,7 @@ func createCustomHandler(environment Environment, router *http.ServeMux, execute
 				} else {
 					// TODO handle production env err handling different
 					sendErr(w, err)
-
 				}
-
 			}
 		})
 	}
@@ -468,7 +466,7 @@ func NotFoundPage(w http.ResponseWriter, renderPage renderPageFunc) error {
 	w.WriteHeader(http.StatusNotFound)
 	data := map[string]any{
 		"pageTile":        "Page Not Found",
-		"metaDescription": "Unable to find page",
+		"MetaDescription": "Unable to find page",
 	}
 	return renderPage(w, "not-found", data)
 }
@@ -1072,8 +1070,8 @@ func NewPageRenderer(tmpl *template.Template) renderPageFunc {
 	return func(w http.ResponseWriter, templateName string, templateData map[string]any) error {
 
 		data := map[string]any{
-			"metaDescription": "default meta description",
-			"pageTitle":       "default page title",
+			"MetaDescription": "default meta description",
+			"PageTitle":       "default page title",
 		}
 
 		for k, v := range templateData {
