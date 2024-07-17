@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"text/template"
@@ -26,6 +28,11 @@ type customHandleFunc func(w http.ResponseWriter, r *http.Request) error
 type middlewareFn func(w http.ResponseWriter, r *http.Request) (execNextFunc bool, err error)
 type middlewaresFunc func(w http.ResponseWriter, r *http.Request, fn customHandleFunc) error
 type customHandler func(path string, fn customHandleFunc)
+
+type CustomRequest struct {
+	*http.Request
+	Cart models.Cart
+}
 
 func main() {
 
@@ -57,7 +64,7 @@ func main() {
 
 	router := http.NewServeMux()
 
-	tmpl := templateParser(Development)
+	tmpl := templateParser(environment)
 	renderPage := NewPageRenderer(tmpl)
 	renderPartial := NewPartialRenderer(tmpl)
 
@@ -90,6 +97,7 @@ func main() {
 				"MetaDescription": "Welcome to the home page",
 				"FeaturedGates":   featuredGates,
 				"PopularBundles":  popularBundles,
+				"Cart":            models.Cart{Items: []models.CartItem{}},
 			}
 
 			return renderPage(w, "home", data)
@@ -104,6 +112,50 @@ func main() {
 			"MetaDescription": "Contact form for Babygate builders",
 		}
 		return renderPage(w, "contact", data)
+	})
+
+	handle.post("/contact/", func(w http.ResponseWriter, r *http.Request) error {
+		if err := r.ParseForm(); err != nil {
+			return err
+		}
+		email := r.Form.Get("email")
+		name := r.Form.Get("name")
+		message := r.Form.Get("message")
+
+		emailRegex, err := regexp.Compile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+		if err != nil {
+			return fmt.Errorf("could not compile email validation regex. %w", err)
+		}
+
+		if message == "" {
+			// need some error state on this form
+			return renderPage(w, "contact", map[string]any{
+				"PageTitle":       "Contact us | No Message Provided",
+				"MetaDescription": "Please provide a message",
+			})
+		}
+
+		if !emailRegex.MatchString(email) || email == "" {
+			// need some error state on this form
+			return renderPage(w, "contact", map[string]any{
+				"PageTitle":       "Contact us | Invalid Email",
+				"MetaDescription": "Please provide a  valid email address",
+			})
+		}
+
+		email = template.HTMLEscapeString(email)
+		name = template.HTMLEscapeString(name)
+		message = template.HTMLEscapeString(message)
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		q := "INSERT INTO contact (name, email, message, timestamp) VALUES (?, ?, ?, ?)"
+		_, err = db.ExecContext(ctx, q, email, name, message, time.Now())
+		if err != nil {
+			return err
+		}
+		return nil
 	})
 
 	/*
