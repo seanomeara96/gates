@@ -18,35 +18,9 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/patrickmn/go-cache"
 	"github.com/seanomeara96/gates/models"
-
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
-
-type templateData struct {
-	Env Environment
-}
-
-func NewTemplateData() templateData {
-	return templateData{
-		Env: Development,
-	}
-}
-
-type BasePageData struct {
-	templateData
-	PageTitle       string
-	MetaDescription string
-}
-
-func NewBasePageData(pageTitle string, metaDescription string) BasePageData {
-	templateData := NewTemplateData()
-	return BasePageData{
-		templateData:    templateData,
-		PageTitle:       pageTitle,
-		MetaDescription: metaDescription,
-	}
-}
 
 type customHandleFunc func(w http.ResponseWriter, r *http.Request) error
 type middlewareFn func(w http.ResponseWriter, r *http.Request) (execNextFunc bool, err error)
@@ -83,23 +57,13 @@ func main() {
 
 	router := http.NewServeMux()
 
-	tmpl, err := template.New("").Funcs(template.FuncMap{
-		"sizeRange": func(width, tolerance float32) float32 {
-			return width - tolerance
-		},
-		"title": func(str string) string {
-			return cases.Title(language.AmericanEnglish).String(str)
-		},
-	}).ParseGlob("templates/**/*.tmpl")
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	tmpl := templateParser(Development)
 	renderPage := NewPageRenderer(tmpl)
+	renderPartial := NewPartialRenderer(tmpl)
 
 	// ROUTING LOGIC
-	// TODO put back in the cart middleware
-	middlewareFuncs := []middlewareFn{}
+	cartMiddleware := newCartMiddlware(db, store)
+	middlewareFuncs := []middlewareFn{cartMiddleware}
 
 	/*
 		Call the middlewares func for each request
@@ -254,11 +218,27 @@ func main() {
 		cart endpoints
 	*/
 	handle.get("/cart/", func(w http.ResponseWriter, r *http.Request) error {
-		cart := models.Cart{}
+		cart := models.NewCart()
 
-		cart.Items = append(cart.Items, models.CartItem{
-			Name: "Item 1",
-		})
+		cart.Items = []models.CartItem{
+			{
+				Name:      "Bundle 1",
+				SalePrice: 10.99,
+				Components: []models.CartItemComponent{
+					{Name: "Component 1" + " x " + strconv.Itoa(1)},
+					{Name: "Component 2" + " x " + strconv.Itoa(2)},
+					{Name: "Component 3" + " x " + strconv.Itoa(3)},
+					{Name: "Component 4" + " x " + strconv.Itoa(4)},
+				},
+			},
+			{
+				Name:      "Bundle 2",
+				SalePrice: 12.99,
+				Components: []models.CartItemComponent{
+					{Name: "Component 1"},
+				},
+			},
+		}
 
 		data := map[string]any{
 			"PageTitle":       "Your shopping cart",
@@ -288,21 +268,27 @@ func main() {
 			return err
 		}
 
-		components := []models.CartItemComponent{}
+		item := models.NewCartItem(cartID.(string))
 
 		for _, d := range r.Form["data"] {
-			var component models.CartItemComponent
+			component := models.NewCartItemComponent(cartID.(string), item.ID)
 			if err := json.Unmarshal([]byte(d), &component); err != nil {
 				return err
 			}
-			components = append(components, component)
+			item.Components = append(item.Components, component)
 		}
 
-		if err := AddItemToCart(db, cartID.(string), components); err != nil {
+		// TODO add update cart method so that last_updated_at is up to date
+		if err := AddItemToCart(db, cartID.(string), item); err != nil {
 			return err
 		}
 
-		return nil
+		cart, err := GetCartByID(db, cartID.(string))
+		if err != nil {
+			return err
+		}
+
+		return renderPartial(w, "cart-modal", cart)
 	}) // TODO consolidate add & update methods
 
 	handle.post("/cart/remove", func(w http.ResponseWriter, r *http.Request) error {
@@ -438,32 +424,34 @@ func getCartID(session *sessions.Session) (interface{}, error) {
 
 }
 
-func CartMiddleWare(db *sql.DB, store *sessions.CookieStore, w http.ResponseWriter, r *http.Request) (bool, error) {
-	session, err := getCartSession(r, store)
-	if err != nil {
-		return false, err
-	}
+func newCartMiddlware(db *sql.DB, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (bool, error) {
+	return func(w http.ResponseWriter, r *http.Request) (bool, error) {
+		session, err := getCartSession(r, store)
+		if err != nil {
+			return false, err
+		}
 
-	cartID, err := getCartID(session)
-	if err != nil {
-		return false, err
-	}
+		cartID, err := getCartID(session)
+		if err != nil {
+			return false, err
+		}
 
-	if cartID != nil {
+		if cartID != nil {
+			return true, nil
+		}
+
+		cartID, err = NewCart(db)
+		if err != nil {
+			return false, err
+		}
+
+		session.Values["cart_id"] = cartID
+		if err := session.Save(r, w); err != nil {
+			return false, err
+		}
+
 		return true, nil
 	}
-
-	cartID, err = NewCart(db)
-	if err != nil {
-		return false, err
-	}
-
-	session.Values["cart_id"] = cartID
-	if err := session.Save(r, w); err != nil {
-		return false, err
-	}
-
-	return true, nil
 }
 
 func NotFoundPage(w http.ResponseWriter, renderPage renderPageFunc) error {
@@ -627,12 +615,11 @@ func GetCart(db *sql.DB, userID int) (*models.Cart, []*models.CartItem, error) {
 	return cart, items, nil
 }
 
-func AddItemToCart(db *sql.DB, cartID string, components []models.CartItemComponent) error {
-	cartItem := models.NewCartItem(cartID)
+func AddItemToCart(db *sql.DB, cartID string, cartItem models.CartItem) error {
 	if err := SaveCartItem(db, cartItem); err != nil {
 		return err
 	}
-	if err := SaveCartItemComponents(db, cartItem.ID, components); err != nil {
+	if err := SaveCartItemComponents(db, cartItem.Components); err != nil {
 		return err
 	}
 	return nil
@@ -849,39 +836,17 @@ func SaveBundleAsProduct(db *sql.DB, bundleProductValues models.Product) (int64,
 	return lastInsertId, nil
 }
 
-func CreateCartTables(db *sql.DB) (sql.Result, error) {
-	res, err := db.Exec(`CREATE TABLE IF NOT EXISTS carts(
-		id STRING PRIMARY KEY,
-		created_at DATETIME,
-		last_updated_at DATETIME
-	)`)
-
-	if err != nil {
-		return res, err
-	}
-
-	res, err = db.Exec(`CREATE TABLE IF NOT EXISTS cart_items(
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		cart_id STRING NOT NULL,
-		product_id INTEGER NOT NULL,
-		quantity INTEGER DEFAULT 1,
-		created_at DATETIME,
-		FOREIGN KEY (cart_id) REFERENCES carts(id),
-		FOREIGN KEY(product_id) REFERENCES products(id)
-	)`)
-
-	return res, err
-}
-
 func SaveCart(db *sql.DB, cart models.Cart) (*sql.Result, error) {
 	res, err := db.Exec(`INSERT INTO 
-		carts(
-			id, 
+		cart(
+			id,
+			total_value,
 			created_at, 
 			last_updated_at) 
 		VALUES 
-			(?, ?, ?)`,
+			(?, ?, ?, ?)`,
 		cart.ID,
+		cart.TotalValue,
 		cart.CreatedAt,
 		cart.LastUpdatedAt,
 	)
@@ -891,8 +856,48 @@ func SaveCart(db *sql.DB, cart models.Cart) (*sql.Result, error) {
 	return &res, nil
 }
 
+func GetCartByID(db *sql.DB, id string) (*models.Cart, error) {
+	row := db.QueryRow(`SELECT id, created_at, last_updated_at, total_value FROM cart WHERE id = ?`, id)
+	var cart models.Cart
+	if err := row.Scan(&cart.ID, &cart.CreatedAt, &cart.LastUpdatedAt, &cart.TotalValue); err != nil {
+		return nil, err
+	}
+	rows, err := db.Query(`SELECT id, cart_id, name, sale_price, qty, created_at FROM cart_item WHERE cart_id`, cart.ID)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var cartItem models.CartItem
+		if err := rows.Scan(&cartItem.ID, &cartItem.CartID, &cartItem.Name, &cartItem.SalePrice, &cartItem.Qty, &cartItem.CreatedAt); err != nil {
+			return nil, err
+		}
+		cart.Items = append(cart.Items, cartItem)
+	}
+	rows.Close()
+	for i := range cart.Items {
+		cartItem := &cart.Items[i]
+		rows, err = db.Query(`SELECT id, cart_item_id, cart_id, product_id, qty, name, created_at FROM cart_item_component WHERE cart_item_id = ? AND cart_id = ?`, cartItem.ID, cart.ID)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var component models.CartItemComponent
+			if err := rows.Scan(&component.ID, &component.CartItemID, &component.CartID, &component.ProductID, &component.Qty, &component.Name, &component.CreatedAt); err != nil {
+				return nil, err
+			}
+		}
+		rows.Close()
+	}
+	return &cart, nil
+}
+
 func SaveCartItem(db *sql.DB, cartItem models.CartItem) error {
-	return errors.New("save cart item not implemented")
+	q := `INSERT INTO cart_item (id, cart_id, name, sale_price, qty, created_at) VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := db.Exec(q, cartItem.ID, cartItem.CartID, cartItem.Name, cartItem.SalePrice, cartItem.Qty, cartItem.CreatedAt)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetCartByUserID(db *sql.DB, userID int) (*models.Cart, error) {
@@ -917,10 +922,16 @@ func GetCartItemsByCartID(db *sql.DB, cartID string) ([]*models.CartItem, error)
 	return nil, errors.New("getting cart items not implemented")
 }
 
-func SaveCartItemComponents(db *sql.DB, cartID string, components []models.CartItemComponent) error {
-
-	return errors.New("save Cart Item Components not yet implemented")
-
+func SaveCartItemComponents(db *sql.DB, components []models.CartItemComponent) error {
+	for i := range components {
+		c := &components[i]
+		q := `INSERT INTO cart_item_component (id, cart_item_id, cart_id, product_id, qty, name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err := db.Exec(q, c.ID, c.CartItemID, c.CartID, c.ProductID, c.Qty, c.Name, c.CreatedAt)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func RemoveCartItem(db *sql.DB, cartID, itemID string) error {
@@ -1069,8 +1080,9 @@ func SqliteOpen(path string) *sql.DB {
 }
 
 type renderPageFunc func(w http.ResponseWriter, templateName string, templateData map[string]any) error
+type renderPartialFunc func(w http.ResponseWriter, templateName string, templateData any) error
 
-func NewPageRenderer(tmpl *template.Template) renderPageFunc {
+func NewPageRenderer(tmpl tmplFunc) renderPageFunc {
 	return func(w http.ResponseWriter, templateName string, templateData map[string]any) error {
 
 		data := map[string]any{
@@ -1083,7 +1095,7 @@ func NewPageRenderer(tmpl *template.Template) renderPageFunc {
 		}
 
 		var buffer bytes.Buffer
-		if err := tmpl.ExecuteTemplate(&buffer, templateName, data); err != nil {
+		if err := tmpl().ExecuteTemplate(&buffer, templateName, data); err != nil {
 			return fmt.Errorf("problem executing template %s: %w", templateName, err)
 		}
 
@@ -1092,5 +1104,41 @@ func NewPageRenderer(tmpl *template.Template) renderPageFunc {
 		}
 
 		return nil
+	}
+}
+
+func NewPartialRenderer(tmpl tmplFunc) renderPartialFunc {
+	return func(w http.ResponseWriter, templateName string, templateData any) error {
+
+		var buffer bytes.Buffer
+		if err := tmpl().ExecuteTemplate(&buffer, templateName, templateData); err != nil {
+			return fmt.Errorf("problem executing partial template %s: %w", templateName, err)
+		}
+
+		if _, err := w.Write(buffer.Bytes()); err != nil {
+			return err
+		}
+
+		return nil
+	}
+}
+
+type tmplFunc func() *template.Template
+
+func templateParser(env Environment) tmplFunc {
+	var tmpl *template.Template
+	return func() *template.Template {
+		if env == Production && tmpl != nil {
+			return tmpl
+		}
+		tmpl = template.Must(template.New("").Funcs(template.FuncMap{
+			"sizeRange": func(width, tolerance float32) float32 {
+				return width - tolerance
+			},
+			"title": func(str string) string {
+				return cases.Title(language.AmericanEnglish).String(str)
+			},
+		}).ParseGlob("templates/**/*.tmpl"))
+		return tmpl
 	}
 }
