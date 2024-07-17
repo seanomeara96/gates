@@ -256,6 +256,10 @@ func main() {
 	handle.get("/cart/", func(w http.ResponseWriter, r *http.Request) error {
 		cart := models.Cart{}
 
+		cart.Items = append(cart.Items, models.CartItem{
+			Name: "Item 1",
+		})
+
 		data := map[string]any{
 			"PageTitle":       "Your shopping cart",
 			"MetaDescription": "",
