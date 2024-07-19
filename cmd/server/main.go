@@ -28,6 +28,13 @@ type key string
 
 const cartKey key = "cart"
 
+type Environment string
+
+const (
+	Development Environment = "development"
+	Production  Environment = "production"
+)
+
 type customHandleFunc func(w http.ResponseWriter, r *http.Request) error
 
 type middlewareFunc func(next customHandleFunc) customHandleFunc
@@ -364,32 +371,31 @@ func main() {
 		return renderPartial(w, "cart-modal", cart)
 	}) // TODO consolidate add & update methods
 
-	handle.post("/cart/remove", func(w http.ResponseWriter, r *http.Request) error {
-		session, err := getCartSession(r, store)
-		if err != nil {
-			return err
-		}
-
-		cartID, err := getCartID(session)
-		if err != nil {
-			return err
-		}
-
-		if ok := validateCartID(cartID); !ok {
-			return errors.New("invalid cart id")
-		}
-
+	handle.delete("/cart/items/", func(w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return err
 		}
 
-		itemID := r.Form.Get("item_id")
+		cart, ok := r.Context().Value(cartKey).(*models.Cart)
+		if !ok {
+			return fmt.Errorf("could not get cart from request contexr")
+		}
 
-		if err := RemoveItem(db, cartID.(string), itemID); err != nil {
+		cartItemID := r.Form.Get("id")
+		if cartItemID == "" {
+			return fmt.Errorf("no cart item id supplied")
+		}
+
+		if _, err := db.Exec("DELETE FROM cart_item WHERE id = ?", cartItemID); err != nil {
 			return err
 		}
 
-		return nil
+		cart, err := GetCartByID(db, cart.ID)
+		if err != nil {
+			return err
+		}
+
+		return renderPartial(w, "cart-main", cart)
 	})
 
 	handle.post("/cart/clear", func(w http.ResponseWriter, r *http.Request) error {
@@ -457,12 +463,12 @@ func (handle customHandler) post(path string, fn customHandleFunc) {
 	handle("POST "+path, fn)
 }
 
-/*func (handle customHandler) put(path string, fn customHandleFunc) {
+func (handle customHandler) put(path string, fn customHandleFunc) {
 	handle("PUT "+path, fn)
 }
 func (handle customHandler) delete(path string, fn customHandleFunc) {
 	handle("DELETE"+path, fn)
-}*/
+}
 
 func validateCartID(cartID interface{}) (valid bool) {
 	if _, ok := cartID.(string); !ok {
@@ -633,19 +639,6 @@ func NewCart(db *sql.DB) (*models.Cart, error) {
 		return nil, err
 	}
 	return &cart, nil
-}
-
-func GetCart(db *sql.DB, userID int) (*models.Cart, []*models.CartItem, error) {
-	//maybe if there is not cartby that user id we should auto call new cart
-	cart, err := GetCartByUserID(db, userID)
-	if err != nil {
-		return nil, nil, err
-	}
-	items, err := GetCartItemsByCartID(db, cart.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	return cart, items, nil
 }
 
 func AddItemToCart(db *sql.DB, cartID string, cartItem models.CartItem) error {
