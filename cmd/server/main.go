@@ -24,9 +24,13 @@ import (
 	"golang.org/x/text/language"
 )
 
+type key string
+
+const cartKey key = "cart"
+
 type customHandleFunc func(w http.ResponseWriter, r *http.Request) error
-type middlewareFn func(w http.ResponseWriter, r *http.Request) (execNextFunc bool, err error)
-type middlewaresFunc func(w http.ResponseWriter, r *http.Request, fn customHandleFunc) error
+
+type middlewareFunc func(next customHandleFunc) customHandleFunc
 type customHandler func(path string, fn customHandleFunc)
 
 type CustomRequest struct {
@@ -69,16 +73,64 @@ func main() {
 	renderPartial := NewPartialRenderer(tmpl)
 
 	// ROUTING LOGIC
-	cartMiddleware := newCartMiddlware(db, store)
-	middlewareFuncs := []middlewareFn{cartMiddleware}
+	//cartMiddleware := newCartMiddlware(db, store)
 
 	/*
-		Call the middlewares func for each request
-		Would be better if we could also do a per route basis
+		executed in reverse order. where i = 0 will execute last
 	*/
-	middlewares := registerMiddlewares(middlewareFuncs)
+	middleware := []middlewareFunc{
+		func(next customHandleFunc) customHandleFunc {
+			return func(w http.ResponseWriter, r *http.Request) error {
+				cart, ok := r.Context().Value(cartKey).(*models.Cart)
+				if !ok {
+					return fmt.Errorf("could not get cart from context")
+				}
+				log.Println("### cart middleware ###", cart.ID)
+				return next(w, r)
+			}
+		},
+		// cart middleware
+		func(next customHandleFunc) customHandleFunc {
+			return func(w http.ResponseWriter, r *http.Request) error {
+				session, err := getCartSession(r, store)
+				if err != nil {
+					return err
+				}
 
-	handle := createCustomHandler(environment, router, middlewares)
+				cartID, err := getCartID(session)
+				if err != nil {
+					return err
+				}
+
+				if cartID != nil {
+					cart, err := GetCartByID(db, cartID.(string))
+					if err != nil {
+						return err
+					}
+
+					ctx := context.WithValue(r.Context(), cartKey, cart)
+
+					return next(w, r.WithContext(ctx))
+				}
+
+				cart, err := NewCart(db)
+				if err != nil {
+					return err
+				}
+
+				ctx := context.WithValue(r.Context(), cartKey, cart)
+
+				session.Values["cart_id"] = cart.ID
+				if err := session.Save(r.WithContext(ctx), w); err != nil {
+					return err
+				}
+
+				return next(w, r.WithContext(ctx))
+			}
+		},
+	}
+
+	handle := createCustomHandler(environment, router, middleware)
 
 	handle("/", func(w http.ResponseWriter, r *http.Request) error {
 		if r.URL.Path == "/" {
@@ -392,29 +444,16 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
-func registerMiddlewares(middlewareFuncs []middlewareFn) func(w http.ResponseWriter, r *http.Request, fn customHandleFunc) error {
-	return func(w http.ResponseWriter, r *http.Request, fn customHandleFunc) error {
-		for _, middle := range middlewareFuncs {
-			next, err := middle(w, r)
-			if err != nil {
-				return err
-			}
-			if !next {
-				return nil
-			}
-		}
-		return fn(w, r)
-	}
-}
-
 func sendErr(w http.ResponseWriter, err error) {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
-func createCustomHandler(environment Environment, router *http.ServeMux, executeMiddlewares middlewaresFunc) customHandler {
+func createCustomHandler(environment Environment, router *http.ServeMux, middleware []middlewareFunc) customHandler {
 	return func(path string, fn customHandleFunc) {
+		for i := range middleware {
+			fn = middleware[i](fn)
+		}
 		router.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-
 			if environment == Development {
 				rMsg := "[INFO] %s request made to %s"
 				log.Printf(rMsg, r.Method, r.URL.Path)
@@ -422,8 +461,7 @@ func createCustomHandler(environment Environment, router *http.ServeMux, execute
 
 			// custom handler get passed throgh the carthandler middleware first to
 			// ensure there is a cart session
-			err := executeMiddlewares(w, r, fn)
-			if err != nil {
+			if err := fn(w, r); err != nil {
 				log.Printf("[ERROR] Failed  %s request to %s. %v", r.Method, path, err)
 
 				// ideally I would get notified of an error here
@@ -474,36 +512,6 @@ func getCartID(session *sessions.Session) (interface{}, error) {
 	}
 	return session.Values["cart_id"], nil
 
-}
-
-func newCartMiddlware(db *sql.DB, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (bool, error) {
-	return func(w http.ResponseWriter, r *http.Request) (bool, error) {
-		session, err := getCartSession(r, store)
-		if err != nil {
-			return false, err
-		}
-
-		cartID, err := getCartID(session)
-		if err != nil {
-			return false, err
-		}
-
-		if cartID != nil {
-			return true, nil
-		}
-
-		cartID, err = NewCart(db)
-		if err != nil {
-			return false, err
-		}
-
-		session.Values["cart_id"] = cartID
-		if err := session.Save(r, w); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	}
 }
 
 func NotFoundPage(w http.ResponseWriter, renderPage renderPageFunc) error {
@@ -646,12 +654,12 @@ func TotalValue(db *sql.DB, cart models.Cart) (float64, error) {
 	return value, nil
 }
 
-func NewCart(db *sql.DB) (string, error) {
+func NewCart(db *sql.DB) (*models.Cart, error) {
 	cart := models.NewCart()
 	if _, err := SaveCart(db, cart); err != nil {
-		return "", err
+		return nil, err
 	}
-	return cart.ID, nil
+	return &cart, nil
 }
 
 func GetCart(db *sql.DB, userID int) (*models.Cart, []*models.CartItem, error) {
