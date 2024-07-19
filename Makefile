@@ -1,8 +1,8 @@
-run:
-	go run ./cmd/server/ -port 3000
+run: build
+	./bin/server.exe -port 3000
 
 build:
-	go build -o bin/server ./cmd/server/
+	go build -o bin/server.exe ./cmd/server/
 
 bundles:
 	go run scripts/cacheBundles.go

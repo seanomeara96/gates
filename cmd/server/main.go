@@ -79,16 +79,6 @@ func main() {
 		executed in reverse order. where i = 0 will execute last
 	*/
 	middleware := []middlewareFunc{
-		func(next customHandleFunc) customHandleFunc {
-			return func(w http.ResponseWriter, r *http.Request) error {
-				cart, ok := r.Context().Value(cartKey).(*models.Cart)
-				if !ok {
-					return fmt.Errorf("could not get cart from context")
-				}
-				log.Println("### cart middleware ###", cart.ID)
-				return next(w, r)
-			}
-		},
 		// cart middleware
 		func(next customHandleFunc) customHandleFunc {
 			return func(w http.ResponseWriter, r *http.Request) error {
@@ -144,12 +134,17 @@ func main() {
 				return err
 			}
 
+			cart, ok := r.Context().Value(cartKey).(*models.Cart)
+			if !ok {
+				return fmt.Errorf("could not get cart form context")
+			}
+
 			data := map[string]any{
 				"PageTitle":       "Home Page",
 				"MetaDescription": "Welcome to the home page",
 				"FeaturedGates":   featuredGates,
 				"PopularBundles":  popularBundles,
-				"Cart":            models.Cart{Items: []models.CartItem{}},
+				"Cart":            cart,
 			}
 
 			return renderPage(w, "home", data)
@@ -322,26 +317,9 @@ func main() {
 		cart endpoints
 	*/
 	handle.get("/cart/", func(w http.ResponseWriter, r *http.Request) error {
-		cart := models.NewCart()
-
-		cart.Items = []models.CartItem{
-			{
-				Name:      "Bundle 1",
-				SalePrice: 10.99,
-				Components: []models.CartItemComponent{
-					{Name: "Component 1" + " x " + strconv.Itoa(1)},
-					{Name: "Component 2" + " x " + strconv.Itoa(2)},
-					{Name: "Component 3" + " x " + strconv.Itoa(3)},
-					{Name: "Component 4" + " x " + strconv.Itoa(4)},
-				},
-			},
-			{
-				Name:      "Bundle 2",
-				SalePrice: 12.99,
-				Components: []models.CartItemComponent{
-					{Name: "Component 1"},
-				},
-			},
+		cart, ok := r.Context().Value(cartKey).(*models.Cart)
+		if !ok {
+			return fmt.Errorf("could not get cart from request")
 		}
 
 		data := map[string]any{
@@ -354,28 +332,19 @@ func main() {
 	})
 
 	handle.post("/cart/add", func(w http.ResponseWriter, r *http.Request) error {
-		session, err := getCartSession(r, store)
-		if err != nil {
-			return err
-		}
-
-		cartID, err := getCartID(session)
-		if err != nil {
-			return err
-		}
-
-		if ok := validateCartID(cartID); !ok {
-			return errors.New("invalid cart id")
+		cart, ok := r.Context().Value(cartKey).(*models.Cart)
+		if !ok {
+			return fmt.Errorf("could not get cart from context")
 		}
 
 		if err := r.ParseForm(); err != nil {
 			return err
 		}
 
-		item := models.NewCartItem(cartID.(string))
+		item := models.NewCartItem(cart.ID)
 
 		for _, d := range r.Form["data"] {
-			component := models.NewCartItemComponent(cartID.(string), item.ID)
+			component := models.NewCartItemComponent(cart.ID, item.ID)
 			if err := json.Unmarshal([]byte(d), &component); err != nil {
 				return err
 			}
@@ -383,11 +352,11 @@ func main() {
 		}
 
 		// TODO add update cart method so that last_updated_at is up to date
-		if err := AddItemToCart(db, cartID.(string), item); err != nil {
+		if err := AddItemToCart(db, cart.ID, item); err != nil {
 			return err
 		}
 
-		cart, err := GetCartByID(db, cartID.(string))
+		cart, err := GetCartByID(db, cart.ID)
 		if err != nil {
 			return err
 		}
@@ -450,19 +419,23 @@ func sendErr(w http.ResponseWriter, err error) {
 
 func createCustomHandler(environment Environment, router *http.ServeMux, middleware []middlewareFunc) customHandler {
 	return func(path string, fn customHandleFunc) {
+
+		// wrap fn in middleware funcs
 		for i := range middleware {
 			fn = middleware[i](fn)
 		}
+
 		router.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			if environment == Development {
 				rMsg := "[INFO] %s request made to %s"
 				log.Printf(rMsg, r.Method, r.URL.Path)
 			}
 
-			// custom handler get passed throgh the carthandler middleware first to
+			// custom handler get passed throgh the cart handler middleware first to
 			// ensure there is a cart session
 			if err := fn(w, r); err != nil {
-				log.Printf("[ERROR] Failed  %s request to %s. %v", r.Method, path, err)
+				errMsg := "[ERROR] Failed  %s request to %s. %v"
+				log.Printf(errMsg, r.Method, path, err)
 
 				// ideally I would get notified of an error here
 				if environment == Development {
@@ -717,11 +690,9 @@ func CreateProduct(db *sql.DB, params createProductParams) (int64, error) {
 
 	hasValidType := false
 	for _, validProductType := range validProductTypes {
-
 		if params.Type == string(validProductType) {
 			hasValidType = true
 		}
-
 	}
 
 	if !hasValidType {
@@ -824,32 +795,6 @@ func GetBundles(db *sql.DB, productCache *cache.Cache, params ProductFilterParam
 /* service funcs end */
 
 /* repository funcs start */
-
-func CreateBundleTables(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS bundle_gates (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		gate_id INTEGER NOT NULL,
-		bundle_id INTEGER NOT NULL,
-		qty INTEGER NOT NULL,
-		FOREIGN KEY (gate_id) REFERENCES products(id),
-		FOREIGN KEY (bundle_id) REFERENCES products(id)
-	)`)
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS bundle_extensions (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		extension_id INTEGER NOT NULL,
-		bundle_id INTEGER NOT NULL,
-		qty INTEGER NOT NULL,
-		FOREIGN KEY (extension_id) REFERENCES products(id),
-		FOREIGN KEY (bundle_id) REFERENCES products(id)
-	)`)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func SaveRequestedBundleSize(db *sql.DB, desiredWidth float32) error {
 	_, err := db.Exec("INSERT INTO bundle_sizes (type, size) VALUES ('pressure fit', ?)", desiredWidth)
