@@ -8,7 +8,7 @@ CREATE TABLE cart (
 
 -- Table for cart_item
 CREATE TABLE cart_item (
-    id TEXT PRIMARY KEY,
+    id TEXT,
     cart_id TEXT,
     name TEXT,
     sale_price REAL,

@@ -965,7 +965,7 @@ func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
 	q := `INSERT INTO cart_item (id, cart_id, name, sale_price, qty, created_at) VALUES (?, ?, ?, ?, ?, ?)`
 	_, err = db.Exec(q, cartItem.ID, cartItem.CartID, cartItem.Name, cartItem.SalePrice, cartItem.Qty, cartItem.CreatedAt)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not insert cart item in db %w", err)
 	}
 	return nil
 }

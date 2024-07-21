@@ -116,12 +116,31 @@ func TestAddItemToCart(t *testing.T) {
 		return
 	}
 
+	resCart, err = GetCartByID(db, cart.ID)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	if len(resCart.Items) > 2 {
 		t.Error("there should only be two items in the cart")
 	}
 
-	if len(resCart.Items[1].Components) < 1 {
-		t.Error("the bundle item should have components")
+	foundBundle := false
+	for _, item := range resCart.Items {
+		if len(item.Components) > 1 {
+			foundBundle = true
+		}
+		if len(item.Components) < 1 {
+			t.Error("an item has no components")
+			return
+		}
 	}
+
+	if !foundBundle {
+		t.Error("there should deffo be a bundle")
+	}
+
+	cart = *resCart
 
 }
