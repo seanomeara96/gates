@@ -19,7 +19,7 @@ CREATE TABLE cart_item (
 
 -- Table for cart_item_component
 CREATE TABLE cart_item_component (
-    id TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     cart_item_id TEXT,
     cart_id TEXT,
     product_id INTEGER,

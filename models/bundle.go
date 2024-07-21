@@ -10,6 +10,24 @@ type Bundle struct {
 	Extensions []Product `json:"extensions"`
 }
 
+func (b *Bundle) Components() []CartItemComponent {
+	components := []CartItemComponent{}
+	for _, g := range b.Gates {
+		components = append(components, CartItemComponent{
+			ProductID: g.Id,
+			Qty:       g.Qty,
+		})
+	}
+	for _, e := range b.Extensions {
+		components = append(components, CartItemComponent{
+			ProductID: e.Id,
+			Qty:       e.Qty,
+		})
+
+	}
+	return components
+}
+
 type Bundles []Bundle
 
 // we can add in error handling retrospectively,

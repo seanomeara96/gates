@@ -141,9 +141,9 @@ func main() {
 				return err
 			}
 
-			cart, ok := r.Context().Value(cartKey).(*models.Cart)
-			if !ok {
-				return fmt.Errorf("could not get cart form context")
+			cart, err := ctxCart(r)
+			if err != nil {
+				return err
 			}
 
 			data := map[string]any{
@@ -161,9 +161,14 @@ func main() {
 	}) // cant use 'get' because it causes conflicts
 
 	handle.get("/contact/", func(w http.ResponseWriter, r *http.Request) error {
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
+		}
 		data := map[string]any{
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
+			"Cart":            cart,
 		}
 		return renderPage(w, "contact", data)
 	})
@@ -186,6 +191,7 @@ func main() {
 			return renderPage(w, "contact", map[string]any{
 				"PageTitle":       "Contact us | No Message Provided",
 				"MetaDescription": "Please provide a message",
+				"Cart":            nil,
 			})
 		}
 
@@ -194,6 +200,7 @@ func main() {
 			return renderPage(w, "contact", map[string]any{
 				"PageTitle":       "Contact us | Invalid Email",
 				"MetaDescription": "Please provide a  valid email address",
+				"Cart":            nil,
 			})
 		}
 
@@ -249,6 +256,11 @@ func main() {
 	//handle.get("/bundles/", pageHandler.Bundles)
 	//handle.get("/bundles/new", pageHandler.Bundles)
 	handle.get("/gates/", func(w http.ResponseWriter, r *http.Request) error {
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
+		}
+
 		gates, err := GetGates(db, productCache, ProductFilterParams{})
 		if err != nil {
 			return err
@@ -259,12 +271,18 @@ func main() {
 			"PageTitle":       "Shop All Gates",
 			"MetaDescription": "Shop our full range of gates",
 			"Products":        gates,
+			"Cart":            cart,
 		}
 
 		return renderPage(w, "products", data)
 	})
 
 	handle.get("/gates/{gate_id}", func(w http.ResponseWriter, r *http.Request) error {
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
+		}
+
 		gateID, err := strconv.Atoi(r.PathValue("gate_id"))
 		if err != nil {
 			return err
@@ -279,6 +297,7 @@ func main() {
 			"PageTitle":       gate.Name,
 			"MetaDescription": gate.Name,
 			"Product":         gate,
+			"Cart":            cart,
 		}
 
 		return renderPage(w, "product", data)
@@ -286,6 +305,10 @@ func main() {
 	})
 
 	handle.get("/extensions/", func(w http.ResponseWriter, r *http.Request) error {
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
+		}
 		extensions, err := GetExtensions(db, productCache, ProductFilterParams{})
 		if err != nil {
 			return err
@@ -296,12 +319,18 @@ func main() {
 			"PageTitle":       "All extensions",
 			"MetaDescription": "Shop all extensions",
 			"Products":        extensions,
+			"Cart":            cart,
 		}
 
 		return renderPage(w, "products", data)
 	})
 
 	handle.get("/extensions/{extension_id}", func(w http.ResponseWriter, r *http.Request) error {
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
+		}
+
 		extensionID, err := strconv.Atoi(r.PathValue("extension_id"))
 		if err != nil {
 			return err
@@ -315,6 +344,7 @@ func main() {
 		data := map[string]any{
 			"PageTitle":       extension.Name,
 			"MetaDescription": extension.Name,
+			"Cart":            cart,
 		}
 
 		return renderPage(w, "products", data)
@@ -324,9 +354,9 @@ func main() {
 		cart endpoints
 	*/
 	handle.get("/cart/", func(w http.ResponseWriter, r *http.Request) error {
-		cart, ok := r.Context().Value(cartKey).(*models.Cart)
-		if !ok {
-			return fmt.Errorf("could not get cart from request")
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
 		}
 
 		data := map[string]any{
@@ -339,31 +369,33 @@ func main() {
 	})
 
 	handle.post("/cart/add", func(w http.ResponseWriter, r *http.Request) error {
-		cart, ok := r.Context().Value(cartKey).(*models.Cart)
-		if !ok {
-			return fmt.Errorf("could not get cart from context")
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
 		}
 
 		if err := r.ParseForm(); err != nil {
 			return err
 		}
 
-		item := models.NewCartItem(cart.ID)
+		components := []models.CartItemComponent{}
 
 		for _, d := range r.Form["data"] {
-			component := models.NewCartItemComponent(cart.ID, item.ID)
+			component := models.NewCartItemComponent(cart.ID)
 			if err := json.Unmarshal([]byte(d), &component); err != nil {
 				return err
 			}
-			item.Components = append(item.Components, component)
+			components = append(components, component)
 		}
+
+		item := models.NewCartItem(cart.ID, components)
 
 		// TODO add update cart method so that last_updated_at is up to date
 		if err := AddItemToCart(db, cart.ID, item); err != nil {
 			return err
 		}
 
-		cart, err := GetCartByID(db, cart.ID)
+		cart, err = GetCartByID(db, cart.ID)
 		if err != nil {
 			return err
 		}
@@ -371,14 +403,14 @@ func main() {
 		return renderPartial(w, "cart-modal", cart)
 	}) // TODO consolidate add & update methods
 
-	handle.delete("/cart/items/", func(w http.ResponseWriter, r *http.Request) error {
-		if err := r.ParseForm(); err != nil {
+	handle.delete("/cart/item/", func(w http.ResponseWriter, r *http.Request) error {
+		cart, err := ctxCart(r)
+		if err != nil {
 			return err
 		}
 
-		cart, ok := r.Context().Value(cartKey).(*models.Cart)
-		if !ok {
-			return fmt.Errorf("could not get cart from request contexr")
+		if err := r.ParseForm(); err != nil {
+			return err
 		}
 
 		cartItemID := r.Form.Get("id")
@@ -390,7 +422,7 @@ func main() {
 			return err
 		}
 
-		cart, err := GetCartByID(db, cart.ID)
+		cart, err = GetCartByID(db, cart.ID)
 		if err != nil {
 			return err
 		}
@@ -399,13 +431,28 @@ func main() {
 	})
 
 	handle.post("/cart/clear", func(w http.ResponseWriter, r *http.Request) error {
-		return fmt.Errorf("clear cart not implemented")
-	})
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
+		}
 
-	handle.get("/test/{int}", func(w http.ResponseWriter, r *http.Request) error {
-		fmt.Println("Testing ", r.PathValue("int"))
-		w.WriteHeader(http.StatusOK)
-		return nil
+		_, err = db.Exec("DELETE FROM cart_item WHERE cart_id = ?", cart.ID)
+		if err != nil {
+			return fmt.Errorf("could not delete cart_item where cart_id = %s: %w", cart.ID, err)
+		}
+
+		_, err = db.Exec("DELETE FROM cart_item_component WHERE cart_id = ?", cart.ID)
+		if err != nil {
+			return fmt.Errorf("could not delete  cart_item_component where cart_id = %s: %w", cart.ID, err)
+		}
+
+		cart, err = GetCartByID(db, cart.ID)
+		if err != nil {
+			return err
+		}
+
+		return renderPartial(w, "cart-main", cart)
+
 	})
 
 	// init assets dir
@@ -468,6 +515,14 @@ func (handle customHandler) put(path string, fn customHandleFunc) {
 }
 func (handle customHandler) delete(path string, fn customHandleFunc) {
 	handle("DELETE"+path, fn)
+}
+
+func ctxCart(r *http.Request) (*models.Cart, error) {
+	cart, ok := r.Context().Value(cartKey).(*models.Cart)
+	if !ok {
+		return nil, errors.New("could not get cart from request context")
+	}
+	return cart, nil
 }
 
 func validateCartID(cartID interface{}) (valid bool) {
@@ -642,11 +697,11 @@ func NewCart(db *sql.DB) (*models.Cart, error) {
 }
 
 func AddItemToCart(db *sql.DB, cartID string, cartItem models.CartItem) error {
-	if err := SaveCartItem(db, cartItem); err != nil {
-		return err
+	if err := InsertOrIncrementCartItem(db, cartItem); err != nil {
+		return fmt.Errorf("adding item to cart failed at insert or increment cart item: %w", err)
 	}
 	if err := SaveCartItemComponents(db, cartItem.Components); err != nil {
-		return err
+		return fmt.Errorf("adding item components failed: %w", err)
 	}
 	return nil
 }
@@ -732,10 +787,11 @@ func GetProductByID(db *sql.DB, productID int) (*models.Product, error) {
 
 func GetGates(db *sql.DB, productCache *cache.Cache, params ProductFilterParams) ([]*models.Product, error) {
 	cacheString := fmt.Sprintf("gates;max-width:%f;limit:%d;", params.MaxWidth, params.Limit)
-
-	cachedGates, found := productCache.Get(cacheString)
-	if found {
-		return cachedGates.([]*models.Product), nil
+	if productCache != nil {
+		cachedGates, found := productCache.Get(cacheString)
+		if found {
+			return cachedGates.([]*models.Product), nil
+		}
 	}
 
 	gates, err := GetProducts(db, Gate, params)
@@ -743,7 +799,9 @@ func GetGates(db *sql.DB, productCache *cache.Cache, params ProductFilterParams)
 		return nil, err
 	}
 
-	productCache.Set(cacheString, gates, time.Minute*5)
+	if productCache != nil {
+		productCache.Set(cacheString, gates, time.Minute*5)
+	}
 	return gates, nil
 }
 
@@ -860,7 +918,7 @@ func GetCartByID(db *sql.DB, id string) (*models.Cart, error) {
 	if err := row.Scan(&cart.ID, &cart.CreatedAt, &cart.LastUpdatedAt, &cart.TotalValue); err != nil {
 		return nil, err
 	}
-	rows, err := db.Query(`SELECT id, cart_id, name, sale_price, qty, created_at FROM cart_item WHERE cart_id`, cart.ID)
+	rows, err := db.Query(`SELECT id, cart_id, name, sale_price, qty, created_at FROM cart_item WHERE cart_id = ?`, cart.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -874,13 +932,13 @@ func GetCartByID(db *sql.DB, id string) (*models.Cart, error) {
 	rows.Close()
 	for i := range cart.Items {
 		cartItem := &cart.Items[i]
-		rows, err = db.Query(`SELECT id, cart_item_id, cart_id, product_id, qty, name, created_at FROM cart_item_component WHERE cart_item_id = ? AND cart_id = ?`, cartItem.ID, cart.ID)
+		rows, err = db.Query(`SELECT cart_item_id, cart_id, product_id, qty, name, created_at FROM cart_item_component WHERE cart_item_id = ? AND cart_id = ?`, cartItem.ID, cart.ID)
 		if err != nil {
 			return nil, err
 		}
 		for rows.Next() {
 			var component models.CartItemComponent
-			if err := rows.Scan(&component.ID, &component.CartItemID, &component.CartID, &component.ProductID, &component.Qty, &component.Name, &component.CreatedAt); err != nil {
+			if err := rows.Scan(&component.CartItemID, &component.CartID, &component.ProductID, &component.Qty, &component.Name, &component.CreatedAt); err != nil {
 				return nil, err
 			}
 		}
@@ -889,9 +947,23 @@ func GetCartByID(db *sql.DB, id string) (*models.Cart, error) {
 	return &cart, nil
 }
 
-func SaveCartItem(db *sql.DB, cartItem models.CartItem) error {
+func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
+	var count int
+	err := db.QueryRow("SELECT count(id) as count FROM cart_item WHERE id = ? AND cart_id = ?", cartItem.ID, cartItem.CartID).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("could not count cart_item %w", err)
+	}
+
+	if count > 0 {
+		_, err := db.Exec("UPDATE cart_item SET qty = qty + 1 WHERE id = ? AND cart_id = ?", cartItem.ID, cartItem.CartID)
+		if err != nil {
+			return fmt.Errorf("could not increment cart item: %w", err)
+		}
+		return nil
+	}
+
 	q := `INSERT INTO cart_item (id, cart_id, name, sale_price, qty, created_at) VALUES (?, ?, ?, ?, ?, ?)`
-	_, err := db.Exec(q, cartItem.ID, cartItem.CartID, cartItem.Name, cartItem.SalePrice, cartItem.Qty, cartItem.CreatedAt)
+	_, err = db.Exec(q, cartItem.ID, cartItem.CartID, cartItem.Name, cartItem.SalePrice, cartItem.Qty, cartItem.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -921,10 +993,9 @@ func GetCartItemsByCartID(db *sql.DB, cartID string) ([]*models.CartItem, error)
 }
 
 func SaveCartItemComponents(db *sql.DB, components []models.CartItemComponent) error {
-	for i := range components {
-		c := &components[i]
-		q := `INSERT INTO cart_item_component (id, cart_item_id, cart_id, product_id, qty, name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
-		_, err := db.Exec(q, c.ID, c.CartItemID, c.CartID, c.ProductID, c.Qty, c.Name, c.CreatedAt)
+	for _, c := range components {
+		q := `INSERT INTO cart_item_component (cart_item_id, cart_id, product_id, qty, name, created_at) VALUES (?, ?, ?, ?, ?, ?)`
+		_, err := db.Exec(q, c.CartItemID, c.CartID, c.ProductID, c.Qty, c.Name, c.CreatedAt)
 		if err != nil {
 			return err
 		}
@@ -992,6 +1063,9 @@ func GetProductPrice(db *sql.DB, id int) (float64, error) {
 }
 
 func GetProductByName(db *sql.DB, name string) (*models.Product, error) {
+	if db == nil {
+		return nil, errors.New("need a non nil db to get products by name")
+	}
 	return scanProductFromRow(
 		db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE name = ?", name),
 	)
@@ -1003,6 +1077,10 @@ type ProductFilterParams struct {
 }
 
 func GetProducts(db *sql.DB, productType ProductType, params ProductFilterParams) ([]*models.Product, error) {
+	if db == nil {
+		return nil, errors.New("get products requires a non nil db pointer")
+	}
+
 	filters := []any{productType}
 
 	baseQuery := "SELECT id, type, name, width, price,  img, color, tolerance FROM products WHERE type = ?"

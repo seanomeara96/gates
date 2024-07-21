@@ -1,6 +1,8 @@
 package models
 
 import (
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,7 +27,6 @@ type CartItem struct {
 }
 
 type CartItemComponent struct {
-	ID         string    `json:"id"`
 	CartItemID string    `json:"cart_item_id"`
 	CartID     string    `json:"cart_id"`
 	ProductID  int       `json:"product_id"`
@@ -43,23 +44,30 @@ func NewCart() Cart {
 	}
 }
 
-func NewCartItem(cartID string) CartItem {
-	id := uuid.New().String()
+func NewCartItem(cartID string, components []CartItemComponent) CartItem {
+	idParts := []string{}
+	for _, c := range components {
+		idParts = append(idParts, strconv.Itoa(c.ProductID)+":"+strconv.Itoa(c.Qty))
+	}
+	id := strings.Join(idParts, ",")
+
+	for i := range components {
+		components[i].CartID = cartID
+		components[i].CartItemID = id
+	}
+
 	return CartItem{
-		ID:        id,
-		CartID:    cartID,
-		CreatedAt: time.Now(),
-		Qty:       1,
+		ID:         id,
+		CartID:     cartID,
+		Components: components,
+		CreatedAt:  time.Now(),
+		Qty:        1,
 	}
 }
 
-func NewCartItemComponent(cartID, cartItemID string) CartItemComponent {
-	id := uuid.New().String()
+func NewCartItemComponent(cartID string) CartItemComponent {
 	return CartItemComponent{
-		ID:         id,
-		CartID:     cartID,
-		CartItemID: cartItemID,
-		CreatedAt:  time.Now(),
-		Qty:        1,
+		CartID:    cartID,
+		CreatedAt: time.Now(),
 	}
 }
