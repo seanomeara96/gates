@@ -47,9 +47,9 @@ func NewCart() Cart {
 func NewCartItem(cartID string, components []CartItemComponent) CartItem {
 	idParts := []string{}
 	for _, c := range components {
-		idParts = append(idParts, strconv.Itoa(c.ProductID)+":"+strconv.Itoa(c.Qty))
+		idParts = append(idParts, strconv.Itoa(c.ProductID)+"-"+strconv.Itoa(c.Qty))
 	}
-	id := strings.Join(idParts, ",")
+	id := strings.Join(idParts, "_")
 
 	for i := range components {
 		components[i].CartID = cartID

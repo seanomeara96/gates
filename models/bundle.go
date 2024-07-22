@@ -10,7 +10,7 @@ type Bundle struct {
 	Extensions []Product `json:"extensions"`
 }
 
-func (b *Bundle) Components() []CartItemComponent {
+func (b *Bundle) CartItemComponents() []CartItemComponent {
 	components := []CartItemComponent{}
 	for _, g := range b.Gates {
 		components = append(components, CartItemComponent{

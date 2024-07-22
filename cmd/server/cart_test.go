@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -43,7 +44,7 @@ func TestGetCart(t *testing.T) {
 
 func TestAddItemToCart(t *testing.T) {
 	item := models.NewCartItem(cart.ID, []models.CartItemComponent{
-		models.CartItemComponent{ProductID: 1, Qty: 1, CreatedAt: time.Now()},
+		{ProductID: 1, Qty: 1, CreatedAt: time.Now()},
 	})
 
 	err := AddItemToCart(db, cart.ID, item)
@@ -94,21 +95,20 @@ func TestAddItemToCart(t *testing.T) {
 
 	bundle := models.Bundle{
 		Gates: []models.Product{
-			models.Product{
+			{
 				Id:  1,
 				Qty: 1,
 			},
 		},
 		Extensions: []models.Product{
-			models.Product{
+			{
 				Id:  3,
 				Qty: 1,
 			},
 		},
 	}
-	bundleComponents := bundle.Components()
 
-	bundleAsItem := models.NewCartItem(cart.ID, bundleComponents)
+	bundleAsItem := models.NewCartItem(cart.ID, bundle.CartItemComponents())
 
 	err = AddItemToCart(db, cart.ID, bundleAsItem)
 	if err != nil {
@@ -132,6 +132,7 @@ func TestAddItemToCart(t *testing.T) {
 			foundBundle = true
 		}
 		if len(item.Components) < 1 {
+			fmt.Println(item)
 			t.Error("an item has no components")
 			return
 		}
