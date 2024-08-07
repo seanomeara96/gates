@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -22,6 +23,138 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	os.Exit(code)
+}
+
+func TestCartPrepare(t *testing.T) {
+	cartData := `{
+  "id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+  "created_at": "2024-07-22T20:40:41.455095173+01:00",
+  "last_updated_at": "2024-08-07T20:30:06.724698339+01:00",
+  "items": [
+    {
+      "id": "1-1",
+      "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+      "name": "",
+      "sale_price": 0,
+      "components": [
+        {
+          "cart_item_id": "1-1",
+          "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+          "product_id": 1,
+          "qty": 1,
+          "name": "",
+          "created_at": "2024-08-07T20:29:46.457331985+01:00"
+        }
+      ],
+      "qty": 1,
+      "created_at": "2024-08-07T20:29:46.457346354+01:00"
+    },
+    {
+      "id": "2-1",
+      "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+      "name": "",
+      "sale_price": 0,
+      "components": [
+        {
+          "cart_item_id": "2-1",
+          "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+          "product_id": 2,
+          "qty": 1,
+          "name": "",
+          "created_at": "2024-08-07T20:29:47.420480358+01:00"
+        }
+      ],
+      "qty": 1,
+      "created_at": "2024-08-07T20:29:47.420494565+01:00"
+    },
+    {
+      "id": "3-1",
+      "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+      "name": "",
+      "sale_price": 0,
+      "components": [
+        {
+          "cart_item_id": "3-1",
+          "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+          "product_id": 3,
+          "qty": 1,
+          "name": "",
+          "created_at": "2024-08-07T20:29:48.435215408+01:00"
+        }
+      ],
+      "qty": 4,
+      "created_at": "2024-08-07T20:29:48.4352302+01:00"
+    },
+    {
+      "id": "4-1",
+      "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+      "name": "",
+      "sale_price": 0,
+      "components": [
+        {
+          "cart_item_id": "4-1",
+          "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+          "product_id": 4,
+          "qty": 1,
+          "name": "",
+          "created_at": "2024-08-07T20:29:49.623132319+01:00"
+        }
+      ],
+      "qty": 1,
+      "created_at": "2024-08-07T20:29:49.623145941+01:00"
+    },
+    {
+      "id": "1-1_4-1_5-2",
+      "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+      "name": "",
+      "sale_price": 0,
+      "components": [
+        {
+          "cart_item_id": "1-1_4-1_5-2",
+          "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+          "product_id": 1,
+          "qty": 1,
+          "name": "",
+          "created_at": "2024-08-07T20:30:06.676876438+01:00"
+        },
+        {
+          "cart_item_id": "1-1_4-1_5-2",
+          "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+          "product_id": 4,
+          "qty": 1,
+          "name": "",
+          "created_at": "2024-08-07T20:30:06.676889805+01:00"
+        },
+        {
+          "cart_item_id": "1-1_4-1_5-2",
+          "cart_id": "536255d4-d843-4a39-ac69-b63c9402fcb6",
+          "product_id": 5,
+          "qty": 2,
+          "name": "",
+          "created_at": "2024-08-07T20:30:06.676892541+01:00"
+        }
+      ],
+      "qty": 13,
+      "created_at": "2024-08-07T20:30:06.676896868+01:00"
+    }
+  ],
+  "total_value": 0
+}`
+
+	var cart models.Cart
+	if err := json.Unmarshal([]byte(cartData), &cart); err != nil {
+		t.Error(err)
+	}
+
+	if err := prepareCart(db, &cart); err != nil {
+		t.Error(err)
+	}
+
+	for _, i := range cart.Items {
+		fmt.Println(i.Qty, i.SalePrice, float64(i.Qty)*i.SalePrice)
+	}
+
+	t.Error(cart.TotalValue)
 }
 
 func TestSaveCart(t *testing.T) {

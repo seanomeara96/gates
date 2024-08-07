@@ -141,6 +141,9 @@ func main() {
 					}
 
 				}
+				if err := prepareCart(db, cart); err != nil {
+					return err
+				}
 				ctx = context.WithValue(ctx, cartKey, cart)
 				return next(w, r.WithContext(ctx))
 			}
@@ -156,7 +159,7 @@ func main() {
 				return err
 			}
 
-			popularBundles, err := GetBundles(db, productCache, ProductFilterParams{Limit: 3})
+			extensions, err := GetExtensions(db, productCache, ProductFilterParams{Limit: 2})
 			if err != nil {
 				return err
 			}
@@ -167,11 +170,11 @@ func main() {
 			}
 
 			data := map[string]any{
-				"PageTitle":       "Home Page",
-				"MetaDescription": "Welcome to the home page",
-				"FeaturedGates":   featuredGates,
-				"PopularBundles":  popularBundles,
-				"Cart":            cart,
+				"PageTitle":          "Home Page",
+				"MetaDescription":    "Welcome to the home page",
+				"FeaturedGates":      featuredGates,
+				"FeaturedExtensions": extensions,
+				"Cart":               cart,
 			}
 
 			return renderPage(w, "home", data)
@@ -397,6 +400,20 @@ func main() {
 		return renderPage(w, "cart", data)
 	})
 
+	handle.get("/cart/json", func(w http.ResponseWriter, r *http.Request) error {
+		cart, err := ctxCart(r)
+		if err != nil {
+			return err
+		}
+		bytes, err := json.Marshal(cart)
+		if err != nil {
+			return err
+		}
+
+		w.Write(bytes)
+		return nil
+	})
+
 	handle.post("/cart/add", func(w http.ResponseWriter, r *http.Request) error {
 		cart, err := ctxCart(r)
 		if err != nil {
@@ -579,6 +596,23 @@ func main() {
 
 	log.Println("Listening on http://localhost:" + port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
+}
+
+func prepareCart(db *sql.DB, cart *models.Cart) error {
+	for i := range cart.Items {
+		item := &cart.Items[i]
+		for c := range item.Components {
+			component := &item.Components[c]
+			var price float64
+			if err := db.QueryRow("SELECT price FROM products WHERE id = ?", component.ProductID).Scan(&price); err != nil {
+				return err
+			}
+			item.SalePrice += (price * float64(component.Qty))
+		}
+		item.SalePrice *= float64(item.Qty)
+		cart.TotalValue += item.SalePrice
+	}
+	return nil
 }
 
 func sendErr(w http.ResponseWriter, err error) {
