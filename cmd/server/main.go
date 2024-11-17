@@ -79,6 +79,10 @@ func main() {
 	renderPage := NewPageRenderer(tmpl)
 	renderPartial := NewPartialRenderer(tmpl)
 
+	renderCartModal := func(w http.ResponseWriter, db *sql.DB, cart *models.Cart) error {
+		return renderPartial(w, "cart-modal", cart)
+	}
+
 	// ROUTING LOGIC
 	//cartMiddleware := newCartMiddlware(db, store)
 
@@ -140,9 +144,6 @@ func main() {
 						return err
 					}
 
-				}
-				if err := prepareCart(db, cart); err != nil {
-					return err
 				}
 				ctx = context.WithValue(ctx, cartKey, cart)
 				return next(w, r.WithContext(ctx))
@@ -425,7 +426,7 @@ func main() {
 		}
 
 		if (len(r.Form["data"])) < 1 {
-			return renderPartial(w, "cart-modal", cart)
+			return renderCartModal(w, db, cart)
 		}
 
 		components := []models.CartItemComponent{}
@@ -447,11 +448,7 @@ func main() {
 			return err
 		}
 
-		if err := prepareCart(db, cart); err != nil {
-			return err
-		}
-
-		return renderPartial(w, "cart-modal", cart)
+		return renderCartModal(w, db, cart)
 	})
 
 	handle.post("/cart/item/remove", func(w http.ResponseWriter, r *http.Request) error {
@@ -498,51 +495,35 @@ func main() {
 			return fmt.Errorf("cartItemID is blank")
 		}
 
-		incrementOrDecremement := func(item *models.CartItem) error {
-			if mode == "increment" {
-				item.Qty++
-				if _, err := db.Exec(`UPDATE 
-					cart_item 
-				SET qty = qty + 1 
-					WHERE id = ? 
-				AND 
-					cart_id = ?`, item.ID, cart.ID); err != nil {
-					return err
-				}
-			} else {
-				if item.Qty < 2 {
-					return nil
-				}
-				item.Qty--
-				if _, err := db.Exec(`UPDATE 
-					cart_item 
-				SET qty = qty - 1 
-					WHERE id = ? 
-				AND 
-					cart_id = ?`, item.ID, cart.ID); err != nil {
-					return err
-				}
-			}
-			return nil
+		cartItem, err := selectCartItem(db, cart.ID, cartItemID)
+		if err != nil {
+			return err
 		}
 
-		for i := range cart.Items {
-			if cart.Items[i].ID == cartItemID {
-				err := incrementOrDecremement(&cart.Items[i])
-				if err != nil {
-					return err
-				}
-				if err := renderPartial(w, "item-details", cart.Items[i]); err != nil {
-					return err
-				}
-				if err := prepareCart(db, cart); err != nil {
-					return err
-				}
-				if err := renderPartial(w, "cart-modal", cart); err != nil {
-					return err
-				}
+		if mode == "increment" {
+			cartItem.Qty++
+			if err := IncrementCartItem(db, cart.ID, cartItem.ID); err != nil {
+				return err
+			}
+		} else {
+			if cartItem.Qty < 2 {
 				return nil
 			}
+			cartItem.Qty--
+			if err := DecrementCartItem(db, cart.ID, cartItem.ID); err != nil {
+				return err
+			}
+		}
+
+		cart, err = GetCartByID(db, cart.ID)
+		if err != nil {
+			return err
+		}
+		if err := renderPartial(w, "item-details", cartItem); err != nil {
+			return err
+		}
+		if err := renderCartModal(w, db, cart); err != nil {
+			return err
 		}
 
 		return nil
@@ -641,19 +622,6 @@ update the price of eache cart item(usually a bundle)
 and the total of the cart
 */
 func prepareCart(db *sql.DB, cart *models.Cart) error {
-	for i := range cart.Items {
-		item := &cart.Items[i]
-		for c := range item.Components {
-			component := &item.Components[c]
-			price, err := selectPriceByID(db, component.ProductID)
-			if err != nil {
-				return err
-			}
-			item.SalePrice += (price * float64(component.Qty))
-		}
-		item.SalePrice *= float64(item.Qty)
-		cart.TotalValue += item.SalePrice
-	}
 	return nil
 }
 
@@ -762,7 +730,7 @@ func BuildPressureFitBundles(db *sql.DB, limit float32) ([]models.Bundle, error)
 	}
 
 	for _, gate := range gates {
-		compatibleExtensions, err := GetCompatibleExtensions(db, gate.Id)
+		compatibleExtensions, err := GetCompatibleExtensionsByGateID(db, gate.Id)
 		if err != nil {
 			return bundles, err
 		}
@@ -1066,13 +1034,13 @@ func SaveBundleGate(db *sql.DB, gate_id int, bundle_id int64, qty int) error {
 }
 
 func SaveBundleExtension(db *sql.DB, extension_id int, bundle_id int64, qty int) error {
-	_, err := db.Exec(`INSERT INTO 
+	_, err := db.Exec(`INSERT INTO
 		bundle_extensions(
-			extension_id, 
-			bundle_id, 
+			extension_id,
+			bundle_id,
 			qty
-			) 
-		VALUES 
+			)
+		VALUES
 			(?,?,?)`,
 		extension_id,
 		bundle_id,
@@ -1086,17 +1054,17 @@ func SaveBundleExtension(db *sql.DB, extension_id int, bundle_id int64, qty int)
 
 func SaveBundleAsProduct(db *sql.DB, bundleProductValues models.Product) (int64, error) {
 	result, err := db.Exec(
-		`INSERT INTO 
+		`INSERT INTO
 			products(
-				type, 
-				name, 
-				width, 
-				price, 
-				img, 
-				tolerance, 
+				type,
+				name,
+				width,
+				price,
+				img,
+				tolerance,
 				color
-			) 
-		VALUES 
+			)
+		VALUES
 			(?, ?, ?, ?, ?, ?, ?)`,
 		"bundle",
 		bundleProductValues.Name,
@@ -1117,13 +1085,13 @@ func SaveBundleAsProduct(db *sql.DB, bundleProductValues models.Product) (int64,
 }
 
 func SaveCart(db *sql.DB, cart models.Cart) (*sql.Result, error) {
-	res, err := db.Exec(`INSERT INTO 
+	res, err := db.Exec(`INSERT INTO
 		cart(
 			id,
 			total_value,
-			created_at, 
-			last_updated_at) 
-		VALUES 
+			created_at,
+			last_updated_at)
+		VALUES
 			(?, ?, ?, ?)`,
 		cart.ID,
 		cart.TotalValue,
@@ -1162,19 +1130,33 @@ func GetCartByID(db *sql.DB, id string) (*models.Cart, error) {
 			return nil, err
 		}
 	}
+	for i := range cart.Items {
+		item := &cart.Items[i]
+		for c := range item.Components {
+			component := &item.Components[c]
+			price, err := selectPriceByID(db, component.ProductID)
+			if err != nil {
+				return nil, err
+			}
+			item.SalePrice += (price * float64(component.Qty))
+		}
+		item.SalePrice *= float64(item.Qty)
+		cart.TotalValue += item.SalePrice
+	}
+
 	return &cart, nil
 }
 
 func selectCart(db *sql.DB, id string) (models.Cart, error) {
 	row := db.QueryRow(`
-	SELECT 
-		id, 
-		created_at, 
-		last_updated_at, 
-		total_value 
-	FROM 
-		cart 
-	WHERE 
+	SELECT
+		id,
+		created_at,
+		last_updated_at,
+		total_value
+	FROM
+		cart
+	WHERE
 		id = ?`, id)
 	var cart models.Cart
 	if err := row.Scan(
@@ -1188,18 +1170,51 @@ func selectCart(db *sql.DB, id string) (models.Cart, error) {
 	return cart, nil
 }
 
+func selectCartItem(db *sql.DB, cartID, itemID string) (*models.CartItem, error) {
+	var ci models.CartItem
+	err := db.QueryRow(`
+	SELECT
+		id,
+		cart_id,
+		name,
+		sale_price,
+		qty,
+		created_at
+	FROM
+		cart_item
+	WHERE
+		cart_id = ?
+	AND
+		id = ?
+	`,
+		cartID,
+		itemID,
+	).Scan(
+		&ci.ID,
+		&ci.CartID,
+		&ci.Name,
+		&ci.SalePrice,
+		&ci.Qty,
+		&ci.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &ci, nil
+}
+
 func selectCartItems(db *sql.DB, cartID string) ([]models.CartItem, error) {
 	rows, err := db.Query(`
-	SELECT 
-		id, 
-		cart_id, 
-		name, 
-		sale_price, 
-		qty, 
-		created_at 
-	FROM 
-		cart_item 
-	WHERE 
+	SELECT
+		id,
+		cart_id,
+		name,
+		sale_price,
+		qty,
+		created_at
+	FROM
+		cart_item
+	WHERE
 		cart_id = ?`, cartID)
 	if err != nil {
 		return nil, err
@@ -1225,18 +1240,18 @@ func selectCartItems(db *sql.DB, cartID string) ([]models.CartItem, error) {
 
 func selectCartItemComponents(db *sql.DB, cartID, cartItemID string) ([]models.CartItemComponent, error) {
 	rows, err := db.Query(`
-	SELECT 
-		cart_item_id, 
-		cart_id, 
-		product_id, 
-		qty, 
-		name, 
-		created_at 
-	FROM 
-		cart_item_component 
-	WHERE 
-		cart_item_id = ? 
-	AND 
+	SELECT
+		cart_item_id,
+		cart_id,
+		product_id,
+		qty,
+		name,
+		created_at
+	FROM
+		cart_item_component
+	WHERE
+		cart_item_id = ?
+	AND
 		cart_id = ?`,
 		cartItemID, cartID)
 	if err != nil {
@@ -1265,13 +1280,13 @@ func selectCartItemComponents(db *sql.DB, cartID, cartItemID string) ([]models.C
 func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
 	var count int
 	err := db.QueryRow(`
-	SELECT 
-		count(id) as count 
-	FROM 
-		cart_item 
-	WHERE 
-		id = ? 
-	AND 
+	SELECT
+		count(id) as count
+	FROM
+		cart_item
+	WHERE
+		id = ?
+	AND
 		cart_id = ?`,
 		cartItem.ID, cartItem.CartID).Scan(&count)
 	if err != nil {
@@ -1280,13 +1295,13 @@ func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
 
 	if count > 0 {
 		_, err := db.Exec(`
-		UPDATE 
-			cart_item 
-		SET 
-			qty = qty + 1 
-		WHERE 
-			id = ? 
-		AND 
+		UPDATE
+			cart_item
+		SET
+			qty = qty + 1
+		WHERE
+			id = ?
+		AND
 			cart_id = ?`,
 			cartItem.ID, cartItem.CartID)
 		if err != nil {
@@ -1296,16 +1311,16 @@ func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
 	}
 
 	q := `
-	INSERT INTO 
+	INSERT INTO
 		cart_item (
-			id, 
-			cart_id, 
-			name, 
-			sale_price, 
-			qty, 
+			id,
+			cart_id,
+			name,
+			sale_price,
+			qty,
 			created_at
-		) 
-	VALUES 
+		)
+	VALUES
 		(?, ?, ?, ?, ?, ?)`
 	_, err = db.Exec(
 		q,
@@ -1325,11 +1340,11 @@ func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
 func GetCartByUserID(db *sql.DB, userID int) (*models.Cart, error) {
 	var cart models.Cart
 	err := db.QueryRow(`
-		SELECT 
-			id, created_at, last_updated_at 
-		FROM 
-			carts 
-		WHERE 
+		SELECT
+			id, created_at, last_updated_at
+		FROM
+			carts
+		WHERE
 			user_id = ?`,
 		userID,
 	).Scan(
@@ -1350,16 +1365,16 @@ func GetCartItemsByCartID(db *sql.DB, cartID string) ([]*models.CartItem, error)
 func SaveCartItemComponents(db *sql.DB, components []models.CartItemComponent) error {
 	for _, c := range components {
 		q := `
-		INSERT INTO 
+		INSERT INTO
 			cart_item_component (
-				cart_item_id, 
-				cart_id, 
-				product_id, 
-				qty, 
-				name, 
+				cart_item_id,
+				cart_id,
+				product_id,
+				qty,
+				name,
 				created_at
-			) 
-		VALUES 
+			)
+		VALUES
 			(?, ?, ?, ?, ?, ?)`
 		if _, err := db.Exec(q,
 			c.CartItemID,
@@ -1371,6 +1386,38 @@ func SaveCartItemComponents(db *sql.DB, components []models.CartItemComponent) e
 		); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func IncrementCartItem(db *sql.DB, cartID, itemID string) error {
+	if _, err := db.Exec(`
+		UPDATE
+			cart_item
+		SET
+			qty = qty + 1
+		WHERE
+			id = ?
+		AND
+			cart_id = ?`,
+		itemID,
+		cartID,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecrementCartItem(db *sql.DB, cartID, itemID string) error {
+	if _, err := db.Exec(`
+	UPDATE cart_item
+	SET qty = qty - 1
+	WHERE id = ?
+	AND cart_id = ?`,
+		itemID,
+		cartID,
+	); err != nil {
+		return err
 	}
 	return nil
 }
@@ -1409,12 +1456,26 @@ func scanProductFromRow(row scannable) (*models.Product, error) {
 		&product.Color,
 		&product.Tolerance,
 	)
-	return &product, err
+	if err != nil {
+		return nil, fmt.Errorf("could not scan product from row(s): %w", err)
+	}
+	return &product, nil
 }
 
 func InsertProduct(db *sql.DB, product *models.Product) (sql.Result, error) {
-	return db.Exec(
-		`INSERT INTO products (type, name, width, price, img, color, tolerance) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	res, err := db.Exec(
+		`INSERT INTO
+			products (
+				type,
+				name,
+				width,
+				price,
+				img,
+				color,
+				tolerance
+			)
+		VALUES
+			(?, ?, ?, ?, ?, ?, ?)`,
 		product.Type,
 		product.Name,
 		product.Width,
@@ -1423,6 +1484,11 @@ func InsertProduct(db *sql.DB, product *models.Product) (sql.Result, error) {
 		product.Color,
 		product.Tolerance,
 	)
+	if err != nil {
+		return res, fmt.Errorf("Error inserting product into database: %w", err)
+	}
+
+	return res, nil
 
 }
 
@@ -1482,10 +1548,26 @@ func GetProducts(db *sql.DB, productType ProductType, params ProductFilterParams
 	return products, nil
 }
 
-func GetCompatibleExtensions(db *sql.DB, gateID int) ([]*models.Product, error) {
+func GetCompatibleExtensionsByGateID(db *sql.DB, gateID int) ([]*models.Product, error) {
 	var extensions []*models.Product
 	rows, err := db.Query(
-		"SELECT p.id, p.type, p.name, p.width, p.price, p.img, p.color, p.tolerance FROM products p INNER JOIN compatibles c ON p.id = c.extension_id WHERE gate_id = ?",
+		`SELECT
+			p.id,
+			p.type,
+			p.name,
+			p.width,
+			p.price,
+			p.img,
+			p.color,
+			p.tolerance
+		FROM
+			products p
+		INNER JOIN
+			compatibles c
+		ON
+			p.id = c.extension_id
+		WHERE
+			gate_id = ?`,
 		gateID,
 	)
 	if err != nil {
@@ -1502,13 +1584,13 @@ func GetCompatibleExtensions(db *sql.DB, gateID int) ([]*models.Product, error) 
 	return extensions, nil
 }
 
-func Update(db *sql.DB, product *models.Product) error {
+func UpdateProductByID(db *sql.DB, productID int, product *models.Product) error {
 	// Code to update an existing user in the database
 	// using the provided SQL database connection (r.db)
 	return errors.New("update product not implemented")
 }
 
-func Delete(db *sql.DB, productID int) error {
+func DeleteProductByID(db *sql.DB, productID int) error {
 	// Code to delete a user from the database
 	// based on the provided user ID (userID)
 	// using the provided SQL database connection (r.db)
