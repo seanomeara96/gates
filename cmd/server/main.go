@@ -447,6 +447,10 @@ func main() {
 			return err
 		}
 
+		if err := prepareCart(db, cart); err != nil {
+			return err
+		}
+
 		return renderPartial(w, "cart-modal", cart)
 	})
 
@@ -592,19 +596,48 @@ func main() {
 	httpFileSystem := http.Dir("assets")
 	staticFileHttpHandler := http.FileServer(httpFileSystem)
 	assetsPathHandler := http.StripPrefix(assetsDirPath, staticFileHttpHandler)
-	router.Handle(assetsDirPath, assetsPathHandler)
+	router.Handle(assetsDirPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(24*int(time.Hour.Seconds())))
+		assetsPathHandler.ServeHTTP(w, r)
+	}))
 
 	log.Println("Listening on http://localhost:" + port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
+// TODO call .CLose() on this statement somewhere
+var selectPriceStmt *sql.Stmt
+
+func selectPriceByID(db *sql.DB, productID int) (float64, error) {
+	var err error
+	if selectPriceStmt == nil {
+		selectPriceStmt, err = db.Prepare("SELECT price FROM products WHERE id = ?")
+		if err != nil {
+			return -1, err
+		}
+	}
+
+	var price float64
+	if err := selectPriceStmt.QueryRow(productID).Scan(&price); err != nil {
+		return -1, err
+	}
+
+	return price, nil
+}
+
+/*
+for each component of each item
+get the price of each product
+update the price of eache cart item(usually a bundle)
+and the total of the cart
+*/
 func prepareCart(db *sql.DB, cart *models.Cart) error {
 	for i := range cart.Items {
 		item := &cart.Items[i]
 		for c := range item.Components {
 			component := &item.Components[c]
-			var price float64
-			if err := db.QueryRow("SELECT price FROM products WHERE id = ?", component.ProductID).Scan(&price); err != nil {
+			price, err := selectPriceByID(db, component.ProductID)
+			if err != nil {
 				return err
 			}
 			item.SalePrice += (price * float64(component.Qty))

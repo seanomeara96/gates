@@ -1,7 +1,8 @@
 {{ define "cart-modal" }}
-<div
+<a
   id="cart-modal"
   class="fixed bottom-0 right-0 p-4 bg-white shadow-lg rounded-tl-lg"
+  href="/cart/"
 >
   <div class="flex items-center space-x-2">
     <svg class="flex-1 w-8 h-8 fill-current" viewbox="0 0 24 24">
@@ -16,5 +17,5 @@
       <span class="text-xs font-normal">({{ len .Items }} items)</span>
     </div>
   </div>
-</div>
+</a>
 {{ end }}
