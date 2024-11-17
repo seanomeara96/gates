@@ -532,7 +532,16 @@ func main() {
 				if err != nil {
 					return err
 				}
-				return renderPartial(w, "item-details", cart.Items[i])
+				if err := renderPartial(w, "item-details", cart.Items[i]); err != nil {
+					return err
+				}
+				if err := prepareCart(db, cart); err != nil {
+					return err
+				}
+				if err := renderPartial(w, "cart-modal", cart); err != nil {
+					return err
+				}
+				return nil
 			}
 		}
 
