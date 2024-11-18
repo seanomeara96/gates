@@ -35,7 +35,7 @@ const (
 	Production  Environment = "production"
 )
 
-type customHandleFunc func(w http.ResponseWriter, r *http.Request) error
+type customHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
 
 type middlewareFunc func(next customHandleFunc) customHandleFunc
 type customHandler func(path string, fn customHandleFunc)
@@ -73,6 +73,8 @@ func main() {
 
 	store := sessions.NewCookieStore([]byte(`secret-key`))
 
+	getCartFromRequest := NewCartFromSessionGetter(db, store)
+
 	router := http.NewServeMux()
 
 	tmpl := templateParser(environment)
@@ -91,69 +93,11 @@ func main() {
 	*/
 	middleware := []middlewareFunc{
 		// cart middleware
-		func(next customHandleFunc) customHandleFunc {
-			return func(w http.ResponseWriter, r *http.Request) error {
-				session, err := getCartSession(r, store)
-				if err != nil {
-					return err
-				}
-
-				cartID, err := getCartID(session)
-				if err != nil {
-					return err
-				}
-
-				ctx := r.Context()
-
-				var cart *models.Cart
-
-				newCartSession := func() error {
-					cart, err = NewCart(db)
-					if err != nil {
-						return err
-					}
-					session.Values["cart_id"] = cart.ID
-					if err := session.Save(r.WithContext(ctx), w); err != nil {
-						return err
-					}
-					return nil
-				}
-
-				if cartID != nil {
-					if valid := validateCartID(cartID); !valid {
-						return fmt.Errorf("cart id is invalid")
-					}
-
-					exists, err := CartExists(db, cartID.(string))
-					if err != nil {
-						return err
-					}
-					if !exists {
-						if err := newCartSession(); err != nil {
-							return err
-						}
-					} else {
-						cart, err = GetCartByID(db, cartID.(string))
-						if err != nil {
-							return err
-						}
-					}
-
-				} else {
-					if err := newCartSession(); err != nil {
-						return err
-					}
-
-				}
-				ctx = context.WithValue(ctx, cartKey, cart)
-				return next(w, r.WithContext(ctx))
-			}
-		},
 	}
 
-	handle := createCustomHandler(environment, router, middleware)
+	handle := createCustomHandler(environment, router, middleware, getCartFromRequest)
 
-	handle("/", func(w http.ResponseWriter, r *http.Request) error {
+	handle("/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if r.URL.Path == "/" {
 			featuredGates, err := GetGates(db, productCache, ProductFilterParams{})
 			if err != nil {
@@ -161,11 +105,6 @@ func main() {
 			}
 
 			extensions, err := GetExtensions(db, productCache, ProductFilterParams{Limit: 2})
-			if err != nil {
-				return err
-			}
-
-			cart, err := ctxCart(r)
 			if err != nil {
 				return err
 			}
@@ -184,11 +123,7 @@ func main() {
 		return NotFoundPage(w, renderPage)
 	}) // cant use 'get' because it causes conflicts
 
-	handle.get("/contact/", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
+	handle.get("/contact/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		data := map[string]any{
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
@@ -197,7 +132,7 @@ func main() {
 		return renderPage(w, "contact", data)
 	})
 
-	handle.post("/contact/", func(w http.ResponseWriter, r *http.Request) error {
+	handle.post("/contact/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return err
 		}
@@ -240,10 +175,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
+
 		data := map[string]any{
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
@@ -255,7 +187,7 @@ func main() {
 	/*
 		Build enpoint. Currently only handling build for pressure gates
 	*/
-	handle.post("/build/", func(w http.ResponseWriter, r *http.Request) error {
+	handle.post("/build/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return err
 		}
@@ -288,12 +220,7 @@ func main() {
 	*/
 	//handle.get("/bundles/", pageHandler.Bundles)
 	//handle.get("/bundles/new", pageHandler.Bundles)
-	handle.get("/gates/", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
-
+	handle.get("/gates/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		gates, err := GetGates(db, productCache, ProductFilterParams{})
 		if err != nil {
 			return err
@@ -310,12 +237,7 @@ func main() {
 		return renderPage(w, "products", data)
 	})
 
-	handle.get("/gates/{gate_id}", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
-
+	handle.get("/gates/{gate_id}", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		gateID, err := strconv.Atoi(r.PathValue("gate_id"))
 		if err != nil {
 			return err
@@ -337,11 +259,7 @@ func main() {
 
 	})
 
-	handle.get("/extensions/", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
+	handle.get("/extensions/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		extensions, err := GetExtensions(db, productCache, ProductFilterParams{})
 		if err != nil {
 			return err
@@ -358,12 +276,7 @@ func main() {
 		return renderPage(w, "products", data)
 	})
 
-	handle.get("/extensions/{extension_id}", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
-
+	handle.get("/extensions/{extension_id}", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		extensionID, err := strconv.Atoi(r.PathValue("extension_id"))
 		if err != nil {
 			return err
@@ -386,12 +299,7 @@ func main() {
 	/*
 		cart endpoints
 	*/
-	handle.get("/cart/", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
-
+	handle.get("/cart/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		data := map[string]any{
 			"PageTitle":       "Your shopping cart",
 			"MetaDescription": "",
@@ -401,11 +309,7 @@ func main() {
 		return renderPage(w, "cart", data)
 	})
 
-	handle.get("/cart/json", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
+	handle.get("/cart/json", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		bytes, err := json.Marshal(cart)
 		if err != nil {
 			return err
@@ -415,12 +319,7 @@ func main() {
 		return nil
 	})
 
-	handle.post("/cart/add", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
-
+	handle.post("/cart/add", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return err
 		}
@@ -439,7 +338,8 @@ func main() {
 			components = append(components, component)
 		}
 
-		if err := AddItemToCart(db, cart.ID, models.NewCartItem(cart.ID, components)); err != nil {
+		err := AddItemToCart(db, cart.ID, models.NewCartItem(cart.ID, components))
+		if err != nil {
 			return err
 		}
 
@@ -451,13 +351,8 @@ func main() {
 		return renderCartModal(w, cart)
 	})
 
-	handle.post("/cart/item/remove", func(w http.ResponseWriter, r *http.Request) error {
+	handle.post("/cart/item/remove", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
-			return err
-		}
-
-		cart, err := ctxCart(r)
-		if err != nil {
 			return err
 		}
 
@@ -473,7 +368,7 @@ func main() {
 		return nil
 	})
 
-	handle.post("/cart/item/{mode}", func(w http.ResponseWriter, r *http.Request) error {
+	handle.post("/cart/item/{mode}", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 
 		mode := r.PathValue("mode")
 
@@ -482,11 +377,6 @@ func main() {
 		}
 
 		if err := r.ParseForm(); err != nil {
-			return err
-		}
-
-		cart, err := ctxCart(r)
-		if err != nil {
 			return err
 		}
 
@@ -507,6 +397,7 @@ func main() {
 			}
 		} else {
 			if cartItem.Qty < 2 {
+				w.WriteHeader(http.StatusBadRequest)
 				return nil
 			}
 			cartItem.Qty--
@@ -528,12 +419,7 @@ func main() {
 		return nil
 	})
 
-	handle.delete("/cart/item/", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
-
+	handle.delete("/cart/item/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return err
 		}
@@ -543,7 +429,8 @@ func main() {
 			return fmt.Errorf("no cart item id supplied")
 		}
 
-		if _, err := db.Exec("DELETE FROM cart_item WHERE id = ?", cartItemID); err != nil {
+		_, err := db.Exec("DELETE FROM cart_item WHERE id = ? AND cart_id = ?", cartItemID, cart.ID)
+		if err != nil {
 			return err
 		}
 
@@ -555,13 +442,8 @@ func main() {
 		return renderPartial(w, "cart-main", cart)
 	})
 
-	handle.post("/cart/clear", func(w http.ResponseWriter, r *http.Request) error {
-		cart, err := ctxCart(r)
-		if err != nil {
-			return err
-		}
-
-		_, err = db.Exec("DELETE FROM cart_item WHERE cart_id = ?", cart.ID)
+	handle.post("/cart/clear", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+		_, err := db.Exec(`DELETE FROM cart_item WHERE cart_id = ?`, cart.ID)
 		if err != nil {
 			return fmt.Errorf("could not delete cart_item where cart_id = %s: %w", cart.ID, err)
 		}
@@ -614,21 +496,71 @@ func selectPriceByID(db *sql.DB, productID int) (float64, error) {
 	return price, nil
 }
 
-/*
-for each component of each item
-get the price of each product
-update the price of eache cart item(usually a bundle)
-and the total of the cart
-*/
-func prepareCart(db *sql.DB, cart *models.Cart) error {
-	return nil
-}
-
 func sendErr(w http.ResponseWriter, err error) {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
-func createCustomHandler(environment Environment, router *http.ServeMux, middleware []middlewareFunc) customHandler {
+func attachNewCartToSession(cart *models.Cart, session *sessions.Session, w http.ResponseWriter, r *http.Request) error {
+
+	session.Values["cart_id"] = cart.ID
+	if err := session.Save(r, w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func NewCartFromSessionGetter(db *sql.DB, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
+	return func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
+		session, err := getCartSession(r, store)
+		if err != nil {
+			return nil, err
+		}
+
+		cartID, err := getCartID(session)
+		if err != nil {
+			return nil, err
+		}
+
+		if cartID == nil {
+			cart, err := NewCart(db)
+			if err != nil {
+				return nil, err
+			}
+			if err := attachNewCartToSession(cart, session, w, r); err != nil {
+				return nil, err
+			}
+			return cart, nil
+		}
+
+		if valid := validateCartID(cartID); !valid {
+			return nil, fmt.Errorf("cart id is invalid")
+		}
+
+		exists, err := CartExists(db, cartID.(string))
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			cart, err := NewCart(db)
+			if err != nil {
+				return nil, err
+			}
+			if err := attachNewCartToSession(cart, session, w, r); err != nil {
+				return nil, err
+			}
+			return cart, nil
+		}
+
+		cart, err := GetCartByID(db, cartID.(string))
+		if err != nil {
+			return nil, err
+		}
+
+		return cart, nil
+	}
+}
+
+func createCustomHandler(environment Environment, router *http.ServeMux, middleware []middlewareFunc, getCartFromRequest func(w http.ResponseWriter, r *http.Request) (*models.Cart, error)) customHandler {
 	return func(path string, fn customHandleFunc) {
 
 		// wrap fn in middleware funcs
@@ -642,9 +574,24 @@ func createCustomHandler(environment Environment, router *http.ServeMux, middlew
 				log.Printf(rMsg, r.Method, r.URL.Path)
 			}
 
+			cart, err := getCartFromRequest(w, r)
+			if err != nil {
+				errMsg := "[ERROR] Failed  %s request to %s. %v"
+				log.Printf(errMsg, r.Method, path, err)
+
+				// ideally I would get notified of an error here
+				if environment == Development {
+					sendErr(w, err)
+				} else {
+					// TODO handle production env err handling different
+					sendErr(w, err)
+				}
+				return
+			}
+
 			// custom handler get passed throgh the cart handler middleware first to
 			// ensure there is a cart session
-			if err := fn(w, r); err != nil {
+			if err := fn(cart, w, r); err != nil {
 				errMsg := "[ERROR] Failed  %s request to %s. %v"
 				log.Printf(errMsg, r.Method, path, err)
 
