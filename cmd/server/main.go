@@ -79,7 +79,7 @@ func main() {
 	renderPage := NewPageRenderer(tmpl)
 	renderPartial := NewPartialRenderer(tmpl)
 
-	renderCartModal := func(w http.ResponseWriter, db *sql.DB, cart *models.Cart) error {
+	renderCartModal := func(w http.ResponseWriter, cart *models.Cart) error {
 		return renderPartial(w, "cart-modal", cart)
 	}
 
@@ -426,7 +426,7 @@ func main() {
 		}
 
 		if (len(r.Form["data"])) < 1 {
-			return renderCartModal(w, db, cart)
+			return renderCartModal(w, cart)
 		}
 
 		components := []models.CartItemComponent{}
@@ -448,7 +448,7 @@ func main() {
 			return err
 		}
 
-		return renderCartModal(w, db, cart)
+		return renderCartModal(w, cart)
 	})
 
 	handle.post("/cart/item/remove", func(w http.ResponseWriter, r *http.Request) error {
@@ -514,15 +514,14 @@ func main() {
 				return err
 			}
 		}
-
+		if err := renderPartial(w, "item-details", cartItem); err != nil {
+			return err
+		}
 		cart, err = GetCartByID(db, cart.ID)
 		if err != nil {
 			return err
 		}
-		if err := renderPartial(w, "item-details", cartItem); err != nil {
-			return err
-		}
-		if err := renderCartModal(w, db, cart); err != nil {
+		if err := renderCartModal(w, cart); err != nil {
 			return err
 		}
 
