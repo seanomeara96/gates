@@ -81,10 +81,6 @@ func main() {
 	renderPage := NewPageRenderer(tmpl)
 	renderPartial := NewPartialRenderer(tmpl)
 
-	renderCartModal := func(w http.ResponseWriter, cart *models.Cart) error {
-		return renderPartial(w, "cart-modal", cart)
-	}
-
 	// ROUTING LOGIC
 	//cartMiddleware := newCartMiddlware(db, store)
 
@@ -93,6 +89,19 @@ func main() {
 	*/
 	middleware := []middlewareFunc{
 		// cart middleware
+		// func(next customHandleFunc) customHandleFunc {
+		// 	return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+
+		// 		cartBytes, err := json.Marshal(cart)
+		// 		if err != nil {
+		// 			log.Println(err)
+		// 		} else {
+		// 			fmt.Println(string(cartBytes))
+		// 		}
+
+		// 		return next(cart, w, r)
+		// 	}
+		// },
 	}
 
 	handle := createCustomHandler(environment, router, middleware, getCartFromRequest)
@@ -325,7 +334,7 @@ func main() {
 		}
 
 		if (len(r.Form["data"])) < 1 {
-			return renderCartModal(w, cart)
+			return renderPartial(w, "cart-modal", cart)
 		}
 
 		components := []models.CartItemComponent{}
@@ -348,11 +357,12 @@ func main() {
 			return err
 		}
 
-		return renderCartModal(w, cart)
+		return renderPartial(w, "cart-modal", cart)
 	})
 
 	handle.post("/cart/item/remove", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-		if err := r.ParseForm(); err != nil {
+		err := r.ParseForm()
+		if err != nil {
 			return err
 		}
 
@@ -362,6 +372,16 @@ func main() {
 		}
 
 		if _, err := db.Exec(`DELETE FROM cart_item WHERE id = ? AND cart_id = ?`, cartItemID, cart.ID); err != nil {
+			return err
+		}
+
+		cart, err = GetCartByID(db, cart.ID)
+		if err != nil {
+			return err
+		}
+
+		err = renderPartial(w, "cart-main", cart)
+		if err != nil {
 			return err
 		}
 
@@ -391,7 +411,6 @@ func main() {
 		}
 
 		if mode == "increment" {
-			cartItem.Qty++
 			if err := IncrementCartItem(db, cart.ID, cartItem.ID); err != nil {
 				return err
 			}
@@ -400,19 +419,18 @@ func main() {
 				w.WriteHeader(http.StatusBadRequest)
 				return nil
 			}
-			cartItem.Qty--
 			if err := DecrementCartItem(db, cart.ID, cartItem.ID); err != nil {
 				return err
 			}
-		}
-		if err := renderPartial(w, "item-details", cartItem); err != nil {
-			return err
 		}
 		cart, err = GetCartByID(db, cart.ID)
 		if err != nil {
 			return err
 		}
-		if err := renderCartModal(w, cart); err != nil {
+		if err := renderPartial(w, "cart-main", cart); err != nil {
+			return err
+		}
+		if err := renderPartial(w, "cart-modal-oob", cart); err != nil {
 			return err
 		}
 
@@ -439,7 +457,17 @@ func main() {
 			return err
 		}
 
-		return renderPartial(w, "cart-main", cart)
+		err = renderPartial(w, "cart-main", cart)
+		if err != nil {
+			return err
+		}
+
+		err = renderPartial(w, "cart-modal-oob", cart)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	handle.post("/cart/clear", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
@@ -458,8 +486,17 @@ func main() {
 			return err
 		}
 
-		return renderPartial(w, "cart-main", cart)
+		err = renderPartial(w, "cart-main", cart)
+		if err != nil {
+			return err
+		}
 
+		err = renderPartial(w, "cart-modal-oob", cart)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 
 	// init assets dir
@@ -620,14 +657,6 @@ func (handle customHandler) put(path string, fn customHandleFunc) {
 }
 func (handle customHandler) delete(path string, fn customHandleFunc) {
 	handle("DELETE"+path, fn)
-}
-
-func ctxCart(r *http.Request) (*models.Cart, error) {
-	cart, ok := r.Context().Value(cartKey).(*models.Cart)
-	if !ok {
-		return nil, errors.New("could not get cart from request context")
-	}
-	return cart, nil
 }
 
 func validateCartID(cartID interface{}) (valid bool) {
@@ -802,11 +831,21 @@ func NewCart(db *sql.DB) (*models.Cart, error) {
 }
 
 func AddItemToCart(db *sql.DB, cartID string, cartItem models.CartItem) error {
-	if err := InsertOrIncrementCartItem(db, cartItem); err != nil {
-		return fmt.Errorf("adding item to cart failed at insert or increment cart item: %w", err)
+	exists, err := doesCartItemExist(db, cartID, cartItem.ID)
+	if err != nil {
+		return err
 	}
-	if err := SaveCartItemComponents(db, cartItem.Components); err != nil {
-		return fmt.Errorf("adding item components failed: %w", err)
+	if !exists {
+		if err := InsertCartItem(db, cartItem); err != nil {
+			return fmt.Errorf("adding item to cart failed at insert or increment cart item: %w", err)
+		}
+		if err := SaveCartItemComponents(db, cartItem.Components); err != nil {
+			return fmt.Errorf("adding item components failed: %w", err)
+		}
+	} else {
+		if err := IncrementCartItem(db, cartID, cartItem.ID); err != nil {
+			return err
+		}
 	}
 	if _, err := db.Exec("UPDATE cart SET last_updated_at = ? WHERE id = ?", time.Now(), cartID); err != nil {
 		return fmt.Errorf("could not update last updated at on cart: %w", err)
@@ -1223,39 +1262,7 @@ func selectCartItemComponents(db *sql.DB, cartID, cartItemID string) ([]models.C
 	return components, nil
 }
 
-func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
-	var count int
-	err := db.QueryRow(`
-	SELECT
-		count(id) as count
-	FROM
-		cart_item
-	WHERE
-		id = ?
-	AND
-		cart_id = ?`,
-		cartItem.ID, cartItem.CartID).Scan(&count)
-	if err != nil {
-		return fmt.Errorf("could not count cart_item %w", err)
-	}
-
-	if count > 0 {
-		_, err := db.Exec(`
-		UPDATE
-			cart_item
-		SET
-			qty = qty + 1
-		WHERE
-			id = ?
-		AND
-			cart_id = ?`,
-			cartItem.ID, cartItem.CartID)
-		if err != nil {
-			return fmt.Errorf("could not increment cart item: %w", err)
-		}
-		return nil
-	}
-
+func InsertCartItem(db *sql.DB, cartItem models.CartItem) error {
 	q := `
 	INSERT INTO
 		cart_item (
@@ -1268,7 +1275,7 @@ func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
 		)
 	VALUES
 		(?, ?, ?, ?, ?, ?)`
-	_, err = db.Exec(
+	_, err := db.Exec(
 		q,
 		cartItem.ID,
 		cartItem.CartID,
@@ -1281,6 +1288,24 @@ func InsertOrIncrementCartItem(db *sql.DB, cartItem models.CartItem) error {
 		return fmt.Errorf("could not insert cart item in db %w", err)
 	}
 	return nil
+}
+
+func doesCartItemExist(db *sql.DB, cartID string, cartItemID string) (bool, error) {
+	var count int
+	err := db.QueryRow(`
+	SELECT
+		count(id) as count
+	FROM
+		cart_item
+	WHERE
+		id = ?
+	AND
+		cart_id = ?`,
+		cartItemID, cartID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("could not count cart_item %w", err)
+	}
+	return count > 0, nil
 }
 
 func GetCartByUserID(db *sql.DB, userID int) (*models.Cart, error) {
@@ -1431,7 +1456,7 @@ func InsertProduct(db *sql.DB, product *models.Product) (sql.Result, error) {
 		product.Tolerance,
 	)
 	if err != nil {
-		return res, fmt.Errorf("Error inserting product into database: %w", err)
+		return res, fmt.Errorf("error inserting product into database: %w", err)
 	}
 
 	return res, nil

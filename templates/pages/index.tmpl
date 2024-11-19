@@ -2,56 +2,74 @@
 
 {{ template "header" . }}
 
-<header class="py-20 bg-gray-100">
+<main class="p-4 bg-gray-100 ">
+  <div class="container mx-auto flex justify-center items-center">
     <div class="container mx-auto px-4">
-        <h1 class="text-2xl md:text-5xl font-bold mb-2">Build Your Custom Pressure Gate</h1>
-        <p class="text-gray-600 mb-8">Just enter the gap your desired width and we'll sort the rest out for you.</p>
-        <form 
-           id="build-gate" 
-           hx-post="/build/"
-           hx-target="#build-results"
-           hx-swap="outerHTML"
-           >
-           <label for="desired-width" class="block mb-2">Your desired Width in cm</label>
-           <input id="desired-width" name="desired-width" class="py-2 px-4 mr-4 mb-4 rounded" placeholder="e.g. 100" type="number" />
-           <button 
-                type="submit" 
-                class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Build Gate</button>
-        </form>
+      <h1 class="text-2xl md:text-5xl font-bold mb-2">
+        Build Your Custom Pressure Gate
+      </h1>
+      <p class="text-gray-600 mb-8">
+        Just enter the gap your desired width and we'll sort the rest out for
+        you.
+      </p>
+      <form
+        id="build-gate"
+        hx-post="/build/"
+        hx-target="#build-results"
+        hx-swap="outerHTML"
+      >
+        <label for="desired-width" class="block mb-2"
+          >Your desired Width in cm</label
+        >
+        <input
+          id="desired-width"
+          name="desired-width"
+          class="py-2 px-4 mr-4 mb-4 rounded"
+          placeholder="e.g. 100"
+          type="number"
+        />
+        <button
+          type="submit"
+          class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Build Gate
+        </button>
+      </form>
     </div>
-
-    <div id="build-results"> 
-
-    </div>
-</header>
-
-
+    <img
+      class="rounded-full w-1/4 aspect-square"
+      src="https://replicate.delivery/xezq/IcD7OJrvYx5MNtfSiZNHZPQ2FWueIa3tuRB8geTzFQiR9KlnA/out-0.webp"
+      alt=""
+    />
+  </div>
+</main>
+<section id="build-results"></section>
 
 <div class="container my-4 mx-auto px-4 flex flex-wrap md:flex-nowrap gap-4">
+  <div class="">
+    <h2 class="text-3xl font-bold mb-4">Featured Gates</h2>
+    <div class="flex flex-wrap md:flex-nowrap gap-4">
+      {{ range.FeaturedGates }}
+      {{ template "product-card" . }}
+      {{ end }}
+    </div>
+  </div>
 
-    <div class="">
-        <h2 class="text-3xl font-bold mb-4">Featured Gates</h2>
-        <div class="flex flex-wrap md:flex-nowrap gap-4">
-            {{ range .FeaturedGates }}
-                {{ template "product-card" . }}
-            {{ end }}
-        </div>
-    </div>  
-
-
-    <div class="">
-        <h2 class="text-3xl font-bold mb-4">Featured Extensions</h2>
-        <div class="flex flex-wrap  md:flex-nowrap gap-4">
-            {{ range .FeaturedExtensions }}
-                {{ template  "product-card" . }}
-            {{ end }}
-        </div>
-    </div> 
-
+  <div class="">
+    <h2 class="text-3xl font-bold mb-4">Featured Extensions</h2>
+    <div class="flex flex-wrap md:flex-nowrap gap-4">
+      {{ range.FeaturedExtensions }}
+      {{ template  "product-card" . }}
+      {{ end }}
+    </div>
+  </div>
 </div>
 
-
-
+<div style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+    <img src="https://replicate.delivery/xezq/v9xUFGXtQiaBD1YVyGAzwyqmSPeVpGu1cYCzPyghuYCUvS5JA/out-1.webp" alt="">
+    <img src="https://replicate.delivery/xezq/BMFj3wXwKx6VD5fLsnJGlhgdQ7z92K8iGyDwoBdbw50M8S5JA/out-0.webp" alt="">
+    <img src="https://replicate.delivery/czjl/XuffgC5qe8VpfR9q3JdSWUfXBQePnQsBQ7cG8kNkYoIb1fS5JA/tmpmyop9639.jpg" alt="">
+</div>
 
 {{ template "footer" . }}
 
