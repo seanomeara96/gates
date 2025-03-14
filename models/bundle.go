@@ -6,29 +6,8 @@ import (
 
 type Bundle struct {
 	Product
-	Gates      []Product `json:"gates"`
-	Extensions []Product `json:"extensions"`
+	Components []Product `json:"components"`
 }
-
-func (b *Bundle) CartItemComponents() []CartItemComponent {
-	components := []CartItemComponent{}
-	for _, g := range b.Gates {
-		components = append(components, CartItemComponent{
-			ProductID: g.Id,
-			Qty:       g.Qty,
-		})
-	}
-	for _, e := range b.Extensions {
-		components = append(components, CartItemComponent{
-			ProductID: e.Id,
-			Qty:       e.Qty,
-		})
-
-	}
-	return components
-}
-
-type Bundles []Bundle
 
 // we can add in error handling retrospectively,
 // for now, lets assume we're not doing anything stupid
@@ -57,6 +36,11 @@ func (b *Bundle) ToProduct() Product {
 	}
 }
 
+/*
+	for all of the below, we assume that product at index 0 is the gate and that there is
+	only one gate per bundle
+*/
+
 func (b *Bundle) setType() {
 	b.Type = "bundle"
 }
@@ -69,37 +53,34 @@ func (b *Bundle) setQty() {
 
 func (b *Bundle) setTolerance() {
 	if b.Tolerance == 0 {
-		b.Tolerance = b.Gates[0].Tolerance
+		b.Tolerance = b.Components[0].Tolerance
 	}
 }
 
 func (b *Bundle) setPrice() {
 	if b.Price == 0 {
-		for i := 0; i < len(b.Gates); i++ {
-			b.Price += (b.Gates[i].Price * float32(b.Gates[i].Qty))
-		}
-		for ii := 0; ii < len(b.Extensions); ii++ {
-			b.Price += (b.Extensions[ii].Price * float32(b.Extensions[ii].Qty))
+		for i := 0; i < len(b.Components); i++ {
+			b.Price += (b.Components[i].Price * float32(b.Components[i].Qty))
 		}
 	}
 }
 func (b *Bundle) setImg() {
 	if b.Img == "" {
-		b.Img = b.Gates[0].Img
+		b.Img = b.Components[0].Img
 	}
 }
 func (b *Bundle) setColor() {
 	if b.Color == "" {
-		b.Color = b.Gates[0].Color
+		b.Color = b.Components[0].Color
 	}
 }
 func (b *Bundle) setName() {
 	if b.Name == "" {
-		gate := b.Gates[0]
+		gate := b.Components[0]
 		b.Name = gate.Name
 		extensionCount := 0
-		for i := 0; i < len(b.Extensions); i++ {
-			extensionCount += b.Extensions[i].Qty
+		for i := 1; i < len(b.Components); i++ {
+			extensionCount += b.Components[i].Qty
 		}
 		if extensionCount == 1 {
 			b.Name += " and 1 extension."
@@ -112,9 +93,9 @@ func (b *Bundle) setName() {
 
 func (b *Bundle) setWidth() {
 	if b.Width == 0 {
-		b.Width = b.Gates[0].Width * float32(b.Gates[0].Qty)
-		for i := 0; i < len(b.Extensions); i++ {
-			b.Width += (b.Extensions[i].Width * float32(b.Extensions[i].Qty))
+		b.Width = b.Components[0].Width * float32(b.Components[0].Qty)
+		for i := 1; i < len(b.Components); i++ {
+			b.Width += (b.Components[i].Width * float32(b.Components[i].Qty))
 		}
 	}
 }

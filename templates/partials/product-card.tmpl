@@ -2,7 +2,7 @@
 
 <div class="">
     <div class="bg-white rounded-lg overflow-hidden shadow-md">
-        <a href="/{{.Type}}s/{{.Id}}"><img height="300" width="500" style="aspect-ratio: 500/300;" src="https://via.placeholder.com/500x300" alt="Baby Safety Gate" class="w-full"></a>
+        <a href="/{{.Type}}s/{{.Id}}"><img height="300" width="500" style="aspect-ratio: 500/300;" src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2" alt="Baby Safety Gate" class="w-full"></a>
         <div class="p-4">
             <a href="/{{.Type}}s/{{.Id}}"><h3 class="font-bold mb-2">{{ .Name }} {{ .Color }}</h3></a>
             <p class="text-gray-600 mb-4">This baby safety gate is perfect for keeping your baby safe in any room of your house.</p>
@@ -14,7 +14,8 @@
                       hx-target="#cart-modal"
                       hx-swap="outerHTML"
                       hx-vals='{"data": [{ "product_id":{{ .Id }}, "qty":{{.Qty}}}]}' 
-                      class="atc-button bg-red-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded" data-product="{{ . }}" >Add to Cart</button>
+                      style="background-color:#271D16"
+                      class="atc-button hover:bg-gray-700 text-white font-bold py-2 px-4 rounded" data-product="{{ . }}" >Add to Cart</button>
             </div>
         </div>
     </div>

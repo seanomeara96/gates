@@ -1,21 +1,22 @@
 {{ define "bundle-component-card" }}
 
-<div class="w-64 md:w-1/2 lg:w-1/4 px-2 mb-4 relative">
-    <span class="absolute top-0 right-0 p-4 bg-gray-800 z-10 text-white rounded"> x {{ .Qty }}</span>
-    <div class="bg-white rounded-lg overflow-hidden shadow-md">
+<div class="px-2 mb-4 relative inline-block">
+    <div class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md">
         <a class="relative" href="/{{ .Type }}s/{{ .Id }}">
-            <img src="https://via.placeholder.com/500x300" alt="Baby Safety Gate" class="w-full">
+            <img class="h-full aspect-square max-w-16"
+             src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2" 
+             alt="Baby Safety Gate" class="w-full">
         </a>
         <div class="p-4">
             <a href="/gates/{{.Id}}">
-                <h3 class="font-bold mb-2">
+                <h3 class="font-bold mb-2 text-xs md:text-base">
                     {{ .Name }} {{ title  .Color }}
                 </h3>
             </a>
-            <p class="text-gray-600 mb-4">
-                This baby safety gate is perfect for keeping your baby safe in any room of your house.
-            </p>
         </div>
+        <span 
+        style="background-color: #683B1C;"
+        class=" p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"> x {{ .Qty }}</span>
     </div>
 </div>
 

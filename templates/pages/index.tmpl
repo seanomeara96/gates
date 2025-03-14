@@ -2,7 +2,7 @@
 
 {{ template "header" . }}
 
-<main class="p-4 bg-gray-100 ">
+<main class="p-4 bg-gray-100">
   <div class="container mx-auto flex justify-center items-center">
     <div class="container mx-auto px-4">
       <h1 class="text-2xl md:text-5xl font-bold mb-2">
@@ -30,7 +30,8 @@
         />
         <button
           type="submit"
-          class="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+          style="background-color: #271d16"
+          class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
         >
           Build Gate
         </button>
@@ -65,13 +66,81 @@
   </div>
 </div>
 
-<section class="container mx-auto py-8">
-  <h2 class="text-3xl font-bold mb-4" >Our Baby Safety Experts</h2>
-  <div style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
-    <img class="aspect-square object-cover object-center" src="https://replicate.delivery/xezq/v9xUFGXtQiaBD1YVyGAzwyqmSPeVpGu1cYCzPyghuYCUvS5JA/out-1.webp" alt="">
-    <img class="aspect-square object-cover object-center" src="https://replicate.delivery/xezq/BMFj3wXwKx6VD5fLsnJGlhgdQ7z92K8iGyDwoBdbw50M8S5JA/out-0.webp" alt="">
-    <img class="aspect-square object-cover object-center" src="https://replicate.delivery/czjl/XuffgC5qe8VpfR9q3JdSWUfXBQePnQsBQ7cG8kNkYoIb1fS5JA/tmpmyop9639.jpg" alt="">
-</div>
+<section class="container mx-auto py-8 px-4">
+  <h2 class="text-3xl font-bold mb-4">Our Baby Safety Experts</h2>
+  <style>
+     .gallery {
+      display: flex;
+      overflow: scroll;
+      gap: 1rem;
+     }
+     .gallery img {
+      width: 75vw;
+     }
+    @media (min-width: 500px) {
+      .gallery img {
+        width: auto;
+     }
+      .gallery {
+        overflow: auto;
+        display: grid;
+        gap: 0.1rem;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      }
+    }
+  </style>
+  <div class="gallery">
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/Yl2EHiDeOrTkH6iUEYVfzm4WM8ryDdyUL9siip9P13e4S0woA/tmpuy5bxwcv.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/vypqRy3befoADke06YsloGezMfxuARIffMaA9JxeZp5FiTaYUA/tmp2jickw7t.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/wWXh8ldiPZYUGxUH1QcVFaoEX5OgvVkHT0ZTz4m4FAZPlGGF/tmphwvhvocg.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/6gHv2eIKpNxWSyITx0id7cclZC94TFNe7mPlPi0ufQUSB0woA/tmphvynxr0s.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/uVp3uk9wXfWFEqriJsHF0W9pfPGYdJrBzVpII3peE9qufnhRB/tmp1o0f8osk.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/tAFKyrOdeiwMSKNG7hfflJlOhsxR0OOJmxmHWpHifC0fsPDjC/tmpm9n_r7is.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/kjjoZwI3fLRFT6jCBbnHddypUv37AA65MMemgbQenoAZJ0woA/tmpyha43fdf.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/CnxgzEBdyPbOBNq56TSx7vEKryl9o2U4o5imWNNfqPtrLNMKA/tmpkg1zhnc4.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/DMJnVHfAe8p2pU5d5n8rFsF9vkjk0pNH2v2HgnHgvFLdZaYUA/tmp88dx7jdz.jpg"
+      alt=""
+    />
+    <img
+      class="aspect-square object-cover object-center"
+      src="https://replicate.delivery/xezq/7Ch7Ve0iiwQvfEAQud1jWRqtXIBw7yzVc3e4Bnp54K07y0woA/tmpu85hqug1.jpg"
+      alt=""
+    />
+  </div>
 </section>
 
 {{ template "footer" . }}

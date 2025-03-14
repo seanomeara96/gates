@@ -124,6 +124,7 @@ func main() {
 				"FeaturedGates":      featuredGates,
 				"FeaturedExtensions": extensions,
 				"Cart":               cart,
+				"Env":                environment,
 			}
 
 			return renderPage(w, "home", data)
@@ -137,6 +138,7 @@ func main() {
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
+			"Env":             environment,
 		}
 		return renderPage(w, "contact", data)
 	})
@@ -652,9 +654,9 @@ func (handle customHandler) post(path string, fn customHandleFunc) {
 	handle("POST "+path, fn)
 }
 
-func (handle customHandler) put(path string, fn customHandleFunc) {
-	handle("PUT "+path, fn)
-}
+//	func (handle customHandler) put(path string, fn customHandleFunc) {
+//		handle("PUT "+path, fn)
+//	}
 func (handle customHandler) delete(path string, fn customHandleFunc) {
 	handle("DELETE"+path, fn)
 }
@@ -723,7 +725,8 @@ func BuildPressureFitBundles(db *sql.DB, limit float32) ([]models.Bundle, error)
 func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*models.Product) (models.Bundle, error) {
 	widthLimit := limit
 
-	var bundle models.Bundle = models.Bundle{}
+	var bundle = models.Bundle{}
+
 	// returning a single bundle
 	bundle.Qty = 1
 
@@ -736,7 +739,7 @@ func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*m
 		gate.Qty = 1
 	}
 
-	bundle.Gates = append(bundle.Gates, *gate)
+	bundle.Components = append(bundle.Components, *gate)
 
 	widthLimit -= gate.Width
 
@@ -764,8 +767,8 @@ func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*m
 
 		// check if extension already exists in the bundle and if so, increment the qty, else add it with a qty of 1
 		var existingExtension *models.Product
-		for ii := 0; ii < len(bundle.Extensions); ii++ {
-			var bundleExtension *models.Product = &bundle.Extensions[ii]
+		for ii := 1; ii < len(bundle.Components); ii++ {
+			var bundleExtension *models.Product = &bundle.Components[ii]
 
 			if bundleExtension.Id == extension.Id {
 				existingExtension = bundleExtension
@@ -777,11 +780,10 @@ func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*m
 			widthLimit -= existingExtension.Width
 		} else {
 			extension.Qty = 1
-			bundle.Extensions = append(bundle.Extensions, *extension)
+			bundle.Components = append(bundle.Components, *extension)
 			widthLimit -= extension.Width
 		}
 	}
-
 	bundle.ComputeMetaData()
 	return bundle, nil
 }
@@ -791,16 +793,9 @@ func SaveBundle(db *sql.DB, bundle models.Bundle) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	for iii := 0; iii < len(bundle.Gates); iii++ {
-		gate := bundle.Gates[iii]
-		err = SaveBundleGate(db, gate.Id, bundleId, gate.Qty)
-		if err != nil {
-			return 0, err
-		}
-	}
-	for ii := 0; ii < len(bundle.Extensions); ii++ {
-		extension := bundle.Extensions[ii]
-		err := SaveBundleExtension(db, extension.Id, bundleId, extension.Qty)
+	for iii := 0; iii < len(bundle.Components); iii++ {
+		component := bundle.Components[iii]
+		err = SaveBundleComponent(db, component.Id, component.Type, bundleId, component.Qty)
 		if err != nil {
 			return 0, err
 		}
@@ -1010,26 +1005,10 @@ func SaveRequestedBundleSize(db *sql.DB, desiredWidth float32) error {
 	return nil
 }
 
-func SaveBundleGate(db *sql.DB, gate_id int, bundle_id int64, qty int) error {
-	_, err := db.Exec("INSERT INTO bundle_gates(gate_id, bundle_id, qty) VALUES (?, ?, ?)", gate_id, bundle_id, qty)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func SaveBundleExtension(db *sql.DB, extension_id int, bundle_id int64, qty int) error {
-	_, err := db.Exec(`INSERT INTO
-		bundle_extensions(
-			extension_id,
-			bundle_id,
-			qty
-			)
-		VALUES
-			(?,?,?)`,
-		extension_id,
-		bundle_id,
-		qty,
+func SaveBundleComponent(db *sql.DB, productID int, productType string, bundleID int64, qty int) error {
+	_, err := db.Exec(
+		"INSERT INTO bundle_components(product_id, product_type, bundle_id, qty) VALUES (?, ?, ?, ?)",
+		productID, productType, bundleID, qty,
 	)
 	if err != nil {
 		return err
@@ -1638,13 +1617,7 @@ func templateParser(env Environment) tmplFunc {
 					ProductID int `json:"product_id"`
 					Qty       int `json:"qty"`
 				}{}
-				for _, g := range bundle.Gates {
-					data = append(data, struct {
-						ProductID int `json:"product_id"`
-						Qty       int `json:"qty"`
-					}{g.Id, g.Qty})
-				}
-				for _, g := range bundle.Extensions {
+				for _, g := range bundle.Components {
 					data = append(data, struct {
 						ProductID int `json:"product_id"`
 						Qty       int `json:"qty"`
