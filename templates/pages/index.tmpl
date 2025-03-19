@@ -16,6 +16,7 @@
         id="build-gate"
         hx-post="/build/"
         hx-target="#build-results"
+        hx-indicator="#spinner"
         hx-swap="outerHTML"
       >
         <label for="desired-width" class="block mb-2"
@@ -44,6 +45,7 @@
     />
   </div>
 </main>
+<div id="spinner" class="hidden animate-spin h-6 w-6 border-4 border-gray-300 border-t-blue-500 rounded-full mx-auto mt-4"></div>
 {{/*probably better to cache the most commonly searched width*/}}
 <div id="build-results" class="container my-4 mx-auto px-4">
   <h3 class="text-3xl font-bold mb-4">
@@ -231,7 +233,7 @@
           Input the width of your space, and we'll calculate the perfect fit.
         </p>
         <img
-          src="https://replicate.delivery/xezq/Yl2EHiDeOrTkH6iUEYVfzm4WM8ryDdyUL9siip9P13e4S0woA/tmpuy5bxwcv.jpg"
+          src="https://replicate.delivery/xezq/Q5uCuUmYh2JvDl6KXCueRAp4CDjKIX5bgQrw1sBf4z4eWG0oA/tmpn6999ybx.jpg"
           alt="Measuring a doorway"
           class="mt-4 rounded-lg shadow-md w-32 h-32 object-cover"
         />
@@ -247,7 +249,7 @@
           We’ll generate the ideal gate and extensions for a secure fit.
         </p>
         <img
-          src="https://replicate.delivery/xezq/Yl2EHiDeOrTkH6iUEYVfzm4WM8ryDdyUL9siip9P13e4S0woA/tmpuy5bxwcv.jpg"
+          src="https://replicate.delivery/xezq/kG3iAT0X1w4pCJORffSlcQtQX5QBE8Q2ZhmpQgqSOxkIODaUA/tmpzvgndxub.jpg"
           alt="Gate bundle preview"
           class="mt-4 rounded-lg shadow-md w-32 h-32 object-cover"
         />

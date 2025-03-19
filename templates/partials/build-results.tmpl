@@ -1,5 +1,5 @@
 {{ define "build-results" }}
-<div id="build-results" class="container my-4 mx-auto px-4">
+<div id="build-results" hx-on::after-settle="console.log('HTMX request settled'); document.getElementById('build-results').scrollIntoView({ behavior: 'smooth' });" class="container my-4 mx-auto px-4">
   <h3 class="text-3xl font-bold mb-4">
     Bundles to fit: {{ .RequestedBundleSize }}cm
   </h3>
