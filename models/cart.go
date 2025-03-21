@@ -56,9 +56,16 @@ func NewCartItem(cartID string, components []CartItemComponent) CartItem {
 		components[i].CartItemID = id
 	}
 
+	name := components[0].Name
+
+	if len(components) > 1 {
+		name += " and " + strconv.Itoa(len(components) - 1) + " components"
+	}
+
 	return CartItem{
 		ID:         id,
 		CartID:     cartID,
+		Name:
 		Components: components,
 		CreatedAt:  time.Now(),
 		Qty:        1,
