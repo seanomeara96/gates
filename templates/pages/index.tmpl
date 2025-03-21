@@ -16,26 +16,46 @@
         id="build-gate"
         hx-post="/build/"
         hx-target="#build-results"
-        hx-indicator="#spinner"
+        hx-indicator="#build-button"
         hx-swap="outerHTML"
       >
         <label for="desired-width" class="block mb-2"
           >Your desired Width in cm</label
         >
-        <input
-          id="desired-width"
-          name="desired-width"
-          class="py-2 px-4 mr-4 mb-4 rounded"
-          placeholder="e.g. 100"
-          type="number"
-        />
-        <button
-          type="submit"
-          style="background-color: #271d16"
-          class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
-        >
-          Build Gate
-        </button>
+        <div class="flex gap-4 items-center">
+          <input
+            id="desired-width"
+            name="desired-width"
+            class="py-2 px-4 rounded"
+            placeholder="e.g. 100"
+            type="number"
+          />
+          <style>
+            .htmx-request #button-text {
+              display: none;
+            }
+
+            .htmx-request #spinner {
+              display: flex;
+            }
+          </style>
+          <button
+            type="submit"
+            style="background-color: #271d16"
+            class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded relative"
+            id="build-button"
+          >
+            <span id="button-text">Build Gate</span>
+            <div
+              id="spinner"
+              class="hidden inset-0 flex items-center justify-center"
+            >
+              <div
+                class="animate-spin h-6 w-6 border-4 border-gray-300 border-t-white rounded-full"
+              ></div>
+            </div>
+          </button>
+        </div>
       </form>
     </div>
     <img
@@ -45,173 +65,233 @@
     />
   </div>
 </main>
-<div id="spinner" class="hidden animate-spin h-6 w-6 border-4 border-gray-300 border-t-blue-500 rounded-full mx-auto mt-4"></div>
+
 {{/*probably better to cache the most commonly searched width*/}}
 <div id="build-results" class="container my-4 mx-auto px-4">
-  <h3 class="text-3xl font-bold mb-4">
-    Bundles to fit: 120cm
-  </h3>
+  <h3 class="text-3xl font-bold mb-4">Bundles to fit: 120cm</h3>
 
   <div id="build-results-content" class="md:flex gap-4">
-    
-    <div style="animation: fadeIn; border: 1px solid gray;" class="bg-white rounded-lg p-4 mb-8">
-      <h2 class="text-2xl font-bold mb-4">BabyDan Premier True Pressure Fit Safety Gate and 3 extensions. White</h2>
+    <div
+      style="animation: fadeIn; border: 1px solid gray"
+      class="bg-white rounded-lg p-4 mb-8"
+    >
+      <h2 class="text-2xl font-bold mb-4">
+        BabyDan Premier True Pressure Fit Safety Gate and 3 extensions. White
+      </h2>
       <ul>
         <li>Total Bundle Price €122</li>
         <li>Width: 116 - 122cm</li>
       </ul>
       <strong class="py-4 font-medium mt-4 block">Bundle Includes:</strong>
-     
-        <div class="flex flex-col">
-          
-          
 
-<div class="px-2 mb-4 relative inline-block">
-    <div class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md">
-        <a class="relative" href="/gates/1">
-            <img class="h-full aspect-square max-w-16" src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2" alt="Baby Safety Gate">
-        </a>
-        <div class="p-4">
-            <a href="/gates/1">
-                <h3 class="font-bold mb-2 text-xs md:text-base">
-                    BabyDan Premier True Pressure Fit Safety Gate White
-                </h3>
+      <div class="flex flex-col">
+        <div class="px-2 mb-4 relative inline-block">
+          <div
+            class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
+          >
+            <a class="relative" href="/gates/1">
+              <img
+                class="h-full aspect-square max-w-16"
+                src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2"
+                alt="Baby Safety Gate"
+              />
             </a>
-        </div>
-        <span style="background-color: #683B1C;" class=" p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"> x 1</span>
-    </div>
-</div>
-
-
-          
-          
-
-<div class="px-2 mb-4 relative inline-block">
-    <div class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md">
-        <a class="relative" href="/extensions/4">
-            <img class="h-full aspect-square max-w-16" src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2" alt="Baby Safety Gate">
-        </a>
-        <div class="p-4">
-            <a href="/gates/4">
+            <div class="p-4">
+              <a href="/gates/1">
                 <h3 class="font-bold mb-2 text-xs md:text-base">
-                    Babydan Premier Gate Extension Medium White
+                  BabyDan Premier True Pressure Fit Safety Gate White
                 </h3>
-            </a>
+              </a>
+            </div>
+            <span
+              style="background-color: #683b1c"
+              class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
+            >
+              x 1</span
+            >
+          </div>
         </div>
-        <span style="background-color: #683B1C;" class=" p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"> x 1</span>
-    </div>
-</div>
 
-
-          
-          
-
-<div class="px-2 mb-4 relative inline-block">
-    <div class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md">
-        <a class="relative" href="/extensions/5">
-            <img class="h-full aspect-square max-w-16" src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2" alt="Baby Safety Gate">
-        </a>
-        <div class="p-4">
-            <a href="/gates/5">
+        <div class="px-2 mb-4 relative inline-block">
+          <div
+            class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
+          >
+            <a class="relative" href="/extensions/4">
+              <img
+                class="h-full aspect-square max-w-16"
+                src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2"
+                alt="Baby Safety Gate"
+              />
+            </a>
+            <div class="p-4">
+              <a href="/gates/4">
                 <h3 class="font-bold mb-2 text-xs md:text-base">
-                    BabyDan Premier Gate Extension Small White
+                  Babydan Premier Gate Extension Medium White
                 </h3>
+              </a>
+            </div>
+            <span
+              style="background-color: #683b1c"
+              class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
+            >
+              x 1</span
+            >
+          </div>
+        </div>
+
+        <div class="px-2 mb-4 relative inline-block">
+          <div
+            class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
+          >
+            <a class="relative" href="/extensions/5">
+              <img
+                class="h-full aspect-square max-w-16"
+                src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2"
+                alt="Baby Safety Gate"
+              />
             </a>
+            <div class="p-4">
+              <a href="/gates/5">
+                <h3 class="font-bold mb-2 text-xs md:text-base">
+                  BabyDan Premier Gate Extension Small White
+                </h3>
+              </a>
+            </div>
+            <span
+              style="background-color: #683b1c"
+              class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
+            >
+              x 2</span
+            >
+          </div>
         </div>
-        <span style="background-color: #683B1C;" class=" p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"> x 2</span>
-    </div>
-</div>
+      </div>
 
-
-          
-        </div>
-      
       <div class="flex justify-end">
-        <button class=" hover:bg-gray-700 text-white font-bold py-2 px-4 rounded" style="background-color: #683B1C" hx-post="/cart/add" hx-trigger="click" hx-target="#cart-modal" hx-swap="outerHTML" hx-vals="{ &quot;data&quot;: [{&quot;product_id&quot;:1,&quot;qty&quot;:1},{&quot;product_id&quot;:4,&quot;qty&quot;:1},{&quot;product_id&quot;:5,&quot;qty&quot;:2}] }">
-        Add Bundle To Cart
-      </button>
+        <button
+          class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+          style="background-color: #683b1c"
+          hx-post="/cart/add"
+          hx-trigger="click"
+          hx-target="#cart-modal"
+          hx-swap="outerHTML"
+          hx-vals='{ "data": [{"product_id":1,"qty":1},{"product_id":4,"qty":1},{"product_id":5,"qty":2}] }'
+        >
+          Add Bundle To Cart
+        </button>
       </div>
     </div>
-    
-    <div style="animation: fadeIn; border: 1px solid gray;" class="bg-white rounded-lg p-4 mb-8">
-      <h2 class="text-2xl font-bold mb-4">BabyDan Premier True Pressure Fit Safety Gate and 3 extensions. Black</h2>
+
+    <div
+      style="animation: fadeIn; border: 1px solid gray"
+      class="bg-white rounded-lg p-4 mb-8"
+    >
+      <h2 class="text-2xl font-bold mb-4">
+        BabyDan Premier True Pressure Fit Safety Gate and 3 extensions. Black
+      </h2>
       <ul>
         <li>Total Bundle Price €122</li>
         <li>Width: 116 - 122cm</li>
       </ul>
       <strong class="py-4 font-medium mt-4 block">Bundle Includes:</strong>
-     
-        <div class="flex flex-col">
-          
-          
 
-<div class="px-2 mb-4 relative inline-block">
-    <div class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md">
-        <a class="relative" href="/gates/2">
-            <img class="h-full aspect-square max-w-16" src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2" alt="Baby Safety Gate">
-        </a>
-        <div class="p-4">
-            <a href="/gates/2">
-                <h3 class="font-bold mb-2 text-xs md:text-base">
-                    BabyDan Premier True Pressure Fit Safety Gate Black
-                </h3>
+      <div class="flex flex-col">
+        <div class="px-2 mb-4 relative inline-block">
+          <div
+            class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
+          >
+            <a class="relative" href="/gates/2">
+              <img
+                class="h-full aspect-square max-w-16"
+                src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2"
+                alt="Baby Safety Gate"
+              />
             </a>
-        </div>
-        <span style="background-color: #683B1C;" class=" p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"> x 1</span>
-    </div>
-</div>
-
-
-          
-          
-
-<div class="px-2 mb-4 relative inline-block">
-    <div class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md">
-        <a class="relative" href="/extensions/7">
-            <img class="h-full aspect-square max-w-16" src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2" alt="Baby Safety Gate">
-        </a>
-        <div class="p-4">
-            <a href="/gates/7">
+            <div class="p-4">
+              <a href="/gates/2">
                 <h3 class="font-bold mb-2 text-xs md:text-base">
-                    Babydan Premier Gate Extension Medium Black
+                  BabyDan Premier True Pressure Fit Safety Gate Black
                 </h3>
-            </a>
+              </a>
+            </div>
+            <span
+              style="background-color: #683b1c"
+              class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
+            >
+              x 1</span
+            >
+          </div>
         </div>
-        <span style="background-color: #683B1C;" class=" p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"> x 1</span>
-    </div>
-</div>
 
-
-          
-          
-
-<div class="px-2 mb-4 relative inline-block">
-    <div class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md">
-        <a class="relative" href="/extensions/8">
-            <img class="h-full aspect-square max-w-16" src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2" alt="Baby Safety Gate">
-        </a>
-        <div class="p-4">
-            <a href="/gates/8">
+        <div class="px-2 mb-4 relative inline-block">
+          <div
+            class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
+          >
+            <a class="relative" href="/extensions/7">
+              <img
+                class="h-full aspect-square max-w-16"
+                src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2"
+                alt="Baby Safety Gate"
+              />
+            </a>
+            <div class="p-4">
+              <a href="/gates/7">
                 <h3 class="font-bold mb-2 text-xs md:text-base">
-                    BabyDan Premier Gate Extension Small Black
+                  Babydan Premier Gate Extension Medium Black
                 </h3>
+              </a>
+            </div>
+            <span
+              style="background-color: #683b1c"
+              class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
+            >
+              x 1</span
+            >
+          </div>
+        </div>
+
+        <div class="px-2 mb-4 relative inline-block">
+          <div
+            class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
+          >
+            <a class="relative" href="/extensions/8">
+              <img
+                class="h-full aspect-square max-w-16"
+                src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2"
+                alt="Baby Safety Gate"
+              />
             </a>
+            <div class="p-4">
+              <a href="/gates/8">
+                <h3 class="font-bold mb-2 text-xs md:text-base">
+                  BabyDan Premier Gate Extension Small Black
+                </h3>
+              </a>
+            </div>
+            <span
+              style="background-color: #683b1c"
+              class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
+            >
+              x 2</span
+            >
+          </div>
         </div>
-        <span style="background-color: #683B1C;" class=" p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"> x 2</span>
-    </div>
-</div>
+      </div>
 
-
-          
-        </div>
-      
       <div class="flex justify-end">
-        <button class=" hover:bg-gray-700 text-white font-bold py-2 px-4 rounded" style="background-color: #683B1C" hx-post="/cart/add" hx-trigger="click" hx-target="#cart-modal" hx-swap="outerHTML" hx-vals="{ &quot;data&quot;: [{&quot;product_id&quot;:2,&quot;qty&quot;:1},{&quot;product_id&quot;:7,&quot;qty&quot;:1},{&quot;product_id&quot;:8,&quot;qty&quot;:2}] }">
-        Add Bundle To Cart
-      </button>
+        <button
+          class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+          style="background-color: #683b1c"
+          hx-post="/cart/add"
+          hx-trigger="click"
+          hx-target="#cart-modal"
+          hx-swap="outerHTML"
+          hx-vals='{ "data": [{"product_id":2,"qty":1},{"product_id":7,"qty":1},{"product_id":8,"qty":2}] }'
+        >
+          Add Bundle To Cart
+        </button>
       </div>
     </div>
-    
   </div>
 </div>
 
@@ -223,9 +303,10 @@
     </p>
 
     <div class="grid md:grid-cols-3 gap-8">
-      
       <div class="flex flex-col items-center">
-        <div class="w-20 h-20 bg-blue-500 text-white flex items-center justify-center text-3xl font-bold rounded-full">
+        <div
+          class="w-20 h-20 bg-blue-500 text-white flex items-center justify-center text-3xl font-bold rounded-full"
+        >
           1
         </div>
         <h3 class="text-xl font-semibold mt-4">Enter Your Measurement</h3>
@@ -239,9 +320,10 @@
         />
       </div>
 
-      
       <div class="flex flex-col items-center">
-        <div class="w-20 h-20 bg-blue-500 text-white flex items-center justify-center text-3xl font-bold rounded-full">
+        <div
+          class="w-20 h-20 bg-blue-500 text-white flex items-center justify-center text-3xl font-bold rounded-full"
+        >
           2
         </div>
         <h3 class="text-xl font-semibold mt-4">Get Your Custom Bundle</h3>
@@ -255,9 +337,10 @@
         />
       </div>
 
-      
       <div class="flex flex-col items-center">
-        <div class="w-20 h-20 bg-blue-500 text-white flex items-center justify-center text-3xl font-bold rounded-full">
+        <div
+          class="w-20 h-20 bg-blue-500 text-white flex items-center justify-center text-3xl font-bold rounded-full"
+        >
           3
         </div>
         <h3 class="text-xl font-semibold mt-4">Install with Ease</h3>
@@ -298,54 +381,61 @@
   <div class="max-w-5xl mx-auto text-center">
     <h2 class="text-3xl font-bold text-gray-800 mb-6">Why Choose Us?</h2>
     <p class="text-lg text-gray-600 mb-10">
-      Our baby safety gates are designed for a perfect fit, built with premium materials, and easy to install.
+      Our baby safety gates are designed for a perfect fit, built with premium
+      materials, and easy to install.
     </p>
 
     <div class="grid md:grid-cols-3 gap-12">
       <!-- Precision Fit -->
       <div class="flex flex-col items-center">
-        <div class="w-16 h-16 bg-blue-500 text-white flex items-center justify-center text-2xl font-bold rounded-full">
+        <div
+          class="w-16 h-16 bg-blue-500 text-white flex items-center justify-center text-2xl font-bold rounded-full"
+        >
           🎯
         </div>
         <h3 class="text-xl font-semibold mt-4">Precision Fit</h3>
         <p class="text-gray-600 text-center mt-2">
           Our custom bundles ensure a secure fit for any space.
         </p>
-        <img 
+        <img
           src="https://replicate.delivery/xezq/vypqRy3befoADke06YsloGezMfxuARIffMaA9JxeZp5FiTaYUA/tmp2jickw7t.jpg"
-          alt="Measuring for precision fit" 
+          alt="Measuring for precision fit"
           class="mt-4 w-40 h-40 object-cover rounded-lg shadow-md"
         />
       </div>
 
       <!-- High-Quality Materials -->
       <div class="flex flex-col items-center">
-        <div class="w-16 h-16 bg-blue-500 text-white flex items-center justify-center text-2xl font-bold rounded-full">
+        <div
+          class="w-16 h-16 bg-blue-500 text-white flex items-center justify-center text-2xl font-bold rounded-full"
+        >
           🏆
         </div>
         <h3 class="text-xl font-semibold mt-4">High-Quality Materials</h3>
         <p class="text-gray-600 text-center mt-2">
           Made from durable, non-toxic materials for long-lasting safety.
         </p>
-        <img 
+        <img
           src="https://replicate.delivery/xezq/Yl2EHiDeOrTkH6iUEYVfzm4WM8ryDdyUL9siip9P13e4S0woA/tmpuy5bxwcv.jpg"
-          alt="High-quality baby gate" 
+          alt="High-quality baby gate"
           class="mt-4 w-40 h-40 object-cover rounded-lg shadow-md"
         />
       </div>
 
       <!-- Hassle-Free Installation -->
       <div class="flex flex-col items-center">
-        <div class="w-16 h-16 bg-blue-500 text-white flex items-center justify-center text-2xl font-bold rounded-full">
+        <div
+          class="w-16 h-16 bg-blue-500 text-white flex items-center justify-center text-2xl font-bold rounded-full"
+        >
           ⚡
         </div>
         <h3 class="text-xl font-semibold mt-4">Hassle-Free Installation</h3>
         <p class="text-gray-600 text-center mt-2">
           Quick setup with no drilling required—safe and sturdy in minutes.
         </p>
-        <img 
+        <img
           src="https://replicate.delivery/xezq/6gHv2eIKpNxWSyITx0id7cclZC94TFNe7mPlPi0ufQUSB0woA/tmphvynxr0s.jpg"
-          alt="Installing baby gate" 
+          alt="Installing baby gate"
           class="mt-4 w-40 h-40 object-cover rounded-lg shadow-md"
         />
       </div>
@@ -353,22 +443,21 @@
   </div>
 </section>
 
-
 <section class="container mx-auto py-8 px-4">
   <h2 class="text-3xl font-bold mb-4">Our Baby Safety Experts</h2>
   <style>
-     .gallery {
+    .gallery {
       display: flex;
       overflow: scroll;
       gap: 1rem;
-     }
-     .gallery img {
+    }
+    .gallery img {
       width: 75vw;
-     }
+    }
     @media (min-width: 500px) {
       .gallery img {
         width: auto;
-     }
+      }
       .gallery {
         overflow: auto;
         display: grid;
@@ -381,199 +470,232 @@
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/Yl2EHiDeOrTkH6iUEYVfzm4WM8ryDdyUL9siip9P13e4S0woA/tmpuy5bxwcv.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/vypqRy3befoADke06YsloGezMfxuARIffMaA9JxeZp5FiTaYUA/tmp2jickw7t.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/wWXh8ldiPZYUGxUH1QcVFaoEX5OgvVkHT0ZTz4m4FAZPlGGF/tmphwvhvocg.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/6gHv2eIKpNxWSyITx0id7cclZC94TFNe7mPlPi0ufQUSB0woA/tmphvynxr0s.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/uVp3uk9wXfWFEqriJsHF0W9pfPGYdJrBzVpII3peE9qufnhRB/tmp1o0f8osk.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/tAFKyrOdeiwMSKNG7hfflJlOhsxR0OOJmxmHWpHifC0fsPDjC/tmpm9n_r7is.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/kjjoZwI3fLRFT6jCBbnHddypUv37AA65MMemgbQenoAZJ0woA/tmpyha43fdf.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/CnxgzEBdyPbOBNq56TSx7vEKryl9o2U4o5imWNNfqPtrLNMKA/tmpkg1zhnc4.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/DMJnVHfAe8p2pU5d5n8rFsF9vkjk0pNH2v2HgnHgvFLdZaYUA/tmp88dx7jdz.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
     <img
       class="aspect-square object-cover object-center"
       src="https://replicate.delivery/xezq/7Ch7Ve0iiwQvfEAQud1jWRqtXIBw7yzVc3e4Bnp54K07y0woA/tmpu85hqug1.jpg"
-      alt=""
+      alt="baby fitting a babysafety gate"
     />
   </div>
 </section>
 <section class="bg-gray-100 py-16 px-4">
   <div class="max-w-5xl mx-auto text-center">
-    <h2 class="text-3xl font-bold text-gray-800 mb-6">Certified Safety Standards</h2>
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">
+      Certified Safety Standards
+    </h2>
     <p class="text-lg text-gray-600 mb-10">
-      Our baby safety gates meet the highest European safety standards to ensure maximum protection for your child.
+      Our baby safety gates meet the highest European safety standards to ensure
+      maximum protection for your child.
     </p>
 
     <div class="grid md:grid-cols-2 gap-8 text-left">
       <!-- Safety Certifications -->
       <div class="flex flex-col items-center md:items-start">
-        <img 
-          src="https://replicate.delivery/xezq/uVp3uk9wXfWFEqriJsHF0W9pfPGYdJrBzVpII3peE9qufnhRB/tmp1o0f8osk.jpg" 
-          alt="Safety certification badge" 
+        <img
+          src="https://replicate.delivery/xezq/uVp3uk9wXfWFEqriJsHF0W9pfPGYdJrBzVpII3peE9qufnhRB/tmp1o0f8osk.jpg"
+          alt="Safety certification badge"
           class="w-40 h-40 object-cover rounded-lg shadow-md mb-4"
         />
         <h3 class="text-xl font-semibold">Certified to EN 1930:2011 & EN 71</h3>
         <p class="text-gray-600 mt-2">
-          Our safety gates comply with the strictest European safety standards, ensuring durability, reliability, and child safety.
+          Our safety gates comply with the strictest European safety standards,
+          ensuring durability, reliability, and child safety.
         </p>
       </div>
 
       <!-- Rigorous Testing -->
       <div class="flex flex-col items-center md:items-start">
-        <img 
-          src="https://replicate.delivery/xezq/kjjoZwI3fLRFT6jCBbnHddypUv37AA65MMemgbQenoAZJ0woA/tmpyha43fdf.jpg" 
-          alt="Strength test for baby gate" 
+        <img
+          src="https://replicate.delivery/xezq/kjjoZwI3fLRFT6jCBbnHddypUv37AA65MMemgbQenoAZJ0woA/tmpyha43fdf.jpg"
+          alt="Strength test for baby gate"
           class="w-40 h-40 object-cover rounded-lg shadow-md mb-4"
         />
         <h3 class="text-xl font-semibold">Rigorous Strength & Safety Tests</h3>
         <p class="text-gray-600 mt-2">
-          Each gate undergoes extensive testing to ensure it can withstand impacts, prevent climbing, and eliminate risks like finger pinching or choking hazards.
+          Each gate undergoes extensive testing to ensure it can withstand
+          impacts, prevent climbing, and eliminate risks like finger pinching or
+          choking hazards.
         </p>
       </div>
 
       <!-- Child-Safe Materials -->
       <div class="flex flex-col items-center md:items-start">
-        <img 
-          src="https://replicate.delivery/xezq/Yl2EHiDeOrTkH6iUEYVfzm4WM8ryDdyUL9siip9P13e4S0woA/tmpuy5bxwcv.jpg" 
-          alt="Child touching a safety gate" 
+        <img
+          src="https://replicate.delivery/xezq/Yl2EHiDeOrTkH6iUEYVfzm4WM8ryDdyUL9siip9P13e4S0woA/tmpuy5bxwcv.jpg"
+          alt="Child touching a safety gate"
           class="w-40 h-40 object-cover rounded-lg shadow-md mb-4"
         />
         <h3 class="text-xl font-semibold">Non-Toxic, Child-Safe Materials</h3>
         <p class="text-gray-600 mt-2">
-          Made from materials free of heavy metals and harmful chemicals, ensuring your child’s safety—even if they chew or suck on the gate.
+          Made from materials free of heavy metals and harmful chemicals,
+          ensuring your child’s safety—even if they chew or suck on the gate.
         </p>
       </div>
 
       <!-- Secure Design -->
       <div class="flex flex-col items-center md:items-start">
-        <img 
-          src="https://replicate.delivery/xezq/7Ch7Ve0iiwQvfEAQud1jWRqtXIBw7yzVc3e4Bnp54K07y0woA/tmpu85hqug1.jpg" 
-          alt="Properly installed baby gate" 
+        <img
+          src="https://replicate.delivery/xezq/7Ch7Ve0iiwQvfEAQud1jWRqtXIBw7yzVc3e4Bnp54K07y0woA/tmpu85hqug1.jpg"
+          alt="Properly installed baby gate"
           class="w-40 h-40 object-cover rounded-lg shadow-md mb-4"
         />
         <h3 class="text-xl font-semibold">Stable & Secure Installation</h3>
         <p class="text-gray-600 mt-2">
-          Designed to remain firmly in place, even when pushed or shaken, preventing accidental dislodging.
+          Designed to remain firmly in place, even when pushed or shaken,
+          preventing accidental dislodging.
         </p>
       </div>
     </div>
   </div>
 </section>
 
-
 <section class="bg-white py-16 px-4">
   <div class="max-w-4xl mx-auto text-center">
-    <h2 class="text-3xl font-bold text-gray-800 mb-6">Frequently Asked Questions</h2>
-    <p class="text-lg text-gray-600 mb-10">Find answers to common questions about our baby safety gates.</p>
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">
+      Frequently Asked Questions
+    </h2>
+    <p class="text-lg text-gray-600 mb-10">
+      Find answers to common questions about our baby safety gates.
+    </p>
 
     <div class="space-y-6 text-left">
       <!-- Question 1 -->
       <div class="border-b pb-4">
-        <button class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle">
+        <button
+          class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle"
+        >
           What size baby gate do I need?
           <span class="text-blue-500">+</span>
         </button>
         <p class="text-gray-600 mt-2 hidden">
-          Measure the width of your doorway, staircase, or opening. Our gates are adjustable and can be customized for a perfect fit.
+          Measure the width of your doorway, staircase, or opening. Our gates
+          are adjustable and can be customized for a perfect fit.
         </p>
       </div>
 
       <!-- Question 2 -->
       <div class="border-b pb-4">
-        <button class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle">
+        <button
+          class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle"
+        >
           Are pressure-mounted gates safe for stairs?
           <span class="text-blue-500">+</span>
         </button>
         <p class="text-gray-600 mt-2 hidden">
-          Pressure-mounted gates are great for doorways but not recommended for the top of stairs. Use hardware-mounted gates for staircases.
+          Pressure-mounted gates are great for doorways but not recommended for
+          the top of stairs. Use hardware-mounted gates for staircases.
         </p>
       </div>
 
       <!-- Question 3 -->
       <div class="border-b pb-4">
-        <button class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle">
+        <button
+          class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle"
+        >
           Can I install a baby gate without drilling?
           <span class="text-blue-500">+</span>
         </button>
         <p class="text-gray-600 mt-2 hidden">
-          Yes! Pressure-mounted gates require no drilling and are ideal for renters. However, for stairs, we recommend hardware-mounted gates for added security.
+          Yes! Pressure-mounted gates require no drilling and are ideal for
+          renters. However, for stairs, we recommend hardware-mounted gates for
+          added security.
         </p>
       </div>
 
       <!-- Question 4 -->
       <div class="border-b pb-4">
-        <button class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle">
+        <button
+          class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle"
+        >
           How do I clean and maintain my baby gate?
           <span class="text-blue-500">+</span>
         </button>
         <p class="text-gray-600 mt-2 hidden">
-          Wipe down with a damp cloth and mild detergent. Avoid harsh chemicals to keep materials safe for children.
+          Wipe down with a damp cloth and mild detergent. Avoid harsh chemicals
+          to keep materials safe for children.
         </p>
       </div>
 
       <!-- Question 5 -->
       <div class="border-b pb-4">
-        <button class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle">
+        <button
+          class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle"
+        >
           What safety certifications do your baby gates have?
           <span class="text-blue-500">+</span>
         </button>
         <p class="text-gray-600 mt-2 hidden">
-          Our gates comply with EN 1930:2011 and EN 71, ensuring they meet the strictest safety standards for durability and child safety.
+          Our gates comply with EN 1930:2011 and EN 71, ensuring they meet the
+          strictest safety standards for durability and child safety.
         </p>
       </div>
 
       <!-- Question 6 -->
       <div class="border-b pb-4">
-        <button class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle">
+        <button
+          class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle"
+        >
           Do baby gates work for pets as well?
           <span class="text-blue-500">+</span>
         </button>
         <p class="text-gray-600 mt-2 hidden">
-          Yes! Our gates can be used for both babies and pets. We also offer pet-specific gates with added durability.
+          Yes! Our gates can be used for both babies and pets. We also offer
+          pet-specific gates with added durability.
         </p>
       </div>
 
       <!-- Question 7 -->
       <div class="border-b pb-4">
-        <button class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle">
+        <button
+          class="w-full flex justify-between items-center text-lg font-semibold text-gray-800 focus:outline-none faq-toggle"
+        >
           When should I stop using a baby gate?
           <span class="text-blue-500">+</span>
         </button>
         <p class="text-gray-600 mt-2 hidden">
-          Baby gates are generally used until a child is around 2 years old or tall enough to climb over them. Always follow manufacturer guidelines.
+          Baby gates are generally used until a child is around 2 years old or
+          tall enough to climb over them. Always follow manufacturer guidelines.
         </p>
       </div>
     </div>
@@ -581,81 +703,84 @@
 </section>
 
 <script>
-  document.querySelectorAll('.faq-toggle').forEach(button => {
-    button.addEventListener('click', () => {
+  document.querySelectorAll(".faq-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
       const answer = button.nextElementSibling;
-      answer.classList.toggle('hidden');
-      button.querySelector('span').textContent = answer.classList.contains('hidden') ? '+' : '−';
+      answer.classList.toggle("hidden");
+      button.querySelector("span").textContent = answer.classList.contains(
+        "hidden"
+      )
+        ? "+"
+        : "−";
     });
   });
 </script>
 
 <!-- Structured Data for SEO -->
 <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "What size baby gate do I need?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Measure the width of your doorway, staircase, or opening. Our gates are adjustable and can be customized for a perfect fit."
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What size baby gate do I need?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Measure the width of your doorway, staircase, or opening. Our gates are adjustable and can be customized for a perfect fit."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Are pressure-mounted gates safe for stairs?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pressure-mounted gates are great for doorways but not recommended for the top of stairs. Use hardware-mounted gates for staircases."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I install a baby gate without drilling?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes! Pressure-mounted gates require no drilling and are ideal for renters. However, for stairs, we recommend hardware-mounted gates for added security."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I clean and maintain my baby gate?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Wipe down with a damp cloth and mild detergent. Avoid harsh chemicals to keep materials safe for children."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What safety certifications do your baby gates have?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Our gates comply with EN 1930:2011 and EN 71, ensuring they meet the strictest safety standards for durability and child safety."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do baby gates work for pets as well?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes! Our gates can be used for both babies and pets. We also offer pet-specific gates with added durability."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "When should I stop using a baby gate?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Baby gates are generally used until a child is around 2 years old or tall enough to climb over them. Always follow manufacturer guidelines."
+        }
       }
-    },
-    {
-      "@type": "Question",
-      "name": "Are pressure-mounted gates safe for stairs?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Pressure-mounted gates are great for doorways but not recommended for the top of stairs. Use hardware-mounted gates for staircases."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I install a baby gate without drilling?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes! Pressure-mounted gates require no drilling and are ideal for renters. However, for stairs, we recommend hardware-mounted gates for added security."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How do I clean and maintain my baby gate?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Wipe down with a damp cloth and mild detergent. Avoid harsh chemicals to keep materials safe for children."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What safety certifications do your baby gates have?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Our gates comply with EN 1930:2011 and EN 71, ensuring they meet the strictest safety standards for durability and child safety."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Do baby gates work for pets as well?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes! Our gates can be used for both babies and pets. We also offer pet-specific gates with added durability."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "When should I stop using a baby gate?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Baby gates are generally used until a child is around 2 years old or tall enough to climb over them. Always follow manufacturer guidelines."
-      }
-    }
-  ]
-}
+    ]
+  }
 </script>
-
 
 {{ template "footer" . }}
 
