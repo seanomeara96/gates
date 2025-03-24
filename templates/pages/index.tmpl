@@ -2,14 +2,36 @@
 
 {{ template "header" . }}
 
-<main class="p-4 bg-gray-100">
-  <div class="container mx-auto flex justify-center items-center">
-    <div class="container mx-auto px-4">
+<main>
+  <section class=" bg-gray-100 mx-auto relative flex flex-col md:flex-row items-center gap-4">
+    
+    <style>
+      .hero-vid {
+        aspect-ratio:16/9;
+      }
+      @media(min-width: 750px){
+        .hero-vid {
+        aspect-ratio:9/9;
+      }
+      }
+    </style>
+    <video
+      class="hero-vid h-full w-full md:w-1/4 object-cover"
+      src="https://replicate.delivery/xezq/cBCrM0QneJWfg0qsA5O9fZqnngEGIlU4e0iDbkQL1Lx2FIvRB/tmp74g77w30.mp4"
+      preload="auto"
+      autoplay=""
+      playsinline=""
+      webkit-playsinline=""
+      x5-playsinline=""
+      loop=""
+      muted
+    ></video>
+    <div class="px-4 pb-4">
       <h1 class="text-2xl md:text-5xl font-bold mb-2">
         Build Your Custom Pressure Gate
       </h1>
       <p class="text-gray-600 mb-8">
-        Just enter the gap your desired width and we'll sort the rest out for
+        Just enter your desired width and we'll sort the rest out for
         you.
       </p>
       <form
@@ -58,17 +80,15 @@
         </div>
       </form>
     </div>
-    <img
-      class="rounded-full w-1/4 aspect-square"
-      src="https://replicate.delivery/xezq/IcD7OJrvYx5MNtfSiZNHZPQ2FWueIa3tuRB8geTzFQiR9KlnA/out-0.webp"
-      alt=""
-    />
-  </div>
+    
+  </section>
 </main>
 
+<div class="h-4"></div>
+
 {{/*probably better to cache the most commonly searched width*/}}
-<div id="build-results" class="container my-4 mx-auto px-4">
-  <h3 class="text-3xl font-bold mb-4">Bundles to fit: 120cm</h3>
+<section id="build-results" class="container mx-auto p-4">
+  <h2 class="text-4xl font-bold mb-4">Bundles to fit: 80cm</h2>
 
   <div id="build-results-content" class="md:flex gap-4">
     <div
@@ -76,11 +96,11 @@
       class="bg-white rounded-lg p-4 mb-8"
     >
       <h2 class="text-2xl font-bold mb-4">
-        BabyDan Premier True Pressure Fit Safety Gate and 3 extensions. White
+        BabyDan Premier True Pressure Fit Safety Gate and 1 extension. White
       </h2>
       <ul>
-        <li>Total Bundle Price €122</li>
-        <li>Width: 116 - 122cm</li>
+        <li>Total Bundle Price €83</li>
+        <li>Width: 77 - 83cm</li>
       </ul>
       <strong class="py-4 font-medium mt-4 block">Bundle Includes:</strong>
 
@@ -116,33 +136,6 @@
           <div
             class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
           >
-            <a class="relative" href="/extensions/4">
-              <img
-                class="h-full aspect-square max-w-16"
-                src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2"
-                alt="Baby Safety Gate"
-              />
-            </a>
-            <div class="p-4">
-              <a href="/gates/4">
-                <h3 class="font-bold mb-2 text-xs md:text-base">
-                  Babydan Premier Gate Extension Medium White
-                </h3>
-              </a>
-            </div>
-            <span
-              style="background-color: #683b1c"
-              class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
-            >
-              x 1</span
-            >
-          </div>
-        </div>
-
-        <div class="px-2 mb-4 relative inline-block">
-          <div
-            class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
-          >
             <a class="relative" href="/extensions/5">
               <img
                 class="h-full aspect-square max-w-16"
@@ -161,25 +154,30 @@
               style="background-color: #683b1c"
               class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
             >
-              x 2</span
+              x 1</span
             >
           </div>
         </div>
       </div>
 
-      <div class="flex justify-end">
+      <form
+        hx-trigger="submit"
+        hx-target="#cart-modal"
+        hx-swap="outerHTML"
+        hx-post="/cart/add"
+        class="flex justify-end"
+      >
+        <input type="hidden" name="data" value='{"product_id":1,"qty":1}' />
+
+        <input type="hidden" name="data" value='{"product_id":5,"qty":1}' />
+
         <button
           class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
           style="background-color: #683b1c"
-          hx-post="/cart/add"
-          hx-trigger="click"
-          hx-target="#cart-modal"
-          hx-swap="outerHTML"
-          hx-vals='{ "data": [{"product_id":1,"qty":1},{"product_id":4,"qty":1},{"product_id":5,"qty":2}] }'
         >
           Add Bundle To Cart
         </button>
-      </div>
+      </form>
     </div>
 
     <div
@@ -187,11 +185,11 @@
       class="bg-white rounded-lg p-4 mb-8"
     >
       <h2 class="text-2xl font-bold mb-4">
-        BabyDan Premier True Pressure Fit Safety Gate and 3 extensions. Black
+        BabyDan Premier True Pressure Fit Safety Gate and 1 extension. Black
       </h2>
       <ul>
-        <li>Total Bundle Price €122</li>
-        <li>Width: 116 - 122cm</li>
+        <li>Total Bundle Price €83</li>
+        <li>Width: 77 - 83cm</li>
       </ul>
       <strong class="py-4 font-medium mt-4 block">Bundle Includes:</strong>
 
@@ -227,33 +225,6 @@
           <div
             class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
           >
-            <a class="relative" href="/extensions/7">
-              <img
-                class="h-full aspect-square max-w-16"
-                src="https://cdn11.bigcommerce.com/s-egiahb/images/stencil/640w/products/347/1003/baby-dan-premier-60114-white-no-child__43601.1559815258.jpg?c=2"
-                alt="Baby Safety Gate"
-              />
-            </a>
-            <div class="p-4">
-              <a href="/gates/7">
-                <h3 class="font-bold mb-2 text-xs md:text-base">
-                  Babydan Premier Gate Extension Medium Black
-                </h3>
-              </a>
-            </div>
-            <span
-              style="background-color: #683b1c"
-              class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
-            >
-              x 1</span
-            >
-          </div>
-        </div>
-
-        <div class="px-2 mb-4 relative inline-block">
-          <div
-            class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md"
-          >
             <a class="relative" href="/extensions/8">
               <img
                 class="h-full aspect-square max-w-16"
@@ -272,28 +243,33 @@
               style="background-color: #683b1c"
               class="p-4 z-10 text-white rounded text-xs md:text-base text-nowrap"
             >
-              x 2</span
+              x 1</span
             >
           </div>
         </div>
       </div>
 
-      <div class="flex justify-end">
+      <form
+        hx-trigger="submit"
+        hx-target="#cart-modal"
+        hx-swap="outerHTML"
+        hx-post="/cart/add"
+        class="flex justify-end"
+      >
+        <input type="hidden" name="data" value='{"product_id":2,"qty":1}' />
+
+        <input type="hidden" name="data" value='{"product_id":8,"qty":1}' />
+
         <button
           class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
           style="background-color: #683b1c"
-          hx-post="/cart/add"
-          hx-trigger="click"
-          hx-target="#cart-modal"
-          hx-swap="outerHTML"
-          hx-vals='{ "data": [{"product_id":2,"qty":1},{"product_id":7,"qty":1},{"product_id":8,"qty":2}] }'
         >
           Add Bundle To Cart
         </button>
-      </div>
+      </form>
     </div>
   </div>
-</div>
+</section>
 
 <section class="bg-gray-100 py-16 px-4">
   <div class="max-w-4xl mx-auto text-center">
@@ -361,7 +337,7 @@
   <div class="">
     <h2 class="text-3xl font-bold mb-4">Featured Gates</h2>
     <div class="flex flex-wrap md:flex-nowrap gap-4">
-      {{ range.FeaturedGates }}
+      {{ range .FeaturedGates }}
       {{ template "product-card" . }}
       {{ end }}
     </div>
@@ -370,7 +346,7 @@
   <div class="">
     <h2 class="text-3xl font-bold mb-4">Featured Extensions</h2>
     <div class="flex flex-wrap md:flex-nowrap gap-4">
-      {{ range.FeaturedExtensions }}
+      {{ range .FeaturedExtensions }}
       {{ template  "product-card" . }}
       {{ end }}
     </div>

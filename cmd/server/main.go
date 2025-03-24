@@ -10,9 +10,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"regexp"
 	"sort"
 	"strconv"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -45,16 +48,14 @@ type CustomRequest struct {
 	Cart models.Cart
 }
 
-func main() {
+func app() error {
 
 	portValue := flag.String("port", "", "port to listen on")
-
 	env := flag.String("env", "dev", "dev or prod")
-
 	flag.Parse()
 
 	if *portValue == "" {
-		log.Fatal("no port supplied")
+		return fmt.Errorf("app initialization: no port supplied")
 	}
 
 	environment := Development
@@ -82,23 +83,12 @@ func main() {
 	renderPartial := NewPartialRenderer(tmpl)
 
 	// ROUTING LOGIC
-	//cartMiddleware := newCartMiddlware(db, store)
-
-	/*
-		executed in reverse order. where i = 0 will execute last
-	*/
+	// middleware executed in reverse order; i = 0 executes last
 	middleware := []middlewareFunc{
-		// cart middleware
+		// Example for middleware usage:
 		// func(next customHandleFunc) customHandleFunc {
 		// 	return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-
-		// 		cartBytes, err := json.Marshal(cart)
-		// 		if err != nil {
-		// 			log.Println(err)
-		// 		} else {
-		// 			fmt.Println(string(cartBytes))
-		// 		}
-
+		// 		// Do something with the cart ...
 		// 		return next(cart, w, r)
 		// 	}
 		// },
@@ -110,12 +100,12 @@ func main() {
 		if r.URL.Path == "/" {
 			featuredGates, err := GetGates(db, productCache, ProductFilterParams{})
 			if err != nil {
-				return err
+				return fmt.Errorf("home page: failed to get featured gates: %w", err)
 			}
 
 			extensions, err := GetExtensions(db, productCache, ProductFilterParams{Limit: 2})
 			if err != nil {
-				return err
+				return fmt.Errorf("home page: failed to get featured extensions: %w", err)
 			}
 
 			data := map[string]any{
@@ -131,7 +121,7 @@ func main() {
 		}
 
 		return NotFoundPage(w, renderPage)
-	}) // cant use 'get' because it causes conflicts
+	})
 
 	handle.get("/contact/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		data := map[string]any{
@@ -145,7 +135,7 @@ func main() {
 
 	handle.post("/contact/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
-			return err
+			return fmt.Errorf("contact page: failed to parse form: %w", err)
 		}
 		email := r.Form.Get("email")
 		name := r.Form.Get("name")
@@ -153,11 +143,10 @@ func main() {
 
 		emailRegex, err := regexp.Compile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 		if err != nil {
-			return fmt.Errorf("could not compile email validation regex. %w", err)
+			return fmt.Errorf("contact page: could not compile email validation regex: %w", err)
 		}
 
 		if message == "" {
-			// need some error state on this form
 			return renderPage(w, "contact", map[string]any{
 				"PageTitle":       "Contact us | No Message Provided",
 				"MetaDescription": "Please provide a message",
@@ -166,11 +155,11 @@ func main() {
 		}
 
 		if !emailRegex.MatchString(email) || email == "" {
-			// need some error state on this form
 			return renderPage(w, "contact", map[string]any{
 				"PageTitle":       "Contact us | Invalid Email",
-				"MetaDescription": "Please provide a  valid email address",
+				"MetaDescription": "Please provide a valid email address",
 				"Cart":            nil,
+				"Env":             environment,
 			})
 		}
 
@@ -184,57 +173,52 @@ func main() {
 		q := "INSERT INTO contact (name, email, message, timestamp) VALUES (?, ?, ?, ?)"
 		_, err = db.ExecContext(ctx, q, email, name, message, time.Now())
 		if err != nil {
-			return err
+			return fmt.Errorf("contact page: failed to insert contact into database: %w", err)
 		}
 
 		data := map[string]any{
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
+			"Env":             environment,
 		}
 		return renderPage(w, "contact", data)
 	})
 
-	/*
-		Build enpoint. Currently only handling build for pressure gates
-	*/
+	// Build endpoint. Currently only handling builds for pressure gates.
 	handle.post("/build/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
-			return err
+			return fmt.Errorf("build endpoint: failed to parse form: %w", err)
 		}
 
 		desiredWidth, err := strconv.ParseFloat(r.Form.Get("desired-width"), 32)
 		if err != nil {
-			return err
+			return fmt.Errorf("build endpoint: failed to parse desired width: %w", err)
 		}
 
-		// keep track of user inputs(valid ones). From there we can generate "popular bundles"
 		if err := SaveRequestedBundleSize(db, float32(desiredWidth)); err != nil {
-			return err
+			return fmt.Errorf("build endpoint: failed to save requested bundle size: %w", err)
 		}
 
 		bundles, err := BuildPressureFitBundles(db, float32(desiredWidth))
 		if err != nil {
-			return err
+			return fmt.Errorf("build endpoint: failed to build pressure fit bundles: %w", err)
 		}
 
 		data := map[string]any{
 			"RequestedBundleSize": float32(desiredWidth),
 			"Bundles":             bundles,
+			"Env":                 environment,
 		}
 
 		return renderPage(w, "build-results", data)
 	})
 
-	/*
-		Product page endpoints
-	*/
-	//handle.get("/bundles/", pageHandler.Bundles)
-	//handle.get("/bundles/new", pageHandler.Bundles)
+	// Product page endpoints.
 	handle.get("/gates/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		gates, err := GetGates(db, productCache, ProductFilterParams{})
 		if err != nil {
-			return err
+			return fmt.Errorf("gates page: failed to get gates: %w", err)
 		}
 
 		data := map[string]any{
@@ -243,6 +227,7 @@ func main() {
 			"MetaDescription": "Shop our full range of gates",
 			"Products":        gates,
 			"Cart":            cart,
+			"Env":             environment,
 		}
 
 		return renderPage(w, "products", data)
@@ -251,12 +236,12 @@ func main() {
 	handle.get("/gates/{gate_id}", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		gateID, err := strconv.Atoi(r.PathValue("gate_id"))
 		if err != nil {
-			return err
+			return fmt.Errorf("gate details: failed to convert gate_id to integer: %w", err)
 		}
 
 		gate, err := GetProductByID(db, gateID)
 		if err != nil {
-			return err
+			return fmt.Errorf("gate details: failed to retrieve gate: %w", err)
 		}
 
 		data := map[string]any{
@@ -264,16 +249,16 @@ func main() {
 			"MetaDescription": gate.Name,
 			"Product":         gate,
 			"Cart":            cart,
+			"Env":             environment,
 		}
 
 		return renderPage(w, "product", data)
-
 	})
 
 	handle.get("/extensions/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		extensions, err := GetExtensions(db, productCache, ProductFilterParams{})
 		if err != nil {
-			return err
+			return fmt.Errorf("extensions page: failed to get extensions: %w", err)
 		}
 
 		data := map[string]any{
@@ -282,6 +267,7 @@ func main() {
 			"MetaDescription": "Shop all extensions",
 			"Products":        extensions,
 			"Cart":            cart,
+			"Env":             environment,
 		}
 
 		return renderPage(w, "products", data)
@@ -290,31 +276,31 @@ func main() {
 	handle.get("/extensions/{extension_id}", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		extensionID, err := strconv.Atoi(r.PathValue("extension_id"))
 		if err != nil {
-			return err
+			return fmt.Errorf("extension details: failed to convert extension_id to integer: %w", err)
 		}
 
 		extension, err := GetProductByID(db, extensionID)
 		if err != nil {
-			return err
+			return fmt.Errorf("extension details: failed to retrieve extension: %w", err)
 		}
 
 		data := map[string]any{
 			"PageTitle":       extension.Name,
 			"MetaDescription": extension.Name,
 			"Cart":            cart,
+			"Env":             environment,
 		}
 
 		return renderPage(w, "products", data)
 	})
 
-	/*
-		cart endpoints
-	*/
+	// Cart endpoints.
 	handle.get("/cart/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		data := map[string]any{
 			"PageTitle":       "Your shopping cart",
 			"MetaDescription": "",
 			"Cart":            cart,
+			"Env":             environment,
 		}
 
 		return renderPage(w, "cart", data)
@@ -323,19 +309,40 @@ func main() {
 	handle.get("/cart/json", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		bytes, err := json.Marshal(cart)
 		if err != nil {
-			return err
+			return fmt.Errorf("cart JSON endpoint: failed to marshal cart: %w", err)
 		}
 
-		w.Write(bytes)
+		if _, err := w.Write(bytes); err != nil {
+			return fmt.Errorf("cart JSON endpoint: failed to write response: %w", err)
+		}
 		return nil
 	})
 
+	if environment == Development {
+		handle("/test", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+			if r.Method == http.MethodGet {
+				return renderPage(w, "test", map[string]any{})
+			}
+			if r.Method == http.MethodPost {
+				if err := r.ParseForm(); err != nil {
+					return fmt.Errorf("cart add: failed to parse form: %w", err)
+				}
+				fmt.Printf("%+v\n", r.Form["data"])
+				for k, v := range r.Form["data"] {
+					fmt.Printf("k:%d v:%s\n", k, v)
+				}
+				return nil
+			}
+			return nil
+		})
+	}
+
 	handle.post("/cart/add", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
-			return err
+			return fmt.Errorf("cart add: failed to parse form: %w", err)
 		}
 
-		if (len(r.Form["data"])) < 1 {
+		if len(r.Form["data"]) < 1 {
 			return renderPartial(w, "cart-modal", cart)
 		}
 
@@ -344,28 +351,26 @@ func main() {
 		for _, d := range r.Form["data"] {
 			component := models.NewCartItemComponent(cart.ID)
 			if err := json.Unmarshal([]byte(d), &component); err != nil {
-				return err
+				return fmt.Errorf("cart add: failed to unmarshal cart item component %s: %w", d, err)
 			}
 			components = append(components, component)
 		}
 
-		err := AddItemToCart(db, cart.ID, models.NewCartItem(cart.ID, components))
-		if err != nil {
-			return err
+		if err := AddItemToCart(db, cart.ID, models.NewCartItem(cart.ID, components)); err != nil {
+			return fmt.Errorf("cart add: failed to add item to cart: %w", err)
 		}
 
-		cart, err = GetCartByID(db, cart.ID)
+		cart, err := GetCartByID(db, cart.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("cart add: failed to retrieve updated cart: %w", err)
 		}
 
 		return renderPartial(w, "cart-modal", cart)
 	})
 
 	handle.post("/cart/item/remove", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-		err := r.ParseForm()
-		if err != nil {
-			return err
+		if err := r.ParseForm(); err != nil {
+			return fmt.Errorf("cart item remove: failed to parse form: %w", err)
 		}
 
 		cartItemID := r.Form.Get("cart_item_id")
@@ -374,17 +379,16 @@ func main() {
 		}
 
 		if _, err := db.Exec(`DELETE FROM cart_item WHERE id = ? AND cart_id = ?`, cartItemID, cart.ID); err != nil {
-			return err
+			return fmt.Errorf("cart item remove: failed to delete cart item: %w", err)
 		}
 
-		cart, err = GetCartByID(db, cart.ID)
+		cart, err := GetCartByID(db, cart.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("cart item remove: failed to retrieve updated cart: %w", err)
 		}
 
-		err = renderPartial(w, "cart-main", cart)
-		if err != nil {
-			return err
+		if err := renderPartial(w, "cart-main", cart); err != nil {
+			return fmt.Errorf("cart item remove: failed to render partial (cart-main): %w", err)
 		}
 
 		return nil
@@ -399,22 +403,22 @@ func main() {
 		}
 
 		if err := r.ParseForm(); err != nil {
-			return err
+			return fmt.Errorf("cart item update: failed to parse form: %w", err)
 		}
 
 		cartItemID := r.Form.Get("cart_item_id")
 		if cartItemID == "" {
-			return fmt.Errorf("cartItemID is blank")
+			return fmt.Errorf("cart item update: cart_item_id is blank")
 		}
 
 		cartItem, err := selectCartItem(db, cart.ID, cartItemID)
 		if err != nil {
-			return err
+			return fmt.Errorf("cart item update: failed to select cart item: %w", err)
 		}
 
 		if mode == "increment" {
 			if err := IncrementCartItem(db, cart.ID, cartItem.ID); err != nil {
-				return err
+				return fmt.Errorf("cart item update: failed to increment cart item: %w", err)
 			}
 		} else {
 			if cartItem.Qty < 2 {
@@ -422,18 +426,19 @@ func main() {
 				return nil
 			}
 			if err := DecrementCartItem(db, cart.ID, cartItem.ID); err != nil {
-				return err
+				return fmt.Errorf("cart item update: failed to decrement cart item: %w", err)
 			}
 		}
+
 		cart, err = GetCartByID(db, cart.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("cart item update: failed to retrieve updated cart: %w", err)
 		}
 		if err := renderPartial(w, "cart-main", cart); err != nil {
-			return err
+			return fmt.Errorf("cart item update: failed to render partial (cart-main): %w", err)
 		}
 		if err := renderPartial(w, "cart-modal-oob", cart); err != nil {
-			return err
+			return fmt.Errorf("cart item update: failed to render partial (cart-modal-oob): %w", err)
 		}
 
 		return nil
@@ -441,67 +446,60 @@ func main() {
 
 	handle.delete("/cart/item/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
-			return err
+			return fmt.Errorf("cart item delete: failed to parse form: %w", err)
 		}
 
 		cartItemID := r.Form.Get("id")
 		if cartItemID == "" {
-			return fmt.Errorf("no cart item id supplied")
+			return fmt.Errorf("cart item delete: no cart item id supplied")
 		}
 
-		_, err := db.Exec("DELETE FROM cart_item WHERE id = ? AND cart_id = ?", cartItemID, cart.ID)
-		if err != nil {
-			return err
+		if _, err := db.Exec("DELETE FROM cart_item WHERE id = ? AND cart_id = ?", cartItemID, cart.ID); err != nil {
+			return fmt.Errorf("cart item delete: failed to delete cart item: %w", err)
 		}
 
-		cart, err = GetCartByID(db, cart.ID)
+		cart, err := GetCartByID(db, cart.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("cart item delete: failed to retrieve updated cart: %w", err)
 		}
 
-		err = renderPartial(w, "cart-main", cart)
-		if err != nil {
-			return err
+		if err := renderPartial(w, "cart-main", cart); err != nil {
+			return fmt.Errorf("cart item delete: failed to render partial (cart-main): %w", err)
 		}
 
-		err = renderPartial(w, "cart-modal-oob", cart)
-		if err != nil {
-			return err
+		if err := renderPartial(w, "cart-modal-oob", cart); err != nil {
+			return fmt.Errorf("cart item delete: failed to render partial (cart-modal-oob): %w", err)
 		}
 
 		return nil
 	})
 
 	handle.post("/cart/clear", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-		_, err := db.Exec(`DELETE FROM cart_item WHERE cart_id = ?`, cart.ID)
-		if err != nil {
-			return fmt.Errorf("could not delete cart_item where cart_id = %s: %w", cart.ID, err)
+		if _, err := db.Exec(`DELETE FROM cart_item WHERE cart_id = ?`, cart.ID); err != nil {
+			return fmt.Errorf("cart clear: could not delete cart_item for cart_id %s: %w", cart.ID, err)
 		}
 
-		_, err = db.Exec("DELETE FROM cart_item_component WHERE cart_id = ?", cart.ID)
-		if err != nil {
-			return fmt.Errorf("could not delete  cart_item_component where cart_id = %s: %w", cart.ID, err)
+		if _, err := db.Exec("DELETE FROM cart_item_component WHERE cart_id = ?", cart.ID); err != nil {
+			return fmt.Errorf("cart clear: could not delete cart_item_component for cart_id %s: %w", cart.ID, err)
 		}
 
-		cart, err = GetCartByID(db, cart.ID)
+		cart, err := GetCartByID(db, cart.ID)
 		if err != nil {
-			return err
+			return fmt.Errorf("cart clear: failed to retrieve updated cart: %w", err)
 		}
 
-		err = renderPartial(w, "cart-main", cart)
-		if err != nil {
-			return err
+		if err := renderPartial(w, "cart-main", cart); err != nil {
+			return fmt.Errorf("cart clear: failed to render partial (cart-main): %w", err)
 		}
 
-		err = renderPartial(w, "cart-modal-oob", cart)
-		if err != nil {
-			return err
+		if err := renderPartial(w, "cart-modal-oob", cart); err != nil {
+			return fmt.Errorf("cart clear: failed to render partial (cart-modal-oob): %w", err)
 		}
 
 		return nil
 	})
 
-	// init assets dir
+	// Initialize assets dir.
 	assetsDirPath := "/assets/"
 	httpFileSystem := http.Dir("assets")
 	staticFileHttpHandler := http.FileServer(httpFileSystem)
@@ -511,24 +509,47 @@ func main() {
 		assetsPathHandler.ServeHTTP(w, r)
 	}))
 
-	log.Println("Listening on http://localhost:" + port)
-	log.Fatal(http.ListenAndServe(":"+port, router))
-}
-
-// TODO call .CLose() on this statement somewhere
-var selectPriceStmt *sql.Stmt
-
-func selectPriceByID(db *sql.DB, productID int) (float64, error) {
-	var err error
-	if selectPriceStmt == nil {
-		selectPriceStmt, err = db.Prepare("SELECT price FROM products WHERE id = ?")
-		if err != nil {
-			return -1, err
-		}
+	srv := http.Server{
+		Addr:    ":" + port,
+		Handler: router,
 	}
 
+	errChan := make(chan error)
+	go func() {
+		log.Println("Listening on http://localhost:" + port)
+		if err := srv.ListenAndServe(); err != nil {
+			errChan <- fmt.Errorf("server startup: failed to listen and serve on port %s: %w", port, err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-quit:
+		log.Println("shutting down server gracefully")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			return fmt.Errorf("server forced to shut down %w", err)
+		}
+		log.Println("server shut down gracefully")
+		return nil
+	}
+}
+
+func main() {
+	if err := app(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func selectPriceByID(db *sql.DB, productID int) (float64, error) {
+
 	var price float64
-	if err := selectPriceStmt.QueryRow(productID).Scan(&price); err != nil {
+	if err := db.QueryRow("SELECT price FROM products WHERE id = ?", productID).Scan(&price); err != nil {
 		return -1, err
 	}
 
