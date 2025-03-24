@@ -530,6 +530,7 @@ func app() error {
 		close(errChan)
 		return fmt.Errorf("server errored: %w", err)
 	case <-quit:
+		close(quit)
 		log.Println("shutting down server gracefully")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
