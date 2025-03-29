@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/gorilla/sessions"
+	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/patrickmn/go-cache"
 	"github.com/seanomeara96/gates/models"
@@ -29,59 +30,101 @@ import (
 
 type key string
 
-const cartKey key = "cart"
-
 type Environment string
-
-const (
-	Development Environment = "development"
-	Production  Environment = "production"
-)
 
 type customHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
 
 type middlewareFunc func(next customHandleFunc) customHandleFunc
 type customHandler func(path string, fn customHandleFunc)
 
-type CustomRequest struct {
-	*http.Request
-	Cart models.Cart
+const cartKey key = "cart"
+const (
+	Development Environment = "development"
+	Production  Environment = "production"
+)
+
+func configureCache() *cache.Cache {
+	defaultExpiration := time.Minute * 5
+	cleanupInterval := time.Minute * 10
+	return cache.New(defaultExpiration, cleanupInterval)
+}
+
+func configEnv() struct {
+	Port   string
+	Mode   Environment
+	DBPath string
+} {
+
+	var config struct {
+		Port   string
+		Mode   Environment
+		DBPath string
+	}
+
+	portValue := flag.String("port", "3000", "port to listen on")
+	env := flag.String("env", "dev", "dev or prod")
+	dbFilePath := flag.String("dbpath", "main.db", "path to database")
+	flag.Parse()
+
+	envPortValue := os.Getenv("PORT")
+	if *portValue == "" && envPortValue != "" {
+		*portValue = envPortValue
+	}
+	if *portValue == "" {
+		*portValue = "3000"
+	}
+	config.Port = *portValue
+
+	environment := Development
+	envMode := os.Getenv("MODE")
+	if *env == "" && envMode != "" {
+		*env = envMode
+	}
+	if *env == "prod" {
+		environment = Production
+	}
+	config.Mode = environment
+
+	config.DBPath = *dbFilePath
+	envDBFilePath := os.Getenv("DB_FILE_PATH")
+	if config.DBPath == "" && envDBFilePath != "" {
+		config.DBPath = envDBFilePath
+	}
+
+	return config
+}
+
+func configCookieStore(env Environment) *sessions.CookieStore {
+	cookieStoreSecretKey := os.Getenv("COOKIE_SECRET")
+	if cookieStoreSecretKey == "" {
+		if env == Development {
+			cookieStoreSecretKey = "suprSecrtStoreKey"
+		} else {
+			panic("cookie secret not set in env")
+		}
+	}
+	return sessions.NewCookieStore([]byte(cookieStoreSecretKey))
 }
 
 func app() error {
 
-	portValue := flag.String("port", "", "port to listen on")
-	env := flag.String("env", "dev", "dev or prod")
-	flag.Parse()
-
-	if *portValue == "" {
-		return fmt.Errorf("app initialization: no port supplied")
+	if err := godotenv.Load(); err != nil {
+		return err
 	}
 
-	environment := Development
-	if *env == "prod" {
-		environment = Production
-	}
+	env := configEnv()
 
-	port := *portValue
-
-	db := SqliteOpen("main.db")
+	db := SqliteOpen(env.DBPath)
 	defer db.Close()
 
-	defaultExpiration := time.Minute * 5
-	cleanupInterval := time.Minute * 10
-	productCache := cache.New(defaultExpiration, cleanupInterval)
-
-	store := sessions.NewCookieStore([]byte(`secret-key`))
-
-	getCartFromRequest := NewCartFromSessionGetter(db, store)
-
-	router := http.NewServeMux()
-
-	tmpl := templateParser(environment)
+	productCache := configureCache()
+	store := configCookieStore(env.Mode)
+	tmpl := templateParser(env.Mode)
 	renderPage := NewPageRenderer(tmpl)
 	renderPartial := NewPartialRenderer(tmpl)
 
+	router := http.NewServeMux()
+	getCartFromRequest := NewCartFromSessionGetter(db, store)
 	// ROUTING LOGIC
 	// middleware executed in reverse order; i = 0 executes last
 	middleware := []middlewareFunc{
@@ -94,7 +137,7 @@ func app() error {
 		// },
 	}
 
-	handle := createCustomHandler(environment, router, middleware, getCartFromRequest)
+	handle := createCustomHandler(env.Mode, router, middleware, getCartFromRequest)
 
 	handle("/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if r.URL.Path == "/" {
@@ -114,7 +157,7 @@ func app() error {
 				"FeaturedGates":      featuredGates,
 				"FeaturedExtensions": extensions,
 				"Cart":               cart,
-				"Env":                environment,
+				"Env":                env.Mode,
 			}
 
 			return renderPage(w, "home", data)
@@ -128,11 +171,15 @@ func app() error {
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
-			"Env":             environment,
+			"Env":             env.Mode,
 		}
 		return renderPage(w, "contact", data)
 	})
 
+	emailRegex, err := regexp.Compile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	if err != nil {
+		return fmt.Errorf("contact page: could not compile email validation regex: %w", err)
+	}
 	handle.post("/contact/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if err := r.ParseForm(); err != nil {
 			return fmt.Errorf("contact page: failed to parse form: %w", err)
@@ -140,11 +187,6 @@ func app() error {
 		email := r.Form.Get("email")
 		name := r.Form.Get("name")
 		message := r.Form.Get("message")
-
-		emailRegex, err := regexp.Compile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-		if err != nil {
-			return fmt.Errorf("contact page: could not compile email validation regex: %w", err)
-		}
 
 		if message == "" {
 			return renderPage(w, "contact", map[string]any{
@@ -159,28 +201,32 @@ func app() error {
 				"PageTitle":       "Contact us | Invalid Email",
 				"MetaDescription": "Please provide a valid email address",
 				"Cart":            nil,
-				"Env":             environment,
+				"Env":             env.Mode,
 			})
 		}
 
-		email = template.HTMLEscapeString(email)
-		name = template.HTMLEscapeString(name)
-		message = template.HTMLEscapeString(message)
+		var contact struct {
+			Email   string
+			Name    string
+			Message string
+		}
+
+		contact.Email = template.HTMLEscapeString(email)
+		contact.Name = template.HTMLEscapeString(name)
+		contact.Message = template.HTMLEscapeString(message)
 
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		q := "INSERT INTO contact (name, email, message, timestamp) VALUES (?, ?, ?, ?)"
-		_, err = db.ExecContext(ctx, q, email, name, message, time.Now())
-		if err != nil {
-			return fmt.Errorf("contact page: failed to insert contact into database: %w", err)
+		if err := InsertContactForm(ctx, db, contact); err != nil {
+			return err
 		}
 
 		data := map[string]any{
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
-			"Env":             environment,
+			"Env":             env.Mode,
 		}
 		return renderPage(w, "contact", data)
 	})
@@ -196,6 +242,16 @@ func app() error {
 			return fmt.Errorf("build endpoint: failed to parse desired width: %w", err)
 		}
 
+		/*
+			static max witdth for now
+			could consider adding a max width to the gates in the DB and enforcing the
+			constraint from there
+		*/
+		maxWidth := 220.00
+		if desiredWidth > maxWidth {
+			desiredWidth = maxWidth
+		}
+
 		if err := SaveRequestedBundleSize(db, float32(desiredWidth)); err != nil {
 			return fmt.Errorf("build endpoint: failed to save requested bundle size: %w", err)
 		}
@@ -208,7 +264,7 @@ func app() error {
 		data := map[string]any{
 			"RequestedBundleSize": float32(desiredWidth),
 			"Bundles":             bundles,
-			"Env":                 environment,
+			"Env":                 env.Mode,
 		}
 
 		return renderPage(w, "build-results", data)
@@ -227,7 +283,7 @@ func app() error {
 			"MetaDescription": "Shop our full range of gates",
 			"Products":        gates,
 			"Cart":            cart,
-			"Env":             environment,
+			"Env":             env.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -249,7 +305,7 @@ func app() error {
 			"MetaDescription": gate.Name,
 			"Product":         gate,
 			"Cart":            cart,
-			"Env":             environment,
+			"Env":             env.Mode,
 		}
 
 		return renderPage(w, "product", data)
@@ -267,7 +323,7 @@ func app() error {
 			"MetaDescription": "Shop all extensions",
 			"Products":        extensions,
 			"Cart":            cart,
-			"Env":             environment,
+			"Env":             env.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -288,7 +344,7 @@ func app() error {
 			"PageTitle":       extension.Name,
 			"MetaDescription": extension.Name,
 			"Cart":            cart,
-			"Env":             environment,
+			"Env":             env.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -300,7 +356,7 @@ func app() error {
 			"PageTitle":       "Your shopping cart",
 			"MetaDescription": "",
 			"Cart":            cart,
-			"Env":             environment,
+			"Env":             env.Mode,
 		}
 
 		return renderPage(w, "cart", data)
@@ -318,7 +374,7 @@ func app() error {
 		return nil
 	})
 
-	if environment == Development {
+	if env.Mode == Development {
 		handle("/test", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 			if r.Method == http.MethodGet {
 				return renderPage(w, "test", map[string]any{})
@@ -510,15 +566,15 @@ func app() error {
 	}))
 
 	srv := http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + env.Port,
 		Handler: router,
 	}
 
 	errChan := make(chan error)
 	go func() {
-		log.Println("Listening on http://localhost:" + port)
+		log.Println("Listening on http://localhost:" + env.Port)
 		if err := srv.ListenAndServe(); err != nil {
-			errChan <- fmt.Errorf("server startup: failed to listen and serve on port %s: %w", port, err)
+			errChan <- fmt.Errorf("server startup: failed to listen and serve on env.env.Port %s: %w", env.Port, err)
 		}
 	}()
 
@@ -616,6 +672,18 @@ func NewCartFromSessionGetter(db *sql.DB, store *sessions.CookieStore) func(w ht
 		cart, err := GetCartByID(db, cartID.(string))
 		if err != nil {
 			return nil, err
+		}
+
+		for i := range cart.Items {
+			item := &cart.Items[i]
+			for j := range item.Components {
+				component := &item.Components[j]
+				product, err := GetProductByID(db, component.Product.Id)
+				if err != nil {
+					return nil, err
+				}
+				component.Product = *product
+			}
 		}
 
 		return cart, nil
@@ -830,7 +898,7 @@ func TotalValue(db *sql.DB, cart models.Cart) (float64, error) {
 	value := 0.0
 	for _, item := range cart.Items {
 		for _, component := range item.Components {
-			productPrice, err := GetProductPrice(db, component.ProductID)
+			productPrice, err := GetProductPrice(db, component.Product.Id)
 			if err != nil {
 				return 0, err
 			}
@@ -1020,6 +1088,19 @@ func GetBundles(db *sql.DB, productCache *cache.Cache, params ProductFilterParam
 
 /* repository funcs start */
 
+func InsertContactForm(ctx context.Context, db *sql.DB, contact struct {
+	Email   string
+	Name    string
+	Message string
+}) error {
+	q := "INSERT INTO contact (name, email, message, timestamp) VALUES (?, ?, ?, ?)"
+	_, err := db.ExecContext(ctx, q, contact.Email, contact.Name, contact.Message, time.Now())
+	if err != nil {
+		return fmt.Errorf("contact page: failed to insert contact into database: %w", err)
+	}
+	return nil
+}
+
 func SaveRequestedBundleSize(db *sql.DB, desiredWidth float32) error {
 	_, err := db.Exec("INSERT INTO bundle_sizes (type, size) VALUES ('pressure fit', ?)", desiredWidth)
 	if err != nil {
@@ -1121,7 +1202,7 @@ func GetCartByID(db *sql.DB, id string) (*models.Cart, error) {
 		item := &cart.Items[i]
 		for c := range item.Components {
 			component := &item.Components[c]
-			price, err := selectPriceByID(db, component.ProductID)
+			price, err := selectPriceByID(db, component.Product.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -1252,7 +1333,7 @@ func selectCartItemComponents(db *sql.DB, cartID, cartItemID string) ([]models.C
 		if err := rows.Scan(
 			&component.CartItemID,
 			&component.CartID,
-			&component.ProductID,
+			&component.Product.Id,
 			&component.Qty,
 			&component.Name,
 			&component.CreatedAt,
@@ -1352,7 +1433,7 @@ func SaveCartItemComponents(db *sql.DB, components []models.CartItemComponent) e
 		if _, err := db.Exec(q,
 			c.CartItemID,
 			c.CartID,
-			c.ProductID,
+			c.Product.Id,
 			c.Qty,
 			c.Name,
 			c.CreatedAt,
@@ -1628,6 +1709,15 @@ func NewPartialRenderer(tmpl tmplFunc) renderPartialFunc {
 
 type tmplFunc func() *template.Template
 
+func structToString(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "error: marshalling struct to string"
+	}
+
+	return string(b)
+}
+
 func templateParser(env Environment) tmplFunc {
 	var tmpl *template.Template
 	return func() *template.Template {
@@ -1635,23 +1725,7 @@ func templateParser(env Environment) tmplFunc {
 			return tmpl
 		}
 		tmpl = template.Must(template.New("").Funcs(template.FuncMap{
-			"bundleJSON": func(bundle models.Bundle) string {
-				data := []struct {
-					ProductID int `json:"product_id"`
-					Qty       int `json:"qty"`
-				}{}
-				for _, g := range bundle.Components {
-					data = append(data, struct {
-						ProductID int `json:"product_id"`
-						Qty       int `json:"qty"`
-					}{g.Id, g.Qty})
-				}
-				bytes, err := json.Marshal(data)
-				if err != nil {
-					return ""
-				}
-				return string(bytes)
-			},
+			"toString": structToString,
 			"sizeRange": func(width, tolerance float32) float32 {
 				return width - tolerance
 			},

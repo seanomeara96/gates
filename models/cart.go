@@ -29,10 +29,8 @@ type CartItem struct {
 type CartItemComponent struct {
 	CartItemID string    `json:"cart_item_id"`
 	CartID     string    `json:"cart_id"`
-	ProductID  int       `json:"product_id"`
-	Qty        int       `json:"qty"`
-	Name       string    `json:"name"`
 	CreatedAt  time.Time `json:"created_at"`
+	Product
 }
 
 func NewCart() Cart {
@@ -47,7 +45,7 @@ func NewCart() Cart {
 func NewCartItem(cartID string, components []CartItemComponent) CartItem {
 	idParts := []string{}
 	for _, c := range components {
-		idParts = append(idParts, strconv.Itoa(c.ProductID)+"-"+strconv.Itoa(c.Qty))
+		idParts = append(idParts, strconv.Itoa(c.Product.Id)+"-"+strconv.Itoa(c.Qty))
 	}
 	id := strings.Join(idParts, "_")
 

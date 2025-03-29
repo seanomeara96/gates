@@ -30,12 +30,11 @@
           <input
             type="hidden"
             name="data"
-            value="{&quot;product_id&quot;:{{ .Id }}, &quot;qty&quot;:{{.Qty}}}"
+            value='{{ toString . }}'
           />
           <button
             style="background-color: #271d16"
             class="atc-button hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
-            data-product="{{ . }}"
           >
             Add to Cart
           </button>
