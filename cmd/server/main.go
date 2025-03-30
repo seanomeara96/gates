@@ -22,7 +22,6 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/patrickmn/go-cache"
 	"github.com/seanomeara96/gates/models"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -42,12 +41,6 @@ const (
 	Development Environment = "development"
 	Production  Environment = "production"
 )
-
-func configureCache() *cache.Cache {
-	defaultExpiration := time.Minute * 5
-	cleanupInterval := time.Minute * 10
-	return cache.New(defaultExpiration, cleanupInterval)
-}
 
 func configEnv() struct {
 	Port   string
@@ -117,7 +110,6 @@ func app() error {
 	db := SqliteOpen(env.DBPath)
 	defer db.Close()
 
-	productCache := configureCache()
 	store := configCookieStore(env.Mode)
 	tmpl := templateParser(env.Mode)
 	renderPage := NewPageRenderer(tmpl)
@@ -141,12 +133,12 @@ func app() error {
 
 	handle("/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if r.URL.Path == "/" {
-			featuredGates, err := GetGates(db, productCache, ProductFilterParams{})
+			featuredGates, err := GetGates(db, ProductFilterParams{})
 			if err != nil {
 				return fmt.Errorf("home page: failed to get featured gates: %w", err)
 			}
 
-			extensions, err := GetExtensions(db, productCache, ProductFilterParams{Limit: 2})
+			extensions, err := GetExtensions(db, ProductFilterParams{Limit: 2})
 			if err != nil {
 				return fmt.Errorf("home page: failed to get featured extensions: %w", err)
 			}
@@ -272,7 +264,7 @@ func app() error {
 
 	// Product page endpoints.
 	handle.get("/gates/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-		gates, err := GetGates(db, productCache, ProductFilterParams{})
+		gates, err := GetGates(db, ProductFilterParams{})
 		if err != nil {
 			return fmt.Errorf("gates page: failed to get gates: %w", err)
 		}
@@ -312,7 +304,7 @@ func app() error {
 	})
 
 	handle.get("/extensions/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-		extensions, err := GetExtensions(db, productCache, ProductFilterParams{})
+		extensions, err := GetExtensions(db, ProductFilterParams{})
 		if err != nil {
 			return fmt.Errorf("extensions page: failed to get extensions: %w", err)
 		}
@@ -949,139 +941,6 @@ func RemoveItem(db *sql.DB, cartID, itemID string) error {
 	return nil
 }
 
-type createProductParams struct {
-	Type      string
-	Name      string
-	Width     float32
-	Price     float32
-	Img       string
-	Tolerance float32
-	Color     string
-}
-
-func CreateProduct(db *sql.DB, params createProductParams) (int64, error) {
-	validProductTypes := [2]ProductType{
-		Gate,
-		Extension,
-	}
-	// Validate input parameters
-	if params.Name == "" || params.Type == "" || params.Color == "" {
-		return 0, errors.New("name, type, and color are required")
-	}
-
-	hasValidType := false
-	for _, validProductType := range validProductTypes {
-		if params.Type == string(validProductType) {
-			hasValidType = true
-		}
-	}
-
-	if !hasValidType {
-		return 0, errors.New("does not have a valid product type")
-	}
-
-	if params.Price == 0.0 || params.Width == 0.0 {
-		return 0, errors.New("price and width must be greater than 0")
-	}
-
-	existingProduct, err := GetProductByName(db, params.Name)
-	if err != nil {
-		return 0, err
-	}
-
-	if existingProduct != nil {
-		return 0, errors.New("product already exists")
-	}
-
-	product := &models.Product{
-		Id:        0,
-		Type:      params.Type,
-		Name:      params.Name,
-		Width:     params.Width,
-		Price:     params.Price,
-		Img:       params.Img,
-		Color:     params.Color,
-		Tolerance: params.Tolerance,
-	}
-
-	row, err := InsertProduct(db, product)
-	if err != nil {
-		return 0, err
-	}
-
-	return row.LastInsertId()
-}
-
-func GetProductByID(db *sql.DB, productID int) (*models.Product, error) {
-	return scanProductFromRow(
-		db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE id = ?", productID),
-	)
-}
-
-func GetGates(db *sql.DB, productCache *cache.Cache, params ProductFilterParams) ([]*models.Product, error) {
-	cacheString := fmt.Sprintf("gates;max-width:%f;limit:%d;", params.MaxWidth, params.Limit)
-	if productCache != nil {
-		cachedGates, found := productCache.Get(cacheString)
-		if found {
-			return cachedGates.([]*models.Product), nil
-		}
-	}
-
-	gates, err := GetProducts(db, Gate, params)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range gates {
-		gates[i].Qty = 1
-	}
-
-	if productCache != nil {
-		productCache.Set(cacheString, gates, time.Minute*5)
-	}
-	return gates, nil
-}
-
-func GetExtensions(db *sql.DB, productCache *cache.Cache, params ProductFilterParams) ([]*models.Product, error) {
-	cacheString := fmt.Sprintf("extensions;max-width:%f;limit:%d;", params.MaxWidth, params.Limit)
-
-	cachedExtensions, found := productCache.Get(cacheString)
-	if found {
-		return cachedExtensions.([]*models.Product), nil
-	}
-
-	extensions, err := GetProducts(db, Extension, params)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range extensions {
-		extensions[i].Qty = 1
-	}
-
-	productCache.Set(cacheString, extensions, time.Minute*5)
-
-	return extensions, nil
-}
-
-func GetBundles(db *sql.DB, productCache *cache.Cache, params ProductFilterParams) ([]*models.Product, error) {
-	cacheString := fmt.Sprintf("bundles;max-width:%f;limit:%d;", params.MaxWidth, params.Limit)
-
-	cachedBundles, found := productCache.Get(cacheString)
-	if found {
-		return cachedBundles.([]*models.Product), nil
-	}
-
-	bundles, err := GetProducts(db, Bundle, params)
-	if err != nil {
-		return nil, err
-	}
-
-	productCache.Set(cacheString, bundles, time.Minute*5)
-
-	return bundles, nil
-}
-
 // Other methods for user-related operations (e.g., UpdateUser, DeleteUser, etc.)
 
 /* service funcs end */
@@ -1482,174 +1341,6 @@ func RemoveCartItem(db *sql.DB, cartID, itemID string) error {
 
 func RemoveCartItemComponents(db *sql.DB, itemID string) error {
 	return errors.New("remove Cart Item Components not yet implemented")
-}
-
-// Define a custom type for the product
-type ProductType string
-
-// Define constants representing the product values
-const (
-	Gate      ProductType = "gate"
-	Extension ProductType = "extension"
-	Bundle    ProductType = "bundle"
-)
-
-type scannable interface {
-	Scan(dest ...any) error
-}
-
-func scanProductFromRow(row scannable) (*models.Product, error) {
-	var product models.Product
-	err := row.Scan(
-		&product.Id,
-		&product.Type,
-		&product.Name,
-		&product.Width,
-		&product.Price,
-		&product.Img,
-		&product.Color,
-		&product.Tolerance,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not scan product from row(s): %w", err)
-	}
-	return &product, nil
-}
-
-func InsertProduct(db *sql.DB, product *models.Product) (sql.Result, error) {
-	res, err := db.Exec(
-		`INSERT INTO
-			products (
-				type,
-				name,
-				width,
-				price,
-				img,
-				color,
-				tolerance
-			)
-		VALUES
-			(?, ?, ?, ?, ?, ?, ?)`,
-		product.Type,
-		product.Name,
-		product.Width,
-		product.Price,
-		product.Img,
-		product.Color,
-		product.Tolerance,
-	)
-	if err != nil {
-		return res, fmt.Errorf("error inserting product into database: %w", err)
-	}
-
-	return res, nil
-
-}
-
-func GetProductPrice(db *sql.DB, id int) (float64, error) {
-	var price float64
-	if err := db.QueryRow("SELECT price FROM products WHERE id = ?", id).Scan(&price); err != nil {
-		return 0, err
-	}
-	return price, nil
-}
-
-func GetProductByName(db *sql.DB, name string) (*models.Product, error) {
-	if db == nil {
-		return nil, errors.New("need a non nil db to get products by name")
-	}
-	return scanProductFromRow(
-		db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance FROM products WHERE name = ?", name),
-	)
-}
-
-type ProductFilterParams struct {
-	MaxWidth float32
-	Limit    int
-}
-
-func GetProducts(db *sql.DB, productType ProductType, params ProductFilterParams) ([]*models.Product, error) {
-	if db == nil {
-		return nil, errors.New("get products requires a non nil db pointer")
-	}
-
-	filters := []any{productType}
-
-	baseQuery := "SELECT id, type, name, width, price,  img, color, tolerance FROM products WHERE type = ?"
-	if params.MaxWidth > 0 {
-		baseQuery = baseQuery + " AND width < ?"
-		filters = append(filters, params.MaxWidth)
-	}
-
-	if params.Limit > 0 {
-		baseQuery += " LIMIT ?"
-		filters = append(filters, params.Limit)
-	}
-
-	var products []*models.Product
-	rows, err := db.Query(baseQuery, filters...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		product, err := scanProductFromRow(rows)
-		if err != nil {
-			return nil, err
-		}
-		products = append(products, product)
-	}
-	return products, nil
-}
-
-func GetCompatibleExtensionsByGateID(db *sql.DB, gateID int) ([]*models.Product, error) {
-	var extensions []*models.Product
-	rows, err := db.Query(
-		`SELECT
-			p.id,
-			p.type,
-			p.name,
-			p.width,
-			p.price,
-			p.img,
-			p.color,
-			p.tolerance
-		FROM
-			products p
-		INNER JOIN
-			compatibles c
-		ON
-			p.id = c.extension_id
-		WHERE
-			gate_id = ?`,
-		gateID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		extension, err := scanProductFromRow(rows)
-		if err != nil {
-			return nil, err
-		}
-		extensions = append(extensions, extension)
-	}
-	return extensions, nil
-}
-
-func UpdateProductByID(db *sql.DB, productID int, product *models.Product) error {
-	// Code to update an existing user in the database
-	// using the provided SQL database connection (r.db)
-	return errors.New("update product not implemented")
-}
-
-func DeleteProductByID(db *sql.DB, productID int) error {
-	// Code to delete a user from the database
-	// based on the provided user ID (userID)
-	// using the provided SQL database connection (r.db)
-	_, err := db.Exec("DELETE FROM products WHERE id = ?", productID)
-	return err
 }
 
 /* repository funcs end */
