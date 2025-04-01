@@ -22,7 +22,11 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/seanomeara96/gates/cachedrepos"
 	"github.com/seanomeara96/gates/models"
+	"github.com/seanomeara96/gates/repos"
+	"github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/checkout/session"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -106,9 +110,12 @@ func app() error {
 	}
 
 	env := configEnv()
-
+	stripe.Key = os.Getenv("STRIPE_API_KEY")
 	db := SqliteOpen(env.DBPath)
 	defer db.Close()
+
+	productRepo := repos.NewProductRepo(db)
+	products := cachedrepos.NewCachedProductRepo(productRepo)
 
 	store := configCookieStore(env.Mode)
 	tmpl := templateParser(env.Mode)
@@ -116,7 +123,7 @@ func app() error {
 	renderPartial := NewPartialRenderer(tmpl)
 
 	router := http.NewServeMux()
-	getCartFromRequest := NewCartFromSessionGetter(db, store)
+	getCartFromRequest := NewCartFromSessionGetter(db, products, store)
 	// ROUTING LOGIC
 	// middleware executed in reverse order; i = 0 executes last
 	middleware := []middlewareFunc{
@@ -133,12 +140,12 @@ func app() error {
 
 	handle("/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if r.URL.Path == "/" {
-			featuredGates, err := GetGates(db, ProductFilterParams{})
+			featuredGates, err := products.GetGates(repos.ProductFilterParams{})
 			if err != nil {
 				return fmt.Errorf("home page: failed to get featured gates: %w", err)
 			}
 
-			extensions, err := GetExtensions(db, ProductFilterParams{Limit: 2})
+			extensions, err := products.GetExtensions(repos.ProductFilterParams{Limit: 2})
 			if err != nil {
 				return fmt.Errorf("home page: failed to get featured extensions: %w", err)
 			}
@@ -166,6 +173,42 @@ func app() error {
 			"Env":             env.Mode,
 		}
 		return renderPage(w, "contact", data)
+	})
+
+	handle.get("/checkout/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+
+		lineItems := []*stripe.CheckoutSessionLineItemParams{}
+
+		for _, item := range cart.Items {
+			lineItems = append(lineItems, &stripe.CheckoutSessionLineItemParams{
+				Quantity: stripe.Int64(int64(item.Qty)),
+				PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+					UnitAmount: stripe.Int64(int64(item.SalePrice * 100)),
+					ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+						Name: stripe.String(item.Name),
+					},
+					Currency: stripe.String("EUR"),
+				},
+			},
+			)
+		}
+
+		domain := "http://localhost:3000"
+		params := &stripe.CheckoutSessionParams{
+			LineItems:  lineItems,
+			Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
+			SuccessURL: stripe.String(domain + "/success.html"),
+			CancelURL:  stripe.String(domain + "/cancel.html"),
+		}
+
+		s, err := session.New(params)
+
+		if err != nil {
+			log.Printf("session.New: %v", err)
+		}
+
+		http.Redirect(w, r, s.URL, http.StatusSeeOther)
+		return nil
 	})
 
 	emailRegex, err := regexp.Compile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
@@ -248,7 +291,7 @@ func app() error {
 			return fmt.Errorf("build endpoint: failed to save requested bundle size: %w", err)
 		}
 
-		bundles, err := BuildPressureFitBundles(db, float32(desiredWidth))
+		bundles, err := BuildPressureFitBundles(products, float32(desiredWidth))
 		if err != nil {
 			return fmt.Errorf("build endpoint: failed to build pressure fit bundles: %w", err)
 		}
@@ -264,7 +307,7 @@ func app() error {
 
 	// Product page endpoints.
 	handle.get("/gates/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-		gates, err := GetGates(db, ProductFilterParams{})
+		gates, err := products.GetGates(repos.ProductFilterParams{})
 		if err != nil {
 			return fmt.Errorf("gates page: failed to get gates: %w", err)
 		}
@@ -287,7 +330,7 @@ func app() error {
 			return fmt.Errorf("gate details: failed to convert gate_id to integer: %w", err)
 		}
 
-		gate, err := GetProductByID(db, gateID)
+		gate, err := products.GetProductByID(gateID)
 		if err != nil {
 			return fmt.Errorf("gate details: failed to retrieve gate: %w", err)
 		}
@@ -304,7 +347,7 @@ func app() error {
 	})
 
 	handle.get("/extensions/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-		extensions, err := GetExtensions(db, ProductFilterParams{})
+		extensions, err := products.GetExtensions(repos.ProductFilterParams{})
 		if err != nil {
 			return fmt.Errorf("extensions page: failed to get extensions: %w", err)
 		}
@@ -327,7 +370,7 @@ func app() error {
 			return fmt.Errorf("extension details: failed to convert extension_id to integer: %w", err)
 		}
 
-		extension, err := GetProductByID(db, extensionID)
+		extension, err := products.GetProductByID(extensionID)
 		if err != nil {
 			return fmt.Errorf("extension details: failed to retrieve extension: %w", err)
 		}
@@ -619,7 +662,7 @@ func attachNewCartToSession(cart *models.Cart, session *sessions.Session, w http
 	return nil
 }
 
-func NewCartFromSessionGetter(db *sql.DB, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
+func NewCartFromSessionGetter(db *sql.DB, products *cachedrepos.CachedProductRepo, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
 	return func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
 		session, err := getCartSession(r, store)
 		if err != nil {
@@ -670,7 +713,7 @@ func NewCartFromSessionGetter(db *sql.DB, store *sessions.CookieStore) func(w ht
 			item := &cart.Items[i]
 			for j := range item.Components {
 				component := &item.Components[j]
-				product, err := GetProductByID(db, component.Product.Id)
+				product, err := products.GetProductByID(component.Product.Id)
 				if err != nil {
 					return nil, err
 				}
@@ -778,10 +821,10 @@ func NotFoundPage(w http.ResponseWriter, renderPage renderPageFunc) error {
 
 /* service funcs start */
 
-func BuildPressureFitBundles(db *sql.DB, limit float32) ([]models.Bundle, error) {
+func BuildPressureFitBundles(products *cachedrepos.CachedProductRepo, limit float32) ([]models.Bundle, error) {
 	var bundles []models.Bundle
 
-	gates, err := GetProducts(db, Gate, ProductFilterParams{MaxWidth: limit})
+	gates, err := products.GetProducts(repos.Gate, repos.ProductFilterParams{MaxWidth: limit})
 	if err != nil {
 		return bundles, err
 	}
@@ -790,7 +833,7 @@ func BuildPressureFitBundles(db *sql.DB, limit float32) ([]models.Bundle, error)
 	}
 
 	for _, gate := range gates {
-		compatibleExtensions, err := GetCompatibleExtensionsByGateID(db, gate.Id)
+		compatibleExtensions, err := products.GetCompatibleExtensionsByGateID(gate.Id)
 		if err != nil {
 			return bundles, err
 		}
@@ -886,11 +929,11 @@ func SaveBundle(db *sql.DB, bundle models.Bundle) (int64, error) {
 	return bundleId, nil
 }
 
-func TotalValue(db *sql.DB, cart models.Cart) (float64, error) {
+func TotalValue(products *cachedrepos.CachedProductRepo, cart models.Cart) (float64, error) {
 	value := 0.0
 	for _, item := range cart.Items {
 		for _, component := range item.Components {
-			productPrice, err := GetProductPrice(db, component.Product.Id)
+			productPrice, err := products.GetProductPrice(component.Product.Id)
 			if err != nil {
 				return 0, err
 			}
