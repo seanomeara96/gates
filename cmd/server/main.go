@@ -88,6 +88,8 @@ func configEnv() struct {
 		config.DBPath = envDBFilePath
 	}
 
+	stripe.Key = os.Getenv("STRIPE_API_KEY")
+
 	return config
 }
 
@@ -110,7 +112,6 @@ func app() error {
 	}
 
 	env := configEnv()
-	stripe.Key = os.Getenv("STRIPE_API_KEY")
 	db := SqliteOpen(env.DBPath)
 	defer db.Close()
 
