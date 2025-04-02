@@ -82,12 +82,12 @@ func (r *ProductRepo) InsertProduct(product *models.Product) (sql.Result, error)
 
 }
 
-func (r *ProductRepo) GetProductPrice(id int) (float64, error) {
+func (r *ProductRepo) GetProductPrice(id int) (float32, error) {
 	if r.db == nil {
 		return 0, errors.New("get product price requires a non nil db pointer")
 	}
 
-	var price float64
+	var price float32
 	if err := r.db.QueryRow("SELECT price FROM products WHERE id = ?", id).Scan(&price); err != nil {
 		return 0, err
 	}

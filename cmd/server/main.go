@@ -31,32 +31,24 @@ import (
 	"golang.org/x/text/language"
 )
 
-type key string
-
 type Environment string
-
 type customHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
-
 type middlewareFunc func(next customHandleFunc) customHandleFunc
 type customHandler func(path string, fn customHandleFunc)
+type config struct {
+	Port   string
+	Mode   Environment
+	DBPath string
+}
 
-const cartKey key = "cart"
 const (
 	Development Environment = "development"
 	Production  Environment = "production"
 )
 
-func configEnv() struct {
-	Port   string
-	Mode   Environment
-	DBPath string
-} {
+func configEnv() config {
 
-	var config struct {
-		Port   string
-		Mode   Environment
-		DBPath string
-	}
+	var config config
 
 	portValue := flag.String("port", "3000", "port to listen on")
 	env := flag.String("env", "dev", "dev or prod")
@@ -178,8 +170,26 @@ func app() error {
 
 	handle.get("/checkout/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 
+		for i := range cart.Items {
+			cartItem := &cart.Items[i]
+			for ii := range cartItem.Components {
+				component := &cartItem.Components[ii]
+				count, err := productRepo.Count(component.Id)
+				if err != nil {
+					return err
+				}
+				if count < component.Qty {
+					return fmt.Errorf("insufficient stock of %d", component.Id)
+				}
+				price, err := productRepo.GetProductPrice(component.Id)
+				if err != nil {
+					return err
+				}
+				component.Price = price
+			}
+		}
+		// continue validating cart
 		lineItems := []*stripe.CheckoutSessionLineItemParams{}
-
 		for _, item := range cart.Items {
 			lineItems = append(lineItems, &stripe.CheckoutSessionLineItemParams{
 				Quantity: stripe.Int64(int64(item.Qty)),
