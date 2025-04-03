@@ -38,10 +38,10 @@ func (r *CachedProductRepo) InsertProduct(product *models.Product) (sql.Result, 
 	return r.productRepo.InsertProduct(product)
 }
 
-func (r *CachedProductRepo) GetProductPrice(id int) (float64, error) {
+func (r *CachedProductRepo) GetProductPrice(id int) (float32, error) {
 	cacheKey := fmt.Sprintf("product_price_%d", id)
 	if cachedPrice, found := r.cache.Get(cacheKey); found {
-		return cachedPrice.(float64), nil
+		return cachedPrice.(float32), nil
 	}
 
 	price, err := r.productRepo.GetProductPrice(id)

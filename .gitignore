@@ -3,5 +3,4 @@ node_modules/
 temp/
 tests/*.db
 bin/
-main.db
-*.db
+
