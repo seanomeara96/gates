@@ -35,16 +35,18 @@ type Environment string
 type customHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
 type middlewareFunc func(next customHandleFunc) customHandleFunc
 type customHandler func(path string, fn customHandleFunc)
-type config struct {
-	Port   string
-	Mode   Environment
-	DBPath string
-}
 
 const (
 	Development Environment = "development"
 	Production  Environment = "production"
 )
+
+type config struct {
+	Port                 string
+	Mode                 Environment
+	DBPath               string
+	CookieStoreSecretKey string
+}
 
 func configEnv() config {
 
@@ -81,20 +83,20 @@ func configEnv() config {
 	}
 
 	stripe.Key = os.Getenv("STRIPE_API_KEY")
-
+	config.CookieStoreSecretKey = os.Getenv("COOKIE_SECRET")
 	return config
 }
 
-func configCookieStore(env Environment) *sessions.CookieStore {
-	cookieStoreSecretKey := os.Getenv("COOKIE_SECRET")
-	if cookieStoreSecretKey == "" {
-		if env == Development {
-			cookieStoreSecretKey = "suprSecrtStoreKey"
+func configCookieStore(config config) *sessions.CookieStore {
+
+	if config.CookieStoreSecretKey == "" {
+		if config.Mode == Development {
+			config.CookieStoreSecretKey = "suprSecrtStoreKey"
 		} else {
 			panic("cookie secret not set in env")
 		}
 	}
-	return sessions.NewCookieStore([]byte(cookieStoreSecretKey))
+	return sessions.NewCookieStore([]byte(config.CookieStoreSecretKey))
 }
 
 func app() error {
@@ -110,7 +112,7 @@ func app() error {
 	productRepo := repos.NewProductRepo(db)
 	products := cachedrepos.NewCachedProductRepo(productRepo)
 
-	store := configCookieStore(env.Mode)
+	store := configCookieStore(env)
 	tmpl := templateParser(env.Mode)
 	renderPage := NewPageRenderer(tmpl)
 	renderPartial := NewPartialRenderer(tmpl)
@@ -170,24 +172,38 @@ func app() error {
 
 	handle.get("/checkout/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 
+		// reset the prices in the cart object in case there has been some manipulation on the client side
+		cart.TotalValue = 0
 		for i := range cart.Items {
 			cartItem := &cart.Items[i]
+			cartItem.SalePrice = 0
 			for ii := range cartItem.Components {
 				component := &cartItem.Components[ii]
-				count, err := productRepo.Count(component.Id)
+				count, err := productRepo.CountProductByID(component.Id)
 				if err != nil {
 					return err
 				}
-				if count < component.Qty {
-					return fmt.Errorf("insufficient stock of %d", component.Id)
+				insufficientStock := count < component.Qty
+				if insufficientStock {
+					return fmt.Errorf("insufficient stock of %d expected more than %d but only have  %d", component.Id, component.Qty, count)
 				}
 				price, err := productRepo.GetProductPrice(component.Id)
 				if err != nil {
 					return err
 				}
 				component.Price = price
+				cartItem.SalePrice += ((component.Price) * float32(component.Qty))
 			}
+			cart.TotalValue += (cartItem.SalePrice * float32(cartItem.Qty))
 		}
+
+		if os.Getenv("STRIPE_API_KEY") == "" {
+			if err := json.NewEncoder(w).Encode(cart); err != nil {
+				return err
+			}
+			return nil
+		}
+
 		// continue validating cart
 		lineItems := []*stripe.CheckoutSessionLineItemParams{}
 		for _, item := range cart.Items {
@@ -211,9 +227,7 @@ func app() error {
 			SuccessURL: stripe.String(domain + "/success.html"),
 			CancelURL:  stripe.String(domain + "/cancel.html"),
 		}
-
 		s, err := session.New(params)
-
 		if err != nil {
 			log.Printf("session.New: %v", err)
 		}
@@ -462,7 +476,7 @@ func app() error {
 			return fmt.Errorf("cart add: failed to add item to cart: %w", err)
 		}
 
-		cart, err := GetCartByID(db, cart.ID)
+		cart, err := GetCartByID(db, products, cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart add: failed to retrieve updated cart: %w", err)
 		}
@@ -484,7 +498,7 @@ func app() error {
 			return fmt.Errorf("cart item remove: failed to delete cart item: %w", err)
 		}
 
-		cart, err := GetCartByID(db, cart.ID)
+		cart, err := GetCartByID(db, products, cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart item remove: failed to retrieve updated cart: %w", err)
 		}
@@ -532,7 +546,7 @@ func app() error {
 			}
 		}
 
-		cart, err = GetCartByID(db, cart.ID)
+		cart, err = GetCartByID(db, products, cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart item update: failed to retrieve updated cart: %w", err)
 		}
@@ -560,7 +574,7 @@ func app() error {
 			return fmt.Errorf("cart item delete: failed to delete cart item: %w", err)
 		}
 
-		cart, err := GetCartByID(db, cart.ID)
+		cart, err := GetCartByID(db, products, cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart item delete: failed to retrieve updated cart: %w", err)
 		}
@@ -585,7 +599,7 @@ func app() error {
 			return fmt.Errorf("cart clear: could not delete cart_item_component for cart_id %s: %w", cart.ID, err)
 		}
 
-		cart, err := GetCartByID(db, cart.ID)
+		cart, err := GetCartByID(db, products, cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart clear: failed to retrieve updated cart: %w", err)
 		}
@@ -715,21 +729,9 @@ func NewCartFromSessionGetter(db *sql.DB, products *cachedrepos.CachedProductRep
 			return cart, nil
 		}
 
-		cart, err := GetCartByID(db, cartID.(string))
+		cart, err := GetCartByID(db, products, cartID.(string))
 		if err != nil {
 			return nil, err
-		}
-
-		for i := range cart.Items {
-			item := &cart.Items[i]
-			for j := range item.Components {
-				component := &item.Components[j]
-				product, err := products.GetProductByID(component.Product.Id)
-				if err != nil {
-					return nil, err
-				}
-				component.Product = *product
-			}
 		}
 
 		return cart, nil
@@ -940,15 +942,15 @@ func SaveBundle(db *sql.DB, bundle models.Bundle) (int64, error) {
 	return bundleId, nil
 }
 
-func TotalValue(products *cachedrepos.CachedProductRepo, cart models.Cart) (float64, error) {
-	value := 0.0
+func TotalValue(products *cachedrepos.CachedProductRepo, cart models.Cart) (float32, error) {
+	var value float32 = 0.0
 	for _, item := range cart.Items {
 		for _, component := range item.Components {
 			productPrice, err := products.GetProductPrice(component.Product.Id)
 			if err != nil {
 				return 0, err
 			}
-			value += (productPrice * float64(component.Qty))
+			value += (productPrice * float32(component.Qty))
 		}
 	}
 	return value, nil
@@ -1094,7 +1096,7 @@ func CartExists(db *sql.DB, id string) (bool, error) {
 	return count > 0, nil
 }
 
-func GetCartByID(db *sql.DB, id string) (*models.Cart, error) {
+func GetCartByID(db *sql.DB, productCache *cachedrepos.CachedProductRepo, id string) (*models.Cart, error) {
 	cart, err := selectCart(db, id)
 	if err != nil {
 		return nil, err
@@ -1111,17 +1113,27 @@ func GetCartByID(db *sql.DB, id string) (*models.Cart, error) {
 			return nil, err
 		}
 	}
+
+	for i := range cart.Items {
+		item := &cart.Items[i]
+		for j := range item.Components {
+			component := &item.Components[j]
+			product, err := productCache.GetProductByID(component.Product.Id)
+			if err != nil {
+				return nil, err
+			}
+			product.Qty = component.Qty
+			component.Product = *product
+		}
+	}
+
 	for i := range cart.Items {
 		item := &cart.Items[i]
 		for c := range item.Components {
 			component := &item.Components[c]
-			price, err := selectPriceByID(db, component.Product.Id)
-			if err != nil {
-				return nil, err
-			}
-			item.SalePrice += (price * float64(component.Qty))
+			item.SalePrice += (component.Price * float32(component.Qty))
 		}
-		item.SalePrice *= float64(item.Qty)
+		item.SalePrice *= float32(item.Qty)
 		cart.TotalValue += item.SalePrice
 	}
 
@@ -1247,8 +1259,8 @@ func selectCartItemComponents(db *sql.DB, cartID, cartItemID string) ([]models.C
 			&component.CartItemID,
 			&component.CartID,
 			&component.Product.Id,
-			&component.Qty,
-			&component.Name,
+			&component.Product.Qty,
+			&component.Product.Name,
 			&component.CreatedAt,
 		); err != nil {
 			return nil, err

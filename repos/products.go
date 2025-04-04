@@ -4,34 +4,42 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings" // Import strings package for query building
+	"strings"
 
-	"github.com/seanomeara96/gates/models"
+	"github.com/seanomeara96/gates/models" // Assuming your models package path
 )
 
+// ProductRepo handles database operations for products.
+// It should focus solely on data access (CRUD) and not contain business logic validation.
 type ProductRepo struct {
 	db *sql.DB
 }
 
+// NewProductRepo creates a new instance of ProductRepo.
 func NewProductRepo(db *sql.DB) *ProductRepo {
+	if db == nil {
+		// Consider panic or returning an error if a nil db is critical
+		panic("database connection is nil for ProductRepo")
+	}
 	return &ProductRepo{db}
 }
 
-// Define a custom type for the product
+// Define a custom type for the product type stored in the database.
 type ProductType string
 
-// Define constants representing the product values
+// Define constants representing the product type values.
 const (
 	Gate      ProductType = "gate"
 	Extension ProductType = "extension"
 	Bundle    ProductType = "bundle"
 )
 
+// scannable interface decouples scanning logic from specific sql types (*sql.Row, *sql.Rows).
 type scannable interface {
 	Scan(dest ...any) error
 }
 
-// scanProductFromRow now includes inventory_level
+// scanProductFromRow scans a single product row into a models.Product struct.
 func scanProductFromRow(row scannable) (*models.Product, error) {
 	var product models.Product
 	err := row.Scan(
@@ -43,38 +51,33 @@ func scanProductFromRow(row scannable) (*models.Product, error) {
 		&product.Img,
 		&product.Color,
 		&product.Tolerance,
-		&product.InventoryLevel, // Added inventory_level scanning
+		&product.InventoryLevel,
 	)
 	if err != nil {
-		// Check specifically for sql.ErrNoRows which might be handled differently upstream
+		// Specifically check for ErrNoRows and return it so callers can distinguish
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, fmt.Errorf("could not scan product from row(s): %w", err)
+		// Wrap other errors for context
+		return nil, fmt.Errorf("could not scan product from row: %w", err)
 	}
 	return &product, nil
 }
 
-// InsertProduct now includes inventory_level
+// InsertProduct inserts a new product record into the database.
+// Assumes the input product object has been validated by the service layer.
 func (r *ProductRepo) InsertProduct(product *models.Product) (sql.Result, error) {
+	// Basic check for nil db pointer remains relevant
 	if r.db == nil {
-		return nil, errors.New("insert product requires a non nil db pointer")
+		return nil, errors.New("database connection is nil")
 	}
 
+	// The product object is assumed to be valid at this point.
+	// The repository's job is just to execute the INSERT statement.
 	res, err := r.db.Exec(
-		`INSERT INTO
-			products (
-				type,
-				name,
-				width,
-				price,
-				img,
-				color,
-				tolerance,
-				inventory_level -- Added column
-			)
-		VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?)`, // Added placeholder
+		`INSERT INTO products (
+			type, name, width, price, img, color, tolerance, inventory_level
+		 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		product.Type,
 		product.Name,
 		product.Width,
@@ -82,65 +85,60 @@ func (r *ProductRepo) InsertProduct(product *models.Product) (sql.Result, error)
 		product.Img,
 		product.Color,
 		product.Tolerance,
-		product.InventoryLevel, // Added value
+		product.InventoryLevel,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error inserting product into database: %w", err)
+		// Handle potential DB constraint errors if needed, or just wrap
+		// Example: Could check for SQLite UNIQUE constraint error code here
+		return nil, fmt.Errorf("database error inserting product: %w", err)
 	}
-
 	return res, nil
-
 }
 
+// GetProductPrice retrieves only the price for a given product ID.
 func (r *ProductRepo) GetProductPrice(id int) (float32, error) {
 	if r.db == nil {
-		return 0, errors.New("get product price requires a non nil db pointer")
+		return 0, errors.New("database connection is nil")
 	}
-
 	var price float32
-	if err := r.db.QueryRow("SELECT price FROM products WHERE id = ?", id).Scan(&price); err != nil {
+	err := r.db.QueryRow("SELECT price FROM products WHERE id = ?", id).Scan(&price)
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, fmt.Errorf("product with id %d not found: %w", id, err)
+			// Return a clear "not found" error
+			return 0, fmt.Errorf("product with id %d not found", id)
 		}
 		return 0, fmt.Errorf("error getting price for product id %d: %w", id, err)
 	}
 	return price, nil
 }
 
-// GetProductByName now selects inventory_level
+// GetProductByName retrieves a product by its unique name.
+// Returns sql.ErrNoRows if no product with that name exists.
 func (r *ProductRepo) GetProductByName(name string) (*models.Product, error) {
 	if r.db == nil {
-		return nil, errors.New("need a non nil db to get products by name")
+		return nil, errors.New("database connection is nil")
 	}
 	product, err := scanProductFromRow(
-		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products WHERE name = ?", name), // Added inventory_level
+		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products WHERE name = ?", name),
 	)
-	if err != nil {
-		// Let scanProductFromRow handle ErrNoRows if needed, or return the wrapped error
-		return nil, err
-	}
-	return product, nil
+	// scanProductFromRow handles wrapping and sql.ErrNoRows detection
+	return product, err
 }
 
-// Updated ProductFilterParams struct definition (as provided by user)
+// ProductFilterParams defines the parameters for filtering product lists.
 type ProductFilterParams struct {
 	MaxWidth       float32
-	Limit          int // Limit is ignored by CountProducts but kept for consistency with GetProducts
+	Limit          int
 	Color          string
-	InventoryLevel int     // Filter: inventory_level >= ? (if > 0)
-	Price          float32 // Filter: price <= ? (if > 0)
+	InventoryLevel int     // Assumed filter: inventory_level >= ? (if > 0)
+	Price          float32 // Assumed filter: price <= ? (if > 0)
 }
 
-// GetProducts updated to use new filter params
-func (r *ProductRepo) GetProducts(productType ProductType, params ProductFilterParams) ([]*models.Product, error) {
-	if r.db == nil {
-		return nil, errors.New("get products requires a non nil db pointer")
-	}
-
+// buildProductQuery dynamically constructs the WHERE clause and arguments for filtering.
+func buildProductQuery(baseSelect string, productType ProductType, params ProductFilterParams) (string, []any) {
 	args := []any{productType}
-	conditions := []string{"type = ?"} // Start with the mandatory type condition
+	conditions := []string{"type = ?"}
 
-	// Dynamically build WHERE clauses based on provided params
 	if params.MaxWidth > 0 {
 		conditions = append(conditions, "width < ?")
 		args = append(args, params.MaxWidth)
@@ -149,39 +147,46 @@ func (r *ProductRepo) GetProducts(productType ProductType, params ProductFilterP
 		conditions = append(conditions, "color = ?")
 		args = append(args, params.Color)
 	}
-	// Filter for inventory level >= value, only if value > 0
-	if params.InventoryLevel > 0 {
+	if params.InventoryLevel > 0 { // Filter if InventoryLevel is explicitly positive
 		conditions = append(conditions, "inventory_level >= ?")
 		args = append(args, params.InventoryLevel)
 	}
-	// Filter for price <= value, only if value > 0
-	if params.Price > 0 {
+	if params.Price > 0 { // Filter if Price is explicitly positive
 		conditions = append(conditions, "price <= ?")
 		args = append(args, params.Price)
 	}
 
-	// Construct the base query
-	baseQuery := "SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products WHERE " + strings.Join(conditions, " AND ")
+	query := baseSelect + " WHERE " + strings.Join(conditions, " AND ")
+	return query, args
+}
+
+// GetProducts retrieves a list of products based on type and filter parameters.
+func (r *ProductRepo) GetProducts(productType ProductType, params ProductFilterParams) ([]*models.Product, error) {
+	if r.db == nil {
+		return nil, errors.New("database connection is nil")
+	}
+
+	baseSelect := "SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products"
+	query, args := buildProductQuery(baseSelect, productType, params)
 
 	// Add LIMIT clause if provided
 	if params.Limit > 0 {
-		baseQuery += " LIMIT ?"
+		query += " LIMIT ?"
 		args = append(args, params.Limit)
 	}
 
-	// Execute the query
-	var products []*models.Product
-	rows, err := r.db.Query(baseQuery, args...)
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("error querying products with filters (%s): %w", baseQuery, err)
+		return nil, fmt.Errorf("error querying products: %w", err)
 	}
 	defer rows.Close()
 
-	// Scan rows
+	var products []*models.Product
 	for rows.Next() {
 		product, err := scanProductFromRow(rows)
 		if err != nil {
-			return nil, err // Error already wrapped in scanProductFromRow
+			// scanProductFromRow already wraps errors
+			return nil, err
 		}
 		products = append(products, product)
 	}
@@ -191,84 +196,44 @@ func (r *ProductRepo) GetProducts(productType ProductType, params ProductFilterP
 	return products, nil
 }
 
-// CountProducts updated to use new filter params (ignoring Limit)
+// CountProducts counts products based on type and filter parameters (ignoring Limit).
 func (r *ProductRepo) CountProducts(productType ProductType, params ProductFilterParams) (int, error) {
 	if r.db == nil {
-		return 0, errors.New("count products requires a non nil db pointer")
+		return 0, errors.New("database connection is nil")
 	}
 
-	args := []any{productType}
-	conditions := []string{"type = ?"} // Start with the mandatory type condition
+	baseSelect := "SELECT COUNT(*) FROM products"
+	query, args := buildProductQuery(baseSelect, productType, params)
 
-	// Dynamically build WHERE clauses based on provided params (same logic as GetProducts, excluding Limit)
-	if params.MaxWidth > 0 {
-		conditions = append(conditions, "width < ?")
-		args = append(args, params.MaxWidth)
-	}
-	if params.Color != "" {
-		conditions = append(conditions, "color = ?")
-		args = append(args, params.Color)
-	}
-	// Filter for inventory level >= value, only if value > 0
-	if params.InventoryLevel > 0 {
-		conditions = append(conditions, "inventory_level >= ?")
-		args = append(args, params.InventoryLevel)
-	}
-	// Filter for price <= value, only if value > 0
-	if params.Price > 0 {
-		conditions = append(conditions, "price <= ?")
-		args = append(args, params.Price)
-	}
-
-	// Construct the count query
-	baseQuery := "SELECT COUNT(*) FROM products WHERE " + strings.Join(conditions, " AND ")
-
-	// Execute the count query
 	var count int
-	row := r.db.QueryRow(baseQuery, args...)
-	err := row.Scan(&count)
+	err := r.db.QueryRow(query, args...).Scan(&count)
 	if err != nil {
-		// sql.ErrNoRows is not expected for COUNT(*), but handle other potential DB errors
-		return 0, fmt.Errorf("error counting products with filters (%s): %w", baseQuery, err)
+		// sql.ErrNoRows is not expected for COUNT(*), handle other DB errors
+		return 0, fmt.Errorf("error counting products: %w", err)
 	}
-
 	return count, nil
 }
 
-// GetCompatibleExtensionsByGateID now selects inventory_level
+// GetCompatibleExtensionsByGateID retrieves extensions compatible with a given gate ID.
 func (r *ProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]*models.Product, error) {
 	if r.db == nil {
-		return nil, errors.New("get compatible extensions requires a non nil db pointer")
+		return nil, errors.New("database connection is nil")
 	}
 
-	var extensions []*models.Product
-	rows, err := r.db.Query(
-		`SELECT
-			p.id,
-			p.type,
-			p.name,
-			p.width,
-			p.price,
-			p.img,
-			p.color,
-			p.tolerance,
-			p.inventory_level -- Added inventory_level
-		FROM
-			products p
-		INNER JOIN
-			compatibles c
-		ON
-			p.id = c.extension_id
-		WHERE
-			c.gate_id = ? -- Qualify gate_id with table alias c
-        AND p.type = ?`, // Also ensure we only get extensions
-		gateID,
-		Extension, // Explicitly filter for extensions
-	)
+	// Explicitly selecting Extension type for clarity and safety
+	query := `SELECT
+				p.id, p.type, p.name, p.width, p.price, p.img, p.color, p.tolerance, p.inventory_level
+			  FROM products p
+			  INNER JOIN compatibles c ON p.id = c.extension_id
+			  WHERE c.gate_id = ? AND p.type = ?`
+
+	rows, err := r.db.Query(query, gateID, Extension)
 	if err != nil {
 		return nil, fmt.Errorf("error querying compatible extensions for gate ID %d: %w", gateID, err)
 	}
 	defer rows.Close()
+
+	var extensions []*models.Product
 	for rows.Next() {
 		extension, err := scanProductFromRow(rows)
 		if err != nil {
@@ -282,174 +247,85 @@ func (r *ProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]*models.Pro
 	return extensions, nil
 }
 
-// UpdateProductByID now updates inventory_level
+// UpdateProductByID updates an existing product record.
+// Assumes the input product object has been validated by the service layer.
 func (r *ProductRepo) UpdateProductByID(productID int, product *models.Product) error {
 	if r.db == nil {
-		return errors.New("update product requires a non nil db pointer")
+		return errors.New("database connection is nil")
 	}
 
 	res, err := r.db.Exec(
-		`UPDATE products
-		SET
-			type = ?,
-			name = ?,
-			width = ?,
-			price = ?,
-			img = ?,
-			color = ?,
-			tolerance = ?,
-			inventory_level = ? -- Added inventory_level
-		WHERE id = ?`,
-		product.Type,
-		product.Name,
-		product.Width,
-		product.Price,
-		product.Img,
-		product.Color,
-		product.Tolerance,
-		product.InventoryLevel, // Added product.InventoryLevel
-		productID,
+		`UPDATE products SET
+			type = ?, name = ?, width = ?, price = ?, img = ?,
+			color = ?, tolerance = ?, inventory_level = ?
+		 WHERE id = ?`,
+		product.Type, product.Name, product.Width, product.Price, product.Img,
+		product.Color, product.Tolerance, product.InventoryLevel,
+		productID, // Use the passed productID for the WHERE clause
 	)
-
 	if err != nil {
-		return fmt.Errorf("error updating product with ID %d: %w", productID, err)
+		return fmt.Errorf("database error updating product with ID %d: %w", productID, err)
 	}
 
+	// Check if any row was actually updated
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		// Log this error but don't necessarily fail the update
+		// Log or ignore this error, the update might have succeeded anyway
 		fmt.Printf("Warning: could not get rows affected after update for product ID %d: %v\n", productID, err)
 	} else if rowsAffected == 0 {
-		// Consider returning a specific error like sql.ErrNoRows or a custom not found error
-		return fmt.Errorf("no product found with ID %d to update", productID)
+		// Return a specific error indicating the product wasn't found
+		return fmt.Errorf("no product found with ID %d to update", productID) // Or return sql.ErrNoRows
 	}
-
 	return nil
 }
 
+// DeleteProductByID deletes a product record by its ID.
 func (r *ProductRepo) DeleteProductByID(productID int) error {
 	if r.db == nil {
-		return errors.New("delete product requires a non nil db pointer")
+		return errors.New("database connection is nil")
 	}
 
 	res, err := r.db.Exec("DELETE FROM products WHERE id = ?", productID)
 	if err != nil {
-		return fmt.Errorf("error deleting product with ID %d: %w", productID, err)
+		return fmt.Errorf("database error deleting product with ID %d: %w", productID, err)
 	}
 
+	// Check if any row was actually deleted
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		fmt.Printf("Warning: could not get rows affected after delete for product ID %d: %v\n", productID, err)
 	} else if rowsAffected == 0 {
-		// Consider returning a specific error like sql.ErrNoRows or a custom not found error
-		return fmt.Errorf("no product found with ID %d to delete", productID)
+		// Return a specific error indicating the product wasn't found
+		return fmt.Errorf("no product found with ID %d to delete", productID) // Or return sql.ErrNoRows
 	}
-
 	return nil
 }
 
-// CreateProductParams now includes InventoryLevel
-type CreateProductParams struct {
-	Type           string
-	Name           string
-	Width          float32
-	Price          float32
-	Img            string
-	Tolerance      float32
-	Color          string
-	InventoryLevel int // Added InventoryLevel
-}
-
-var validProductTypes = map[ProductType]bool{ // Use slice for easier iteration
-	Gate:      true,
-	Extension: true,
-	// Consider if Bundle should be creatable this way.
-}
-
-func (r *ProductRepo) CreateProduct(params CreateProductParams) (int64, error) {
-
-	// Validate input parameters
-	if params.Name == "" || params.Type == "" || params.Color == "" {
-		return 0, errors.New("name, type, and color are required")
-	}
-
-	hasValidType := validProductTypes[ProductType(params.Type)]
-
-	if !hasValidType {
-		return 0, fmt.Errorf("invalid product type '%s'. Valid types are: Gate or Extension", params.Type)
-	}
-
-	if params.Price <= 0.0 || params.Width <= 0.0 { // Check <= 0
-		return 0, errors.New("price and width must be greater than 0")
-	}
-	if params.InventoryLevel < 0 {
-		return 0, errors.New("inventory level cannot be negative")
-	}
-
-	// Check for existing product by name using QueryRow for efficiency
-	var existingID int
-	err := r.db.QueryRow("SELECT id FROM products WHERE name = ?", params.Name).Scan(&existingID)
-	if err == nil {
-		// No error means a product was found
-		return 0, fmt.Errorf("product with name '%s' already exists (ID: %d)", params.Name, existingID)
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		// An actual DB error occurred (other than not found)
-		return 0, fmt.Errorf("error checking for existing product by name '%s': %w", params.Name, err)
-	}
-	// If err is sql.ErrNoRows, proceed with creation
-
-	product := &models.Product{
-		Id:             0, // ID will be auto-generated
-		Type:           params.Type,
-		Name:           params.Name,
-		Width:          params.Width,
-		Price:          params.Price,
-		Img:            params.Img,
-		Color:          params.Color,
-		Tolerance:      params.Tolerance,
-		InventoryLevel: params.InventoryLevel, // Added InventoryLevel
-	}
-
-	res, err := r.InsertProduct(product)
-	if err != nil {
-		return 0, err // Error already wrapped in InsertProduct
-	}
-
-	lastID, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("error getting last insert ID after creating product '%s': %w", params.Name, err)
-	}
-
-	return lastID, nil
-}
-
-// GetProductByID now selects inventory_level
+// GetProductByID retrieves a single product by its primary key ID.
+// Returns sql.ErrNoRows if no product with that ID exists.
 func (r *ProductRepo) GetProductByID(productID int) (*models.Product, error) {
 	if r.db == nil {
-		return nil, errors.New("get product by ID requires a non nil db pointer")
+		return nil, errors.New("database connection is nil")
 	}
 	product, err := scanProductFromRow(
-		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products WHERE id = ?", productID), // Added inventory_level
+		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products WHERE id = ?", productID),
 	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("product with id %d not found", productID) // More specific error for not found
-		}
-		// Keep the wrapped error from scanProductFromRow for other errors
-		return nil, err
-	}
-	return product, nil
+	// scanProductFromRow handles wrapping and sql.ErrNoRows detection
+	return product, err
 }
 
-// --- Wrapper functions using GetProducts ---
+// --- Wrapper Functions (Convenience) ---
+// These call GetProducts with specific types. The logic to set Qty=1 might
+// arguably belong in the service or application layer, but kept here for now
+// as simple convenience wrappers based on previous code.
 
 func (r *ProductRepo) GetGates(params ProductFilterParams) ([]*models.Product, error) {
 	gates, err := r.GetProducts(Gate, params)
 	if err != nil {
-		return nil, err // Error already wrapped in GetProducts
+		return nil, err // Error already wrapped
 	}
 	for i := range gates {
-		gates[i].Qty = 1 // Consider if this logic belongs elsewhere
+		gates[i].Qty = 1 // Consider moving this logic elsewhere
 	}
 	return gates, nil
 }
@@ -457,23 +333,22 @@ func (r *ProductRepo) GetGates(params ProductFilterParams) ([]*models.Product, e
 func (r *ProductRepo) GetExtensions(params ProductFilterParams) ([]*models.Product, error) {
 	extensions, err := r.GetProducts(Extension, params)
 	if err != nil {
-		return nil, err // Error already wrapped in GetProducts
+		return nil, err // Error already wrapped
 	}
 	for i := range extensions {
-		extensions[i].Qty = 1 // Consider if this logic belongs elsewhere
+		extensions[i].Qty = 1 // Consider moving this logic elsewhere
 	}
 	return extensions, nil
 }
 
 func (r *ProductRepo) GetBundles(params ProductFilterParams) ([]*models.Product, error) {
-	bundles, err := r.GetProducts(Bundle, params)
-	if err != nil {
-		return nil, err // Error already wrapped in GetProducts
-	}
-	// Bundles likely don't need Qty=1 set here.
-	return bundles, nil
+	// Bundles may not naturally have a single Qty=1 concept.
+	return r.GetProducts(Bundle, params) // Error already wrapped
 }
 
+// NOTE: The CreateProduct function and CreateProductParams struct have been removed.
+// Responsibility for validating parameters and then calling repo.InsertProduct
+// now lies within your Service layer (e.g., ProductService).
 // Add this function to your ProductRepo
 
 // CountProductByID counts products matching a specific ID.
@@ -484,7 +359,7 @@ func (r *ProductRepo) CountProductByID(productID int) (int, error) {
 	}
 
 	var count int
-	query := "SELECT COUNT(*) FROM products WHERE id = ?"
+	query := "SELECT SUM(inventory_level) FROM products WHERE id = ?"
 	err := r.db.QueryRow(query, productID).Scan(&count)
 	if err != nil {
 		// sql.ErrNoRows should NOT occur for COUNT(*), but handle other errors
