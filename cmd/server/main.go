@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,6 +21,7 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/seanomeara96/auth"
 	"github.com/seanomeara96/gates/cachedrepos"
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repos"
@@ -46,57 +46,65 @@ type config struct {
 	Mode                 Environment
 	DBPath               string
 	CookieStoreSecretKey string
+	AdminUserID          string
+	AdminUserPassword    string
+	JWTSecretKey         string
 }
 
-func configEnv() config {
+func configEnv() (*config, error) {
 
 	var config config
 
-	portValue := flag.String("port", "3000", "port to listen on")
-	env := flag.String("env", "dev", "dev or prod")
-	dbFilePath := flag.String("dbpath", "main.db", "path to database")
-	flag.Parse()
+	config.Port = os.Getenv("PORT")
+	if config.Port == "" {
+		return nil, errors.New("env PORT value not set in env")
+	}
 
-	envPortValue := os.Getenv("PORT")
-	if *portValue == "" && envPortValue != "" {
-		*portValue = envPortValue
+	config.Mode = Environment(os.Getenv("MODE"))
+	if config.Mode != Development && config.Mode != Production {
+		return nil, errors.New("env MODE not set in env")
 	}
-	if *portValue == "" {
-		*portValue = "3000"
-	}
-	config.Port = *portValue
 
-	environment := Development
-	envMode := os.Getenv("MODE")
-	if *env == "" && envMode != "" {
-		*env = envMode
+	config.DBPath = os.Getenv("DB_FILE_PATH")
+	if config.DBPath == "" {
+		config.DBPath = "main.db"
 	}
-	if *env == "prod" {
-		environment = Production
-	}
-	config.Mode = environment
 
-	config.DBPath = *dbFilePath
-	envDBFilePath := os.Getenv("DB_FILE_PATH")
-	if config.DBPath == "" && envDBFilePath != "" {
-		config.DBPath = envDBFilePath
+	config.AdminUserID = os.Getenv("ADMIN_USER_ID")
+	if config.AdminUserID == "" {
+		return nil, errors.New("env ADMIN_USER_ID not set")
+	}
+
+	config.AdminUserPassword = os.Getenv("ADMIN_USER_PASSWORD")
+	if config.AdminUserPassword == "" {
+		return nil, errors.New("env ADMIN_USER_PASSWORD not set")
 	}
 
 	stripe.Key = os.Getenv("STRIPE_API_KEY")
+
 	config.CookieStoreSecretKey = os.Getenv("COOKIE_SECRET")
-	return config
+	if config.CookieStoreSecretKey == "" {
+		return nil, errors.New("env COOKIE_SECRET not set")
+	}
+
+	config.JWTSecretKey = os.Getenv("JWT_SECRET_KEY")
+	if config.JWTSecretKey == "" {
+		return nil, errors.New("env JWT_SECRET_KEY not set")
+	}
+
+	return &config, nil
 }
 
-func configCookieStore(config config) *sessions.CookieStore {
+func configCookieStore(config *config) (*sessions.CookieStore, error) {
 
 	if config.CookieStoreSecretKey == "" {
 		if config.Mode == Development {
 			config.CookieStoreSecretKey = "suprSecrtStoreKey"
 		} else {
-			panic("cookie secret not set in env")
+			return nil, errors.New("cookie secret not set in env")
 		}
 	}
-	return sessions.NewCookieStore([]byte(config.CookieStoreSecretKey))
+	return sessions.NewCookieStore([]byte(config.CookieStoreSecretKey)), nil
 }
 
 func app() error {
@@ -105,15 +113,32 @@ func app() error {
 		return err
 	}
 
-	env := configEnv()
-	db := SqliteOpen(env.DBPath)
+	config, err := configEnv()
+	if err != nil {
+		return err
+	}
+
+	db := SqliteOpen(config.DBPath)
 	defer db.Close()
+
+	authConfig := auth.AuthConfig{DB: db, JWTSecretKey: config.JWTSecretKey}
+
+	auth, err := auth.Init(authConfig)
+	if err != nil {
+		return err
+	}
+
+	auth.Register(context.Background(), config.AdminUserID, config.AdminUserPassword)
 
 	productRepo := repos.NewProductRepo(db)
 	products := cachedrepos.NewCachedProductRepo(productRepo)
 
-	store := configCookieStore(env)
-	tmpl := templateParser(env.Mode)
+	store, err := configCookieStore(config)
+	if err != nil {
+		return err
+	}
+
+	tmpl := templateParser(config.Mode)
 	renderPage := NewPageRenderer(tmpl)
 	renderPartial := NewPartialRenderer(tmpl)
 
@@ -131,7 +156,76 @@ func app() error {
 		// },
 	}
 
-	handle := createCustomHandler(env.Mode, router, middleware, getCartFromRequest)
+	handle := createCustomHandler(config.Mode, router, middleware, getCartFromRequest)
+
+	handle.get("/admin/login", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+		accessToken, refreshToken, _ := auth.GetTokensFromRequest(r)
+
+		_, err = auth.ValidateToken(accessToken)
+		if err == nil {
+			accessToken, refreshToken, err = auth.Refresh(r.Context(), refreshToken)
+			if err != nil {
+				return err
+			}
+			auth.SetTokens(w, accessToken, refreshToken)
+			http.Redirect(w, r, "/admin", http.StatusTemporaryRedirect)
+			return nil
+		}
+
+		data := map[string]any{
+			"PageTitle":       "Home Page",
+			"MetaDescription": "Welcome to the home page",
+
+			"Cart": cart,
+			"Env":  config.Mode,
+		}
+
+		return renderPage(w, "admin-login", data)
+	})
+
+	handle.post("/admin/login", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+		if err := r.ParseForm(); err != nil {
+			return err
+		}
+
+		accessToken, refreshToken, err := auth.Login(r.Context(), r.Form.Get("user_id"), r.Form.Get("password"))
+		if err != nil {
+			return err
+		}
+		auth.SetTokens(w, accessToken, refreshToken)
+
+		http.Redirect(w, r, "/admin", http.StatusTemporaryRedirect)
+		return nil
+	})
+
+	handle.get("/admin", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+
+		accessToken, refreshToken, err := auth.GetTokensFromRequest(r)
+		if err != nil {
+			return err
+		}
+
+		_, err = auth.ValidateToken(accessToken)
+		if err != nil {
+			return err
+		}
+
+		accessToken, refreshToken, err = auth.Refresh(r.Context(), refreshToken)
+		if err != nil {
+			return err
+		}
+		auth.SetTokens(w, accessToken, refreshToken)
+
+		data := map[string]any{
+			"PageTitle":       "Home Page",
+			"MetaDescription": "Welcome to the home page",
+
+			"Cart": cart,
+			"Env":  config.Mode,
+		}
+
+		return renderPage(w, "home", data)
+	})
 
 	handle("/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		if r.URL.Path == "/" {
@@ -151,7 +245,7 @@ func app() error {
 				"FeaturedGates":      featuredGates,
 				"FeaturedExtensions": extensions,
 				"Cart":               cart,
-				"Env":                env.Mode,
+				"Env":                config.Mode,
 			}
 
 			return renderPage(w, "home", data)
@@ -165,7 +259,7 @@ func app() error {
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
-			"Env":             env.Mode,
+			"Env":             config.Mode,
 		}
 		return renderPage(w, "contact", data)
 	})
@@ -261,7 +355,7 @@ func app() error {
 				"PageTitle":       "Contact us | Invalid Email",
 				"MetaDescription": "Please provide a valid email address",
 				"Cart":            nil,
-				"Env":             env.Mode,
+				"Env":             config.Mode,
 			})
 		}
 
@@ -286,7 +380,7 @@ func app() error {
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
-			"Env":             env.Mode,
+			"Env":             config.Mode,
 		}
 		return renderPage(w, "contact", data)
 	})
@@ -324,7 +418,7 @@ func app() error {
 		data := map[string]any{
 			"RequestedBundleSize": float32(desiredWidth),
 			"Bundles":             bundles,
-			"Env":                 env.Mode,
+			"Env":                 config.Mode,
 		}
 
 		return renderPage(w, "build-results", data)
@@ -343,7 +437,7 @@ func app() error {
 			"MetaDescription": "Shop our full range of gates",
 			"Products":        gates,
 			"Cart":            cart,
-			"Env":             env.Mode,
+			"Env":             config.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -365,7 +459,7 @@ func app() error {
 			"MetaDescription": gate.Name,
 			"Product":         gate,
 			"Cart":            cart,
-			"Env":             env.Mode,
+			"Env":             config.Mode,
 		}
 
 		return renderPage(w, "product", data)
@@ -383,7 +477,7 @@ func app() error {
 			"MetaDescription": "Shop all extensions",
 			"Products":        extensions,
 			"Cart":            cart,
-			"Env":             env.Mode,
+			"Env":             config.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -404,7 +498,7 @@ func app() error {
 			"PageTitle":       extension.Name,
 			"MetaDescription": extension.Name,
 			"Cart":            cart,
-			"Env":             env.Mode,
+			"Env":             config.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -416,7 +510,7 @@ func app() error {
 			"PageTitle":       "Your shopping cart",
 			"MetaDescription": "",
 			"Cart":            cart,
-			"Env":             env.Mode,
+			"Env":             config.Mode,
 		}
 
 		return renderPage(w, "cart", data)
@@ -434,7 +528,7 @@ func app() error {
 		return nil
 	})
 
-	if env.Mode == Development {
+	if config.Mode == Development {
 		handle("/test", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 			if r.Method == http.MethodGet {
 				return renderPage(w, "test", map[string]any{})
@@ -626,15 +720,15 @@ func app() error {
 	}))
 
 	srv := http.Server{
-		Addr:    ":" + env.Port,
+		Addr:    ":" + config.Port,
 		Handler: router,
 	}
 
 	errChan := make(chan error)
 	go func() {
-		log.Println("Listening on http://localhost:" + env.Port)
+		log.Println("Listening on http://localhost:" + config.Port)
 		if err := srv.ListenAndServe(); err != nil {
-			errChan <- fmt.Errorf("server startup: failed to listen and serve on env.env.Port %s: %w", env.Port, err)
+			errChan <- fmt.Errorf("server startup: failed to listen and serve on env.config.Port %s: %w", config.Port, err)
 		}
 	}()
 
