@@ -2,8 +2,8 @@ package repos
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
+	"time"
 
 	"github.com/seanomeara96/gates/models"
 )
@@ -41,7 +41,7 @@ func (r *CartRepo) SaveCart(cart models.Cart) (*sql.Result, error) {
 		cart.LastUpdatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to save cart. %v", err)
+		return nil, fmt.Errorf("failed to save cart: %v", err)
 	}
 	return &res, nil
 }
@@ -50,7 +50,7 @@ func (r *CartRepo) CartExists(id string) (bool, error) {
 	var count int
 	err := r.db.QueryRow(`SELECT count(id) AS count FROM cart WHERE id = ?`, id).Scan(&count)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to check if cart exists: %v", err)
 	}
 	return count > 0, nil
 }
@@ -58,17 +58,17 @@ func (r *CartRepo) CartExists(id string) (bool, error) {
 func (r *CartRepo) GetCartByID(id string) (*models.Cart, error) {
 	cart, err := r.selectCart(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to select cart with ID %s: %v", id, err)
 	}
 	if cart.Items, err = r.selectCartItems(cart.ID); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to select items for cart %s: %v", cart.ID, err)
 	}
 	for i := range cart.Items {
 		if cart.Items[i].Components, err = r.selectCartItemComponents(
 			cart.ID,
 			cart.Items[i].ID,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to select components for cart item %s: %v", cart.Items[i].ID, err)
 		}
 		cart.Items[i].SetName()
 		cart.Items[i].SetPrice()
@@ -84,8 +84,7 @@ func (r *CartRepo) selectCart(id string) (models.Cart, error) {
 	SELECT
 		id,
 		created_at,
-		last_updated_at,
-		total_value
+		last_updated_at
 	FROM
 		cart
 	WHERE
@@ -95,21 +94,18 @@ func (r *CartRepo) selectCart(id string) (models.Cart, error) {
 		&cart.ID,
 		&cart.CreatedAt,
 		&cart.LastUpdatedAt,
-		&cart.TotalValue,
 	); err != nil {
-		return models.Cart{}, err
+		return models.Cart{}, fmt.Errorf("failed to scan cart data: %v", err)
 	}
 	return cart, nil
 }
 
-func (r *CartRepo) selectCartItem(cartID, itemID string) (*models.CartItem, error) {
+func (r *CartRepo) SelectCartItem(cartID, itemID string) (*models.CartItem, error) {
 	var ci models.CartItem
 	err := r.db.QueryRow(`
 	SELECT
 		id,
 		cart_id,
-		name,
-		sale_price,
 		qty,
 		created_at
 	FROM
@@ -124,13 +120,11 @@ func (r *CartRepo) selectCartItem(cartID, itemID string) (*models.CartItem, erro
 	).Scan(
 		&ci.ID,
 		&ci.CartID,
-		&ci.Name,
-		&ci.SalePrice,
 		&ci.Qty,
 		&ci.CreatedAt,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to select cart item (cartID: %s, itemID: %s): %v", cartID, itemID, err)
 	}
 	return &ci, nil
 }
@@ -140,8 +134,6 @@ func (r *CartRepo) selectCartItems(cartID string) ([]models.CartItem, error) {
 	SELECT
 		id,
 		cart_id,
-		name,
-		sale_price,
 		qty,
 		created_at
 	FROM
@@ -149,7 +141,7 @@ func (r *CartRepo) selectCartItems(cartID string) ([]models.CartItem, error) {
 	WHERE
 		cart_id = ?`, cartID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query cart items for cart %s: %v", cartID, err)
 	}
 	defer rows.Close()
 	cartItems := []models.CartItem{}
@@ -158,12 +150,10 @@ func (r *CartRepo) selectCartItems(cartID string) ([]models.CartItem, error) {
 		if err := rows.Scan(
 			&cartItem.ID,
 			&cartItem.CartID,
-			&cartItem.Name,
-			&cartItem.SalePrice,
 			&cartItem.Qty,
 			&cartItem.CreatedAt,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan cart item: %v", err)
 		}
 		cartItems = append(cartItems, cartItem)
 	}
@@ -186,7 +176,7 @@ func (r *CartRepo) selectCartItemComponents(cartID, cartItemID string) ([]models
 		cart_id = ?`,
 		cartItemID, cartID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query cart item components (cartID: %s, itemID: %s): %v", cartID, cartItemID, err)
 	}
 	defer rows.Close()
 
@@ -200,11 +190,11 @@ func (r *CartRepo) selectCartItemComponents(cartID, cartItemID string) ([]models
 			&component.Product.Qty,
 			&component.CreatedAt,
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan cart item component: %v", err)
 		}
 		product, err := r.productRepo.GetProductByID(component.Product.Id)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get product (ID: %d) for cart component: %v", component.Product.Id, err)
 		}
 		product.Qty = component.Product.Qty
 		component.Product = *product
@@ -232,12 +222,22 @@ func (r *CartRepo) InsertCartItem(cartItem models.CartItem) error {
 		cartItem.CreatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("could not insert cart item in db %w", err)
+		return fmt.Errorf("could not insert cart item in db (ID: %s, cartID: %s): %w", cartItem.ID, cartItem.CartID, err)
 	}
 	return nil
 }
 
-func (r *CartRepo) doesCartItemExist(cartID string, cartItemID string) (bool, error) {
+/*
+Important to keep track of this for the purposes of abandoned cart messages
+*/
+func (r *CartRepo) SetLastUpdated(cartID string) error {
+	if _, err := r.db.Exec("UPDATE cart SET last_updated_at = ? WHERE id = ?", time.Now(), cartID); err != nil {
+		return fmt.Errorf("could not update last_updated_at on cart (ID: %s): %w", cartID, err)
+	}
+	return nil
+}
+
+func (r *CartRepo) DoesCartItemExist(cartID string, cartItemID string) (bool, error) {
 	var count int
 	err := r.db.QueryRow(`
 	SELECT
@@ -250,7 +250,7 @@ func (r *CartRepo) doesCartItemExist(cartID string, cartItemID string) (bool, er
 		cart_id = ?`,
 		cartItemID, cartID).Scan(&count)
 	if err != nil {
-		return false, fmt.Errorf("could not count cart_item %w", err)
+		return false, fmt.Errorf("could not check if cart item exists (cartID: %s, itemID: %s): %w", cartID, cartItemID, err)
 	}
 	return count > 0, nil
 }
@@ -261,7 +261,7 @@ func (r *CartRepo) GetCartByUserID(userID int) (*models.Cart, error) {
 		SELECT
 			id, created_at, last_updated_at
 		FROM
-			carts
+			cart
 		WHERE
 			user_id = ?`,
 		userID,
@@ -271,13 +271,13 @@ func (r *CartRepo) GetCartByUserID(userID int) (*models.Cart, error) {
 		&cart.LastUpdatedAt,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get cart for user (ID: %d): %v", userID, err)
 	}
 	return &cart, nil
 }
 
 func (r *CartRepo) GetCartItemsByCartID(cartID string) ([]*models.CartItem, error) {
-	return nil, errors.New("getting cart items not implemented")
+	return nil, fmt.Errorf("getting cart items not implemented for cartID: %s", cartID)
 }
 
 func (r *CartRepo) SaveCartItemComponents(components []models.CartItemComponent) error {
@@ -297,10 +297,11 @@ func (r *CartRepo) SaveCartItemComponents(components []models.CartItemComponent)
 			c.CartItemID,
 			c.CartID,
 			c.Product.Id,
-			c.Qty,
+			c.Product.Qty,
 			c.CreatedAt,
 		); err != nil {
-			return err
+			return fmt.Errorf("failed to save cart item component (cartItemID: %s, productID: %d): %v",
+				c.CartItemID, c.Product.Id, err)
 		}
 	}
 	return nil
@@ -319,7 +320,7 @@ func (r *CartRepo) IncrementCartItem(cartID, itemID string) error {
 		itemID,
 		cartID,
 	); err != nil {
-		return err
+		return fmt.Errorf("failed to increment cart item (cartID: %s, itemID: %s): %v", cartID, itemID, err)
 	}
 	return nil
 }
@@ -333,17 +334,17 @@ func (r *CartRepo) DecrementCartItem(cartID, itemID string) error {
 		itemID,
 		cartID,
 	); err != nil {
-		return err
+		return fmt.Errorf("failed to decrement cart item (cartID: %s, itemID: %s): %v", cartID, itemID, err)
 	}
 	return nil
 }
 
 func (r *CartRepo) RemoveCartItem(cartID, itemID string) error {
-	return errors.New("remove cart item not implemented")
+	return fmt.Errorf("remove cart item not implemented (cartID: %s, itemID: %s)", cartID, itemID)
 }
 
 func (r *CartRepo) RemoveCartItemComponents(itemID string) error {
-	return errors.New("remove Cart Item Components not yet implemented")
+	return fmt.Errorf("remove Cart Item Components not yet implemented for itemID: %s", itemID)
 }
 
 /* repository funcs end */

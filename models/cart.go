@@ -42,7 +42,15 @@ func NewCart() Cart {
 	}
 }
 
+func (c *Cart) SetTotalValue() {
+	c.TotalValue = 0
+	for i := range c.Items {
+		c.TotalValue += (c.Items[i].SalePrice * float32(c.Items[i].Qty))
+	}
+}
+
 func (i *CartItem) SetName() {
+	i.Name = ""
 	i.Name = i.Components[0].Name
 	if len(i.Components) > 1 {
 		i.Name += " and " + strconv.Itoa(len(i.Components)-1) + " components"
@@ -50,13 +58,11 @@ func (i *CartItem) SetName() {
 }
 
 func (i *CartItem) SetPrice() {
-
+	i.SalePrice = 0
 	for c := range i.Components {
 		component := i.Components[c]
 		i.SalePrice += (component.Price * float32(component.Qty))
 	}
-	i.SalePrice *= float32(i.Qty)
-
 }
 
 func NewCartItem(cartID string, components []CartItemComponent) CartItem {

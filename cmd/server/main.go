@@ -142,6 +142,8 @@ func app() error {
 	productRepo := repos.NewProductRepo(db)
 	productCache := cachedrepos.NewCachedProductRepo(productRepo)
 
+	cartRepo := repos.NewCartRepo(db, productCache)
+
 	store, err := configCookieStore(config)
 	if err != nil {
 		return err
@@ -152,23 +154,11 @@ func app() error {
 	renderPartial := NewPartialRenderer(tmpl)
 
 	router := http.NewServeMux()
-	getCartFromRequest := NewCartFromSessionGetter(db, productCache, store)
+	getCartFromRequest := NewCartFromSessionGetter(cartRepo, productCache, store)
 	// ROUTING LOGIC
 	// middleware executed in reverse order; i = 0 executes last
 	middleware := []middlewareFunc{
 		// Example for middleware usage:
-		func(next customHandleFunc) customHandleFunc {
-			return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-				// Do something with the cart ...
-				// like refresh cart details
-				if cart != nil {
-					if err := refreshCartDetails(cart, productCache); err != nil {
-						return err
-					}
-				}
-				return next(cart, w, r)
-			}
-		},
 	}
 
 	handle := createCustomHandler(config.Mode, router, middleware, getCartFromRequest)
@@ -356,30 +346,68 @@ func app() error {
 		return fmt.Errorf("contact page: could not compile email validation regex: %w", err)
 	}
 	handle.post("/contact/", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+		// Limit request body size to prevent DoS attacks
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
+
 		if err := r.ParseForm(); err != nil {
 			return fmt.Errorf("contact page: failed to parse form: %w", err)
 		}
+
+		// Rate limit check could be added here
+		clientIP := r.Header.Get("X-Forwarded-For")
+		if clientIP == "" {
+			clientIP = r.RemoteAddr
+		}
+
 		email := r.Form.Get("email")
 		name := r.Form.Get("name")
 		message := r.Form.Get("message")
 
+		// Check for message length limitations
+		if len(message) > 5000 {
+			return renderPage(w, "contact", map[string]any{
+				"PageTitle":       "Contact us | Message Too Long",
+				"MetaDescription": "Please provide a shorter message",
+				"Cart":            cart,
+				"Env":             config.Mode,
+				"Error":           "Message exceeds maximum length",
+			})
+		}
+
+		// Validate required fields
 		if message == "" {
 			return renderPage(w, "contact", map[string]any{
 				"PageTitle":       "Contact us | No Message Provided",
 				"MetaDescription": "Please provide a message",
-				"Cart":            nil,
+				"Cart":            cart,
+				"Env":             config.Mode,
+				"Error":           "Message is required",
 			})
 		}
 
+		// Strict email validation
 		if !emailRegex.MatchString(email) || email == "" {
 			return renderPage(w, "contact", map[string]any{
 				"PageTitle":       "Contact us | Invalid Email",
 				"MetaDescription": "Please provide a valid email address",
-				"Cart":            nil,
+				"Cart":            cart,
 				"Env":             config.Mode,
+				"Error":           "Valid email is required",
 			})
 		}
 
+		// Name validation
+		if len(name) > 100 || name == "" {
+			return renderPage(w, "contact", map[string]any{
+				"PageTitle":       "Contact us | Invalid Name",
+				"MetaDescription": "Please provide a valid name",
+				"Cart":            cart,
+				"Env":             config.Mode,
+				"Error":           "Valid name is required (maximum 100 characters)",
+			})
+		}
+
+		// Sanitize inputs before storing
 		var contact struct {
 			Email   string
 			Name    string
@@ -390,11 +418,20 @@ func app() error {
 		contact.Name = template.HTMLEscapeString(name)
 		contact.Message = template.HTMLEscapeString(message)
 
+		// Use context with timeout for database operations
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
 		if err := InsertContactForm(ctx, db, contact); err != nil {
-			return err
+			// Don't expose database errors to the client
+			log.Printf("Contact form database error: %v", err)
+			return renderPage(w, "contact", map[string]any{
+				"PageTitle":       "Contact Error",
+				"MetaDescription": "An error occurred processing your request",
+				"Cart":            cart,
+				"Env":             config.Mode,
+				"Error":           "Unable to process your request at this time",
+			})
 		}
 
 		data := map[string]any{
@@ -402,6 +439,7 @@ func app() error {
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
 			"Env":             config.Mode,
+			"Success":         "Your message has been sent successfully",
 		}
 		return renderPage(w, "contact", data)
 	})
@@ -588,11 +626,11 @@ func app() error {
 			components = append(components, component)
 		}
 
-		if err := AddItemToCart(db, cart.ID, models.NewCartItem(cart.ID, components)); err != nil {
+		if err := AddItemToCart(cartRepo, cart.ID, models.NewCartItem(cart.ID, components)); err != nil {
 			return fmt.Errorf("cart add: failed to add item to cart: %w", err)
 		}
 
-		cart, err := GetCartByID(db, productCache, cart.ID)
+		cart, err := cartRepo.GetCartByID(cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart add: failed to retrieve updated cart: %w", err)
 		}
@@ -614,7 +652,7 @@ func app() error {
 			return fmt.Errorf("cart item remove: failed to delete cart item: %w", err)
 		}
 
-		cart, err := GetCartByID(db, productCache, cart.ID)
+		cart, err := cartRepo.GetCartByID(cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart item remove: failed to retrieve updated cart: %w", err)
 		}
@@ -643,13 +681,13 @@ func app() error {
 			return fmt.Errorf("cart item update: cart_item_id is blank")
 		}
 
-		cartItem, err := selectCartItem(db, cart.ID, cartItemID)
+		cartItem, err := cartRepo.SelectCartItem(cart.ID, cartItemID)
 		if err != nil {
 			return fmt.Errorf("cart item update: failed to select cart item: %w", err)
 		}
 
 		if mode == "increment" {
-			if err := IncrementCartItem(db, cart.ID, cartItem.ID); err != nil {
+			if err := cartRepo.IncrementCartItem(cart.ID, cartItem.ID); err != nil {
 				return fmt.Errorf("cart item update: failed to increment cart item: %w", err)
 			}
 		} else {
@@ -657,12 +695,12 @@ func app() error {
 				w.WriteHeader(http.StatusBadRequest)
 				return nil
 			}
-			if err := DecrementCartItem(db, cart.ID, cartItem.ID); err != nil {
+			if err := cartRepo.DecrementCartItem(cart.ID, cartItem.ID); err != nil {
 				return fmt.Errorf("cart item update: failed to decrement cart item: %w", err)
 			}
 		}
 
-		cart, err = GetCartByID(db, productCache, cart.ID)
+		cart, err = cartRepo.GetCartByID(cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart item update: failed to retrieve updated cart: %w", err)
 		}
@@ -690,7 +728,7 @@ func app() error {
 			return fmt.Errorf("cart item delete: failed to delete cart item: %w", err)
 		}
 
-		cart, err := GetCartByID(db, productCache, cart.ID)
+		cart, err := cartRepo.GetCartByID(cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart item delete: failed to retrieve updated cart: %w", err)
 		}
@@ -715,7 +753,7 @@ func app() error {
 			return fmt.Errorf("cart clear: could not delete cart_item_component for cart_id %s: %w", cart.ID, err)
 		}
 
-		cart, err := GetCartByID(db, productCache, cart.ID)
+		cart, err := cartRepo.GetCartByID(cart.ID)
 		if err != nil {
 			return fmt.Errorf("cart clear: failed to retrieve updated cart: %w", err)
 		}
@@ -811,7 +849,7 @@ func attachNewCartToSession(cart *models.Cart, session *sessions.Session, w http
 	return nil
 }
 
-func NewCartFromSessionGetter(db *sql.DB, products *cachedrepos.CachedProductRepo, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
+func NewCartFromSessionGetter(cartRepo *repos.CartRepo, products *cachedrepos.CachedProductRepo, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
 	return func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
 		session, err := getCartSession(r, store)
 		if err != nil {
@@ -824,7 +862,7 @@ func NewCartFromSessionGetter(db *sql.DB, products *cachedrepos.CachedProductRep
 		}
 
 		if cartID == nil {
-			cart, err := NewCart(db)
+			cart, err := NewCart(cartRepo)
 			if err != nil {
 				return nil, err
 			}
@@ -838,12 +876,12 @@ func NewCartFromSessionGetter(db *sql.DB, products *cachedrepos.CachedProductRep
 			return nil, fmt.Errorf("cart id is invalid")
 		}
 
-		exists, err := CartExists(db, cartID.(string))
+		exists, err := cartRepo.CartExists(cartID.(string))
 		if err != nil {
 			return nil, err
 		}
 		if !exists {
-			cart, err := NewCart(db)
+			cart, err := NewCart(cartRepo)
 			if err != nil {
 				return nil, err
 			}
@@ -853,7 +891,7 @@ func NewCartFromSessionGetter(db *sql.DB, products *cachedrepos.CachedProductRep
 			return cart, nil
 		}
 
-		cart, err := GetCartByID(db, products, cartID.(string))
+		cart, err := cartRepo.GetCartByID(cartID.(string))
 		if err != nil {
 			return nil, err
 		}
@@ -1051,21 +1089,6 @@ func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*m
 	return bundle, nil
 }
 
-func SaveBundle(db *sql.DB, bundle models.Bundle) (int64, error) {
-	bundleId, err := SaveBundleAsProduct(db, bundle.Product)
-	if err != nil {
-		return 0, err
-	}
-	for iii := 0; iii < len(bundle.Components); iii++ {
-		component := bundle.Components[iii]
-		err = SaveBundleComponent(db, component.Id, component.Type, bundleId, component.Qty)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return bundleId, nil
-}
-
 func TotalValue(products *cachedrepos.CachedProductRepo, cart models.Cart) (float32, error) {
 	var value float32 = 0.0
 	for _, item := range cart.Items {
@@ -1080,42 +1103,43 @@ func TotalValue(products *cachedrepos.CachedProductRepo, cart models.Cart) (floa
 	return value, nil
 }
 
-func NewCart(db *sql.DB) (*models.Cart, error) {
+func NewCart(cartRepo *repos.CartRepo) (*models.Cart, error) {
 	cart := models.NewCart()
-	if _, err := SaveCart(db, cart); err != nil {
+	if _, err := cartRepo.SaveCart(cart); err != nil {
 		return nil, err
 	}
 	return &cart, nil
 }
 
-func AddItemToCart(db *sql.DB, cartID string, cartItem models.CartItem) error {
-	exists, err := doesCartItemExist(db, cartID, cartItem.ID)
+func AddItemToCart(cartRepo *repos.CartRepo, cartID string, cartItem models.CartItem) error {
+	exists, err := cartRepo.DoesCartItemExist(cartID, cartItem.ID)
 	if err != nil {
 		return err
 	}
 	if !exists {
-		if err := InsertCartItem(db, cartItem); err != nil {
+		if err := cartRepo.InsertCartItem(cartItem); err != nil {
 			return fmt.Errorf("adding item to cart failed at insert or increment cart item: %w", err)
 		}
-		if err := SaveCartItemComponents(db, cartItem.Components); err != nil {
+		if err := cartRepo.SaveCartItemComponents(cartItem.Components); err != nil {
 			return fmt.Errorf("adding item components failed: %w", err)
 		}
 	} else {
-		if err := IncrementCartItem(db, cartID, cartItem.ID); err != nil {
+		if err := cartRepo.IncrementCartItem(cartID, cartItem.ID); err != nil {
 			return err
 		}
 	}
-	if _, err := db.Exec("UPDATE cart SET last_updated_at = ? WHERE id = ?", time.Now(), cartID); err != nil {
-		return fmt.Errorf("could not update last updated at on cart: %w", err)
+	if err := cartRepo.SetLastUpdated(cartID); err != nil {
+		return fmt.Errorf("failed to update last_updated field from main.go; %w", err)
 	}
 	return nil
 }
 
-func RemoveItem(db *sql.DB, cartID, itemID string) error {
-	if err := RemoveCartItem(db, cartID, itemID); err != nil {
+func RemoveItem(cartRepo *repos.CartRepo, cartID, itemID string) error {
+	// TODO add transactions
+	if err := cartRepo.RemoveCartItem(cartID, itemID); err != nil {
 		return fmt.Errorf("failed to remove item. %w", err)
 	}
-	if err := RemoveCartItemComponents(db, itemID); err != nil {
+	if err := cartRepo.RemoveCartItemComponents(itemID); err != nil {
 		return fmt.Errorf("failed to remove item components. %w", err)
 	}
 	return nil
@@ -1146,49 +1170,6 @@ func SaveRequestedBundleSize(db *sql.DB, desiredWidth float32) error {
 		return err
 	}
 	return nil
-}
-
-func SaveBundleComponent(db *sql.DB, productID int, productType string, bundleID int64, qty int) error {
-	_, err := db.Exec(
-		"INSERT INTO bundle_components(product_id, product_type, bundle_id, qty) VALUES (?, ?, ?, ?)",
-		productID, productType, bundleID, qty,
-	)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func SaveBundleAsProduct(db *sql.DB, bundleProductValues models.Product) (int64, error) {
-	result, err := db.Exec(
-		`INSERT INTO
-			products(
-				type,
-				name,
-				width,
-				price,
-				img,
-				tolerance,
-				color
-			)
-		VALUES
-			(?, ?, ?, ?, ?, ?, ?)`,
-		"bundle",
-		bundleProductValues.Name,
-		bundleProductValues.Width,
-		bundleProductValues.Price,
-		bundleProductValues.Img,
-		bundleProductValues.Tolerance,
-		bundleProductValues.Color,
-	)
-	if err != nil {
-		return 0, err
-	}
-	lastInsertId, err := result.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-	return lastInsertId, nil
 }
 
 func SqliteOpen(path string) *sql.DB {
@@ -1268,6 +1249,34 @@ func templateParser(env Environment) tmplFunc {
 			},
 			"title": func(str string) string {
 				return cases.Title(language.AmericanEnglish).String(str)
+			},
+			// expect two different number types int and float32
+			"mul": func(a any, b any) float32 {
+				var f1, f2 float32
+
+				switch v := a.(type) {
+				case int:
+					f1 = float32(v)
+				case float32:
+					f1 = v
+				case float64:
+					f1 = float32(v)
+				default:
+					return 0.0
+				}
+
+				switch v := b.(type) {
+				case int:
+					f2 = float32(v)
+				case float32:
+					f2 = v
+				case float64:
+					f2 = float32(v)
+				default:
+					return 0.0
+				}
+
+				return f1 * f2
 			},
 		}).ParseGlob("templates/**/*.tmpl"))
 		return tmpl

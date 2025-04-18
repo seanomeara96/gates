@@ -1,31 +1,23 @@
--- Table for cart
 CREATE TABLE cart (
-    id TEXT PRIMARY KEY,
-    created_at DATETIME,
-    last_updated_at DATETIME,
-    total_value REAL
+    id              TEXT     PRIMARY KEY,    -- stored in cart table
+    created_at      DATETIME NOT NULL,       -- stored in cart table
+    last_updated_at DATETIME NOT NULL        -- stored in cart table
 );
-
--- Table for cart_item
 CREATE TABLE cart_item (
-    id TEXT,
-    cart_id TEXT,
-    name TEXT,
-    sale_price REAL,
-    qty INTEGER,
-    created_at DATETIME,
-    FOREIGN KEY (cart_id) REFERENCES cart(id)
+    id          TEXT     PRIMARY KEY,        -- stored in cart_item table
+    cart_id     TEXT     NOT NULL,           -- stored in cart_item table
+    qty         INTEGER  NOT NULL,           -- stored in cart_item table
+    created_at  DATETIME NOT NULL,           -- stored in cart_item table
+    FOREIGN KEY (cart_id) REFERENCES cart(id) ON DELETE CASCADE
+);
+CREATE TABLE cart_item_component (
+    cart_item_id TEXT    NOT NULL,           -- stored in cart_item_component table
+    cart_id      TEXT    NOT NULL,           -- stored in cart_item_component table
+    product_id   TEXT    NOT NULL,           -- from Product: only product_id stored
+    qty          INTEGER NOT NULL,           -- from Product: only qty stored
+    created_at   DATETIME NOT NULL,          -- stored in cart_item_component table
+    PRIMARY KEY (cart_item_id, product_id),
+    FOREIGN KEY (cart_item_id) REFERENCES cart_item(id) ON DELETE CASCADE,
+    FOREIGN KEY (cart_id)      REFERENCES cart(id) ON DELETE CASCADE
 );
 
--- Table for cart_item_component
-CREATE TABLE cart_item_component (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cart_item_id TEXT,
-    cart_id TEXT,
-    product_id INTEGER,
-    qty INTEGER,
-    name TEXT,
-    created_at DATETIME,
-    FOREIGN KEY (cart_item_id) REFERENCES cart_item(id),
-    FOREIGN KEY (cart_id) REFERENCES cart(id)
-);
