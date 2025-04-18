@@ -4,3 +4,4 @@ temp/
 tests/*.db
 bin/
 
+llm_context.txt
