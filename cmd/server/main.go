@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -25,8 +26,9 @@ import (
 	"github.com/seanomeara96/gates/cachedrepos"
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repos"
-	"github.com/stripe/stripe-go/v81"
-	"github.com/stripe/stripe-go/v81/checkout/session"
+	"github.com/stripe/stripe-go/v82"
+	"github.com/stripe/stripe-go/v82/checkout/session"
+	"github.com/stripe/stripe-go/v82/webhook"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -43,12 +45,14 @@ const (
 
 type config struct {
 	Port                 string
+	Domain               string
 	Mode                 Environment
 	DBPath               string
 	CookieStoreSecretKey string
 	AdminUserID          string
 	AdminUserPassword    string
 	JWTSecretKey         string
+	StripeWebhookSecret  string
 }
 
 func configEnv() (*config, error) {
@@ -64,6 +68,11 @@ func configEnv() (*config, error) {
 	config.Mode = Environment(os.Getenv("MODE"))
 	if config.Mode != Development && config.Mode != Production {
 		errs = append(errs, errors.New("env MODE not set in env"))
+	}
+
+	config.Domain = os.Getenv("DOMAIN")
+	if config.Domain == "" {
+		errs = append(errs, errors.New("env DOMAIN value not set in env"))
 	}
 
 	config.DBPath = os.Getenv("DB_FILE_PATH")
@@ -82,6 +91,11 @@ func configEnv() (*config, error) {
 	}
 
 	stripe.Key = os.Getenv("STRIPE_API_KEY")
+	// This is your Stripe CLI webhook secret for testing your endpoint locally.
+	config.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
+	if config.StripeWebhookSecret == "" {
+		errs = append(errs, errors.New("env STRIPE_WEBHOOK_SECRET not set"))
+	}
 
 	config.CookieStoreSecretKey = os.Getenv("COOKIE_SECRET")
 	if config.CookieStoreSecretKey == "" {
@@ -143,7 +157,7 @@ func app() error {
 	productCache := cachedrepos.NewCachedProductRepo(productRepo)
 
 	cartRepo := repos.NewCartRepo(db, productCache)
-
+	orderRepo := repos.NewOrderRepo(db)
 	store, err := configCookieStore(config)
 	if err != nil {
 		return err
@@ -162,6 +176,42 @@ func app() error {
 	}
 
 	handle := createCustomHandler(config.Mode, router, middleware, getCartFromRequest)
+
+	handle("/webhook", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+		const MaxBodyBytes = int64(65536)
+		r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+		payload, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading request body: %v\n", err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return nil
+		}
+
+		endpointSecret := config.StripeWebhookSecret
+		// Pass the request body and Stripe-Signature header to ConstructEvent, along
+		// with the webhook signing key.
+		event, err := webhook.ConstructEvent(payload, r.Header.Get("Stripe-Signature"),
+			endpointSecret)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error verifying webhook signature: %v\n", err)
+			w.WriteHeader(http.StatusBadRequest) // Return a 400 error on a bad signature
+			return nil
+		}
+
+		// Unmarshal the event data into an appropriate struct depending on its Type
+		switch event.Type {
+		case "payment_intent.succeeded":
+			// Then define and call a function to handle the event payment_intent.succeeded
+			// ... handle other event types
+			fmt.Printf("%+v\n", event)
+		default:
+			fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		return nil
+	})
 
 	handle.get("/admin/login", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		accessToken, refreshToken, _ := auth.GetTokensFromRequest(r)
@@ -312,6 +362,12 @@ func app() error {
 					UnitAmount: stripe.Int64(int64(item.SalePrice * 100)),
 					ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
 						Name: stripe.String(item.Name),
+						Images: func() (images []*string) {
+							for _, component := range item.Components {
+								images = append(images, stripe.String(component.Img))
+							}
+							return images
+						}(),
 					},
 					Currency: stripe.String("EUR"),
 				},
@@ -319,12 +375,11 @@ func app() error {
 			)
 		}
 
-		domain := "http://localhost:3000"
 		params := &stripe.CheckoutSessionParams{
 			LineItems:  lineItems,
 			Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
-			SuccessURL: stripe.String(domain + "/success"),
-			CancelURL:  stripe.String(domain + "/cart"),
+			SuccessURL: stripe.String(config.Domain + "/success"),
+			CancelURL:  stripe.String(config.Domain + "/cart"),
 			ShippingAddressCollection: &stripe.CheckoutSessionShippingAddressCollectionParams{
 				AllowedCountries: []*string{stripe.String("IE")},
 			},
@@ -337,6 +392,9 @@ func app() error {
 			log.Printf("session.New: %v", err)
 		}
 
+		if err := newOrderFromCart(orderRepo, s.ID, cart); err != nil {
+			return err
+		}
 		http.Redirect(w, r, s.URL, http.StatusSeeOther)
 		return nil
 	})
@@ -1281,4 +1339,22 @@ func templateParser(env Environment) tmplFunc {
 		}).ParseGlob("templates/**/*.tmpl"))
 		return tmpl
 	}
+}
+
+func newOrderFromCart(orderRepo *repos.OrderRepo, sessionID string, cart *models.Cart) error {
+
+	if orderRepo == nil {
+		return errors.New("order repo cannot be nil")
+	}
+
+	if cart == nil {
+		return errors.New("cart object cannot be nil")
+	}
+
+	err := orderRepo.New(sessionID, cart)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

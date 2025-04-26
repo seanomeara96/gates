@@ -12,7 +12,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/seanomeara96/auth v0.0.0-20250311125829-3f40be05d59a
-	github.com/stripe/stripe-go/v81 v81.4.0
+	github.com/stripe/stripe-go/v82 v82.0.0
 	golang.org/x/text v0.24.0
 )
 
