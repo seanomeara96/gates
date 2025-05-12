@@ -13,7 +13,6 @@ SQL statements to create the required tables:
 CREATE TABLE orders (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				cart_id INTEGER NOT NULL,
-				session_id TEXT NOT NULL,
 				status TEXT DEFAULT 'pending',
 				customer_name TEXT,
 				customer_email TEXT,
@@ -62,27 +61,27 @@ func NewOrderRepo(db *sql.DB) *OrderRepo {
 	return &OrderRepo{db}
 }
 
-func (r *OrderRepo) New(sessionID string, cart *models.Cart) error {
+func (r *OrderRepo) New(cart *models.Cart) (int, error) {
 	if cart == nil {
-		return errors.New("cart cannot be nil")
+		return 0, errors.New("cart cannot be nil")
 	}
 
 	tx, err := r.db.Begin()
 	if err != nil {
 		tx.Rollback()
-		return err
+		return 0, err
 	}
 
-	res, err := tx.Exec(`INSERT INTO orders(cart_id,session_id) VALUES(?,?)`, cart.ID, sessionID)
+	res, err := tx.Exec(`INSERT INTO orders(cart_id) VALUES(?)`, cart.ID)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return 0, err
 	}
 
 	_id, err := res.LastInsertId()
 	if err != nil {
 		tx.Rollback()
-		return err
+		return 0, err
 	}
 
 	id := int(_id)
@@ -90,16 +89,16 @@ func (r *OrderRepo) New(sessionID string, cart *models.Cart) error {
 	for _, item := range cart.Items {
 		if err := r.InsertItem(tx, id, item); err != nil {
 			tx.Rollback()
-			return err
+			return 0, err
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		tx.Rollback()
-		return err
+		return 0, err
 	}
 
-	return nil
+	return id, nil
 }
 
 func (r *OrderRepo) UpdateStatus(orderID int, status string) error {

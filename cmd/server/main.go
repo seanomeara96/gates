@@ -202,9 +202,33 @@ func app() error {
 		// Unmarshal the event data into an appropriate struct depending on its Type
 		switch event.Type {
 		case "payment_intent.succeeded":
-			// Then define and call a function to handle the event payment_intent.succeeded
-			// ... handle other event types
-			fmt.Printf("%+v\n", event)
+			if event.Data == nil {
+				w.WriteHeader(http.StatusBadRequest) // Return a 400 error on a bad signature
+				log.Println("[WARNING] event data for payment_intent.succeeded is nil")
+				return nil
+			}
+
+			var paymentIntent stripe.PaymentIntent
+			err := json.Unmarshal(event.Data.Raw, &paymentIntent)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest) // Return a 400 error on a bad signature
+				return fmt.Errorf("could not unmarshal payment intent %w", err)
+			}
+
+			_id, found := paymentIntent.Metadata["order_id"]
+			if !found {
+				return fmt.Errorf("could not find order id in payment intent meta data")
+			}
+
+			id, err := strconv.Atoi(_id)
+			if err != nil {
+				return err
+			}
+
+			if err := orderRepo.UpdateStatus(id, string(models.OrderStatusProcessing)); err != nil {
+				return err
+			}
+
 		default:
 			fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
 		}
@@ -375,16 +399,31 @@ func app() error {
 			)
 		}
 
+		id, err := orderRepo.New(cart)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf(`#### created order %d`, id)
+
 		params := &stripe.CheckoutSessionParams{
-			LineItems:  lineItems,
-			Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
-			SuccessURL: stripe.String(config.Domain + "/success"),
-			CancelURL:  stripe.String(config.Domain + "/cart"),
+			ClientReferenceID: stripe.String(strconv.Itoa(id)),
+			LineItems:         lineItems,
+			Mode:              stripe.String(string(stripe.CheckoutSessionModePayment)),
+			SuccessURL:        stripe.String(config.Domain + "/success"),
+			CancelURL:         stripe.String(config.Domain + "/cart"),
 			ShippingAddressCollection: &stripe.CheckoutSessionShippingAddressCollectionParams{
 				AllowedCountries: []*string{stripe.String("IE")},
 			},
 			PhoneNumberCollection: &stripe.CheckoutSessionPhoneNumberCollectionParams{
 				Enabled: stripe.Bool(true),
+			},
+			Currency: stripe.String("EUR"),
+			PaymentIntentData: &stripe.CheckoutSessionPaymentIntentDataParams{
+				Description: stripe.String(fmt.Sprintf("Order: #%d", id)),
+				Metadata: map[string]string{
+					"order_id": strconv.Itoa(id),
+				},
 			},
 		}
 		s, err := session.New(params)
@@ -392,9 +431,6 @@ func app() error {
 			log.Printf("session.New: %v", err)
 		}
 
-		if err := newOrderFromCart(orderRepo, s.ID, cart); err != nil {
-			return err
-		}
 		http.Redirect(w, r, s.URL, http.StatusSeeOther)
 		return nil
 	})
@@ -1339,22 +1375,4 @@ func templateParser(env Environment) tmplFunc {
 		}).ParseGlob("templates/**/*.tmpl"))
 		return tmpl
 	}
-}
-
-func newOrderFromCart(orderRepo *repos.OrderRepo, sessionID string, cart *models.Cart) error {
-
-	if orderRepo == nil {
-		return errors.New("order repo cannot be nil")
-	}
-
-	if cart == nil {
-		return errors.New("cart object cannot be nil")
-	}
-
-	err := orderRepo.New(sessionID, cart)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
