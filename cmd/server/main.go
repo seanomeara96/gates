@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -180,7 +180,7 @@ func app() error {
 	handle("/webhook", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		const MaxBodyBytes = int64(65536)
 		r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
-		payload, err := ioutil.ReadAll(r.Body)
+		payload, err := io.ReadAll(r.Body)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading request body: %v\n", err)
 			w.WriteHeader(http.StatusServiceUnavailable)
