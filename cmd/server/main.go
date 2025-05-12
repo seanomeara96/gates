@@ -225,7 +225,7 @@ func app() error {
 				return err
 			}
 
-			if err := orderRepo.UpdateStatus(id, string(models.OrderStatusProcessing)); err != nil {
+			if err := orderRepo.UpdateStatus(id, models.OrderStatusProcessing); err != nil {
 				return err
 			}
 
@@ -403,8 +403,6 @@ func app() error {
 		if err != nil {
 			return err
 		}
-
-		fmt.Printf(`#### created order %d`, id)
 
 		params := &stripe.CheckoutSessionParams{
 			ClientReferenceID: stripe.String(strconv.Itoa(id)),

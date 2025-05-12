@@ -101,7 +101,7 @@ func (r *OrderRepo) New(cart *models.Cart) (int, error) {
 	return id, nil
 }
 
-func (r *OrderRepo) UpdateStatus(orderID int, status string) error {
+func (r *OrderRepo) UpdateStatus(orderID int, status models.OrderStatus) error {
 	_, err := r.db.Exec("UPDATE orders SET status = ? WHERE id = ?", status, orderID)
 	if err != nil {
 		return err
