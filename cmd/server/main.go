@@ -204,7 +204,13 @@ func app() error {
 		case "payment_intent.succeeded":
 			// Then define and call a function to handle the event payment_intent.succeeded
 			// ... handle other event types
-			fmt.Printf("%+v\n", event)
+			fmt.Printf("stripe event: %+v\n", event)
+			var paymentIntent stripe.PaymentIntent
+			if err := json.Unmarshal(event.Data.Raw, &paymentIntent); err != nil {
+				return err
+			}
+			fmt.Printf("stripe payment intent: %+v\n", paymentIntent)
+			// get the order id f
 		default:
 			fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
 		}
