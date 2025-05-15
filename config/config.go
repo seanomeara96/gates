@@ -3,7 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
+	"log"
+
+	"github.com/spf13/viper"
 )
 
 type Environment string
@@ -14,70 +16,69 @@ const (
 )
 
 type Config struct {
-	Port                 string
-	Domain               string
-	Mode                 Environment
-	DBPath               string
-	CookieStoreSecretKey string
-	AdminUserID          string
-	AdminUserPassword    string
-	JWTSecretKey         string
-	StripeWebhookSecret  string
-	StripeAPIKey         string
+	Port                 string      `mapstructure:"PORT"`
+	Domain               string      `mapstructure:"DOMAIN"`
+	Mode                 Environment `mapstructure:"MODE"`
+	DBPath               string      `mapstructure:"DB_FILE_PATH"`
+	CookieStoreSecretKey string      `mapstructure:"COOKIE_SECRET"`
+	AdminUserID          string      `mapstructure:"ADMIN_USER_ID"`
+	AdminUserPassword    string      `mapstructure:"ADMIN_USER_PASSWORD"`
+	JWTSecretKey         string      `mapstructure:"JWT_SECRET_KEY"`
+	StripeWebhookSecret  string      `mapstructure:"STRIPE_WEBHOOK_SECRET"`
+	StripeAPIKey         string      `mapstructure:"STRIPE_API_KEY"`
 }
 
 func Load() (*Config, error) {
 
+	viper.SetConfigName(".env")
+	viper.SetConfigType("env")
+	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
+
+	viper.SetDefault("DB_FILE_PATH", "main.db")
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			log.Printf("Warning: .env file could not be found %v", err)
+		} else {
+			return nil, err
+		}
+	}
+
 	var config Config
 	var errs []error
 
-	config.Port = os.Getenv("PORT")
+	if err := viper.Unmarshal(&config); err != nil {
+		return nil, fmt.Errorf("viper could not unmarshal config vals from .env: %w", err)
+	}
+
 	if config.Port == "" {
 		errs = append(errs, errors.New("env PORT value not set in env"))
 	}
-
-	config.Mode = Environment(os.Getenv("MODE"))
 	if config.Mode != Development && config.Mode != Production {
 		errs = append(errs, errors.New("env MODE not set in env"))
 	}
-
-	config.Domain = os.Getenv("DOMAIN")
 	if config.Domain == "" {
 		errs = append(errs, errors.New("env DOMAIN value not set in env"))
 	}
-
-	config.DBPath = os.Getenv("DB_FILE_PATH")
-	if config.DBPath == "" {
-		config.DBPath = "main.db"
-	}
-
-	config.AdminUserID = os.Getenv("ADMIN_USER_ID")
 	if config.AdminUserID == "" {
 		errs = append(errs, errors.New("env ADMIN_USER_ID not set"))
 	}
-
-	config.AdminUserPassword = os.Getenv("ADMIN_USER_PASSWORD")
 	if config.AdminUserPassword == "" {
 		errs = append(errs, errors.New("env ADMIN_USER_PASSWORD not set"))
 	}
-
-	config.StripeAPIKey = os.Getenv("STRIPE_API_KEY")
-	// This is your Stripe CLI webhook secret for testing your endpoint locally.
-	config.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
+	if config.StripeAPIKey == "" {
+		errs = append(errs, errors.New("env STRIPE_API_KEY not set"))
+	}
 	if config.StripeWebhookSecret == "" {
 		errs = append(errs, errors.New("env STRIPE_WEBHOOK_SECRET not set"))
 	}
-
-	config.CookieStoreSecretKey = os.Getenv("COOKIE_SECRET")
 	if config.CookieStoreSecretKey == "" {
 		errs = append(errs, errors.New("env COOKIE_SECRET not set"))
 	}
-
-	config.JWTSecretKey = os.Getenv("JWT_SECRET_KEY")
 	if config.JWTSecretKey == "" {
 		errs = append(errs, errors.New("env JWT_SECRET_KEY not set"))
 	}
-
 	if len(errs) > 0 {
 		// Combine errors for better reporting
 		combinedErr := errors.New("configuration errors")

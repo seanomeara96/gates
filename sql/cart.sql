@@ -4,7 +4,7 @@ CREATE TABLE cart (
     last_updated_at DATETIME NOT NULL        -- stored in cart table
 );
 CREATE TABLE cart_item (
-    id          TEXT     PRIMARY KEY,        -- stored in cart_item table
+    id          TEXT     NOT NULL,        -- stored in cart_item table
     cart_id     TEXT     NOT NULL,           -- stored in cart_item table
     qty         INTEGER  NOT NULL,           -- stored in cart_item table
     created_at  DATETIME NOT NULL,           -- stored in cart_item table

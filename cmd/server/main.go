@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/gorilla/sessions"
-	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/auth"
 
@@ -53,11 +52,6 @@ func configCookieStore(cfg *config.Config) (*sessions.CookieStore, error) {
 }
 
 func app() error {
-
-	if err := godotenv.Load(); err != nil {
-		return err
-	}
-
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -293,7 +287,7 @@ func app() error {
 			cart.TotalValue += (cartItem.SalePrice * float32(cartItem.Qty))
 		}
 
-		if os.Getenv("STRIPE_API_KEY") == "" {
+		if cfg.StripeAPIKey == "" {
 			if err := json.NewEncoder(w).Encode(cart); err != nil {
 				return err
 			}
@@ -1115,14 +1109,14 @@ func AddItemToCart(cartRepo *sqlite.CartRepo, cartID string, cartItem models.Car
 	}
 	if !exists {
 		if err := cartRepo.InsertCartItem(cartItem); err != nil {
-			return fmt.Errorf("adding item to cart failed at insert or increment cart item: %w", err)
+			return fmt.Errorf("adding item to cart failed at insert cartitem: %w", err)
 		}
 		if err := cartRepo.SaveCartItemComponents(cartItem.Components); err != nil {
 			return fmt.Errorf("adding item components failed: %w", err)
 		}
 	} else {
 		if err := cartRepo.IncrementCartItem(cartID, cartItem.ID); err != nil {
-			return err
+			return fmt.Errorf("adding item to cart failed at increment cart item %w", err)
 		}
 	}
 	if err := cartRepo.SetLastUpdated(cartID); err != nil {
