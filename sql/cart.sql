@@ -16,7 +16,6 @@ CREATE TABLE cart_item_component (
     product_id   TEXT    NOT NULL,           -- from Product: only product_id stored
     qty          INTEGER NOT NULL,           -- from Product: only qty stored
     created_at   DATETIME NOT NULL,          -- stored in cart_item_component table
-    PRIMARY KEY (cart_item_id, product_id),
     FOREIGN KEY (cart_item_id) REFERENCES cart_item(id) ON DELETE CASCADE,
     FOREIGN KEY (cart_id)      REFERENCES cart(id) ON DELETE CASCADE
 );

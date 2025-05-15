@@ -8,6 +8,7 @@ import (
 
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repos"
+	"github.com/seanomeara96/gates/repos/sqlite"
 )
 
 func (h *Handler) GetGatesPage(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
@@ -68,7 +69,7 @@ func (h *Handler) GetExtensionsPage(cart *models.Cart, w http.ResponseWriter, r 
 	return h.rndr.Page(w, "products", data)
 }
 
-func (h *Handler) Handler(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) GetExtensionPage(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 	extensionID, err := strconv.Atoi(r.PathValue("extension_id"))
 	if err != nil {
 		return fmt.Errorf("extension details: failed to convert extension_id to integer: %w", err)
@@ -86,7 +87,7 @@ func (h *Handler) Handler(cart *models.Cart, w http.ResponseWriter, r *http.Requ
 		"Env":             h.cfg.Mode,
 	}
 
-	return h.rndr.Page(w, "products", data)
+	return h.rndr.Page(w, "product", data)
 }
 
 func (h *Handler) GetCartJSON(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
@@ -97,6 +98,30 @@ func (h *Handler) GetCartJSON(cart *models.Cart, w http.ResponseWriter, r *http.
 
 	if _, err := w.Write(bytes); err != nil {
 		return fmt.Errorf("cart JSON endpoint: failed to write response: %w", err)
+	}
+	return nil
+}
+
+/*This should move ?? */
+func AddItemToCart(cartRepo *sqlite.CartRepo, cartID string, cartItem models.CartItem) error {
+	exists, err := cartRepo.DoesCartItemExist(cartID, cartItem.ID)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err := cartRepo.InsertCartItem(cartItem); err != nil {
+			return fmt.Errorf("adding item to cart failed at insert cartitem: %w", err)
+		}
+		if err := cartRepo.SaveCartItemComponents(cartItem.Components); err != nil {
+			return fmt.Errorf("adding item components failed: %w", err)
+		}
+	} else {
+		if err := cartRepo.IncrementCartItem(cartID, cartItem.ID); err != nil {
+			return fmt.Errorf("adding item to cart failed at increment cart item %w", err)
+		}
+	}
+	if err := cartRepo.SetLastUpdated(cartID); err != nil {
+		return fmt.Errorf("failed to update last_updated field from main.go; %w", err)
 	}
 	return nil
 }

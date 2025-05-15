@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/gorilla/sessions"
 	"github.com/seanomeara96/gates/models"
 )
 
@@ -69,36 +71,6 @@ func (h *Handler) AdjustCartItemQty(cart *models.Cart, w http.ResponseWriter, r 
 
 func (h *Handler) RemoveItemFromCart(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return fmt.Errorf("cart item delete: failed to parse form: %w", err)
-	}
-
-	cartItemID := r.Form.Get("id")
-	if cartItemID == "" {
-		return fmt.Errorf("cart item delete: no cart item id supplied")
-	}
-
-	if _, err := h.db.Exec("DELETE FROM cart_item WHERE id = ? AND cart_id = ?", cartItemID, cart.ID); err != nil {
-		return fmt.Errorf("cart item delete: failed to delete cart item: %w", err)
-	}
-
-	cart, err := h.cartRepo.GetCartByID(cart.ID)
-	if err != nil {
-		return fmt.Errorf("cart item delete: failed to retrieve updated cart: %w", err)
-	}
-
-	if err := h.rndr.Partial(w, "cart-main", cart); err != nil {
-		return fmt.Errorf("cart item delete: failed to render partial (cart-main): %w", err)
-	}
-
-	if err := h.rndr.Partial(w, "cart-modal-oob", cart); err != nil {
-		return fmt.Errorf("cart item delete: failed to render partial (cart-modal-oob): %w", err)
-	}
-
-	return nil
-}
-
-func (h *Handler) RemoveItemFromCart(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
 		return fmt.Errorf("cart item remove: failed to parse form: %w", err)
 	}
 
@@ -117,33 +89,143 @@ func (h *Handler) RemoveItemFromCart(cart *models.Cart, w http.ResponseWriter, r
 	}
 
 	if err := h.rndr.Partial(w, "cart-main", cart); err != nil {
-		return fmt.Errorf("cart item remove: failed to render partial (cart-main): %w", err)
+		return fmt.Errorf("cart item delete: failed to render partial (cart-main): %w", err)
+	}
+
+	if err := h.rndr.Partial(w, "cart-modal-oob", cart); err != nil {
+		return fmt.Errorf("cart item delete: failed to render partial (cart-modal-oob): %w", err)
 	}
 
 	return nil
 }
 
 func (h *Handler) ClearItemsFromCart(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-	if _, err := h.db.Exec(`DELETE FROM cart_item WHERE cart_id = ?`, cart.ID); err != nil {
+
+	fmt.Println("clear items from cart called")
+
+	tx, err := h.db.Begin()
+	if err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return rbErr
+		}
+		return err
+	}
+
+	if _, err := tx.Exec(`DELETE FROM cart_item WHERE cart_id = ?`, cart.ID); err != nil {
 		return fmt.Errorf("cart clear: could not delete cart_item for cart_id %s: %w", cart.ID, err)
 	}
 
-	if _, err := h.db.Exec("DELETE FROM cart_item_component WHERE cart_id = ?", cart.ID); err != nil {
+	if _, err := tx.Exec("DELETE FROM cart_item_component WHERE cart_id = ?", cart.ID); err != nil {
 		return fmt.Errorf("cart clear: could not delete cart_item_component for cart_id %s: %w", cart.ID, err)
 	}
 
-	cart, err := h.cartRepo.GetCartByID(cart.ID)
+	if err := tx.Commit(); err != nil {
+		if rbErr := tx.Rollback(); rbErr != nil {
+			return rbErr
+		}
+		return err
+	}
+
+	cart, err = h.cartRepo.GetCartByID(cart.ID)
 	if err != nil {
 		return fmt.Errorf("cart clear: failed to retrieve updated cart: %w", err)
 	}
 
-	if err := renderPartial(w, "cart-main", cart); err != nil {
+	if err := h.rndr.Partial(w, "cart-main", cart); err != nil {
 		return fmt.Errorf("cart clear: failed to render partial (cart-main): %w", err)
 	}
 
-	if err := renderPartial(w, "cart-modal-oob", cart); err != nil {
+	if err := h.rndr.Partial(w, "cart-modal-oob", cart); err != nil {
 		return fmt.Errorf("cart clear: failed to render partial (cart-modal-oob): %w", err)
 	}
 
 	return nil
+}
+
+func (h *Handler) newCart() (*models.Cart, error) {
+	cart := models.NewCart()
+	if _, err := h.cartRepo.SaveCart(cart); err != nil {
+		return nil, err
+	}
+	return &cart, nil
+}
+
+func getCartSession(r *http.Request, store *sessions.CookieStore) (*sessions.Session, error) {
+	session, err := store.Get(r, "cart-session")
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+func getCartID(session *sessions.Session) (interface{}, error) {
+	if session == nil {
+		return nil, errors.New("cart Session is nil")
+	}
+	return session.Values["cart_id"], nil
+
+}
+
+func attachNewCartToSession(cart *models.Cart, session *sessions.Session, w http.ResponseWriter, r *http.Request) error {
+
+	session.Values["cart_id"] = cart.ID
+	if err := session.Save(r, w); err != nil {
+		return err
+	}
+	return nil
+}
+func validateCartID(cartID interface{}) (valid bool) {
+	if _, ok := cartID.(string); !ok {
+		return false
+	}
+	return true
+}
+
+func (h *Handler) GetCartFromRequest(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
+	session, err := getCartSession(r, h.cookieStore)
+	if err != nil {
+		return nil, err
+	}
+
+	cartID, err := getCartID(session)
+	if err != nil {
+		return nil, err
+	}
+
+	if cartID == nil {
+		cart, err := h.newCart()
+		if err != nil {
+			return nil, err
+		}
+		if err := attachNewCartToSession(cart, session, w, r); err != nil {
+			return nil, err
+		}
+		return cart, nil
+	}
+
+	if valid := validateCartID(cartID); !valid {
+		return nil, fmt.Errorf("cart id is invalid")
+	}
+
+	exists, err := h.cartRepo.CartExists(cartID.(string))
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		cart, err := h.newCart()
+		if err != nil {
+			return nil, err
+		}
+		if err := attachNewCartToSession(cart, session, w, r); err != nil {
+			return nil, err
+		}
+		return cart, nil
+	}
+
+	cart, err := h.cartRepo.GetCartByID(cartID.(string))
+	if err != nil {
+		return nil, err
+	}
+
+	return cart, nil
 }

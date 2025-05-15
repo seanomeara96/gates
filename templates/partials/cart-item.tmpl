@@ -56,7 +56,7 @@
         <button 
         class="text-red-600 hover:underline"
         hx-triger="click"
-        hx-post="/cart/item/remove"
+        hx-delete="/cart/item"
         hx-target="#cart-main"
         hx-swap="outerHTML"
         hx-vals='{"cart_item_id":"{{.ID}}"}'

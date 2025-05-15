@@ -77,7 +77,7 @@ func DefaultHandler(cfg *config.Config) (*Handler, error) {
 	stripe.Key = cfg.StripeAPIKey
 
 	h.db = SqliteOpen(cfg.DBPath)
-
+	h.cfg = cfg
 	authConfig := auth.AuthConfig{
 		DB:           h.db,
 		JWTSecretKey: cfg.JWTSecretKey,
