@@ -13,9 +13,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/seanomeara96/gates/config"
-	"github.com/seanomeara96/gates/models"
-	"github.com/seanomeara96/gates/repos/cache"
-	"github.com/seanomeara96/gates/repos/sqlite"
 	"github.com/seanomeara96/gates/router"
 )
 
@@ -70,30 +67,4 @@ func main() {
 	if err := server(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-/* service funcs start */
-
-func TotalValue(products *cache.CachedProductRepo, cart models.Cart) (float32, error) {
-	var value float32 = 0.0
-	for _, item := range cart.Items {
-		for _, component := range item.Components {
-			productPrice, err := products.GetProductPrice(component.Product.Id)
-			if err != nil {
-				return 0, err
-			}
-			value += (productPrice * float32(component.Qty))
-		}
-	}
-	return value, nil
-}
-func RemoveItem(cartRepo *sqlite.CartRepo, cartID, itemID string) error {
-	// TODO add transactions
-	if err := cartRepo.RemoveCartItem(cartID, itemID); err != nil {
-		return fmt.Errorf("failed to remove item. %w", err)
-	}
-	if err := cartRepo.RemoveCartItemComponents(itemID); err != nil {
-		return fmt.Errorf("failed to remove item components. %w", err)
-	}
-	return nil
 }

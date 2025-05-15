@@ -259,7 +259,7 @@ func (r *ProductRepo) UpdateProductByID(productID int, product *models.Product) 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		// Log or ignore this error, the update might have succeeded anyway
-		fmt.Printf("Warning: could not get rows affected after update for product ID %d: %v\n", productID, err)
+		return fmt.Errorf("Warning: could not get rows affected after update for product ID %d: %v\n", productID, err)
 	} else if rowsAffected == 0 {
 		// Return a specific error indicating the product wasn't found
 		return fmt.Errorf("no product found with ID %d to update", productID) // Or return sql.ErrNoRows
@@ -281,7 +281,7 @@ func (r *ProductRepo) DeleteProductByID(productID int) error {
 	// Check if any row was actually deleted
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		fmt.Printf("Warning: could not get rows affected after delete for product ID %d: %v\n", productID, err)
+		return fmt.Errorf("Warning: could not get rows affected after delete for product ID %d: %v\n", productID, err)
 	} else if rowsAffected == 0 {
 		// Return a specific error indicating the product wasn't found
 		return fmt.Errorf("no product found with ID %d to delete", productID) // Or return sql.ErrNoRows

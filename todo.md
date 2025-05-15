@@ -1,56 +1,12 @@
+implement a proper database migration
 
-to make a purchase possible i need to send the following info to the server:
-- product id
-- qty
+n config.go, the Load function appends errors to a slice. This is okay, but for a larger number of checks, a dedicated error aggregation mechanism might be cleaner
 
-example: [{ id: 1, qty: 1}, { id: 2, qty: 1}]
+ The structToString function in render.go marshals to JSON, which is generally safe if then inserted into a <script> tag with the correct type or properly handled by JavaScript, but direct rendering into HTML without appropriate escaping could be risky. Need more context on this.
 
-
-for the cart to function as normally id need:
-- product name
-- product url
-- product id
-- product qty
-
-example: { 
-    productName: "product name",
-    productURL: "/product-url",
-    productId: 1,
-    productPrice: 10,
-    productQty: 1,
-}
-
-
-but i need this to play nice with bundles
-
-so cart data ought to look more like this
-
-example: {
-    productName: "product name",
-    productURL: "/product-url",
-    meta: [
-        {
-            productId: 1,
-            productPrice: 10,
-            productQty: 1
-        },
-        {
-            productId: 2,
-            productPrice: 20,
-            productQty: 2
-        }
-    ]
-}
-
-which means data sent to checkout endpoint will look like this if someone buys one product and one bundle
-
-example: [
-    [{id: 1, qty: 1}],
-    [
-        {id: 1, qty: 1},
-        {id: 2, qty: 2}
-    ]
-
-]
-
-
+Comprehensive Testing: Lack of automated tests is a significant gap.
+Enhanced Error Handling & User Feedback: Provide more specific error messages to users.
+Security Hardening: More rigorous input validation across all endpoints and a deeper review of authentication/authorization mechanisms.
+Database Migrations: Implement a proper database migration system instead of relying on potentially version-controlled .db files or manually applied SQL.
+Frontend Polish: Address placeholder content and conduct a thorough accessibility review.
+Granular Caching: Implement more fine-grained cache invalidation.
