@@ -1,4 +1,4 @@
-package repos
+package sqlite
 
 import (
 	"database/sql"

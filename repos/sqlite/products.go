@@ -1,4 +1,4 @@
-package repos
+package sqlite
 
 import (
 	"database/sql"
@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/seanomeara96/gates/models" // Assuming your models package path
+	"github.com/seanomeara96/gates/repos"
 )
 
 // ProductRepo handles database operations for products.
@@ -23,16 +24,6 @@ func NewProductRepo(db *sql.DB) *ProductRepo {
 	}
 	return &ProductRepo{db}
 }
-
-// Define a custom type for the product type stored in the database.
-type ProductType string
-
-// Define constants representing the product type values.
-const (
-	Gate      ProductType = "gate"
-	Extension ProductType = "extension"
-	Bundle    ProductType = "bundle"
-)
 
 // scannable interface decouples scanning logic from specific sql types (*sql.Row, *sql.Rows).
 type scannable interface {
@@ -66,10 +57,10 @@ func scanProductFromRow(row scannable) (*models.Product, error) {
 
 // InsertProduct inserts a new product record into the database.
 // Assumes the input product object has been validated by the service layer.
-func (r *ProductRepo) InsertProduct(product *models.Product) (sql.Result, error) {
+func (r *ProductRepo) InsertProduct(product *models.Product) (int, error) {
 	// Basic check for nil db pointer remains relevant
 	if r.db == nil {
-		return nil, errors.New("database connection is nil")
+		return 0, errors.New("database connection is nil")
 	}
 
 	// The product object is assumed to be valid at this point.
@@ -90,9 +81,15 @@ func (r *ProductRepo) InsertProduct(product *models.Product) (sql.Result, error)
 	if err != nil {
 		// Handle potential DB constraint errors if needed, or just wrap
 		// Example: Could check for SQLite UNIQUE constraint error code here
-		return nil, fmt.Errorf("database error inserting product: %w", err)
+		return 0, fmt.Errorf("database error inserting product: %w", err)
 	}
-	return res, nil
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(id), nil
 }
 
 // GetProductPrice retrieves only the price for a given product ID.
@@ -125,17 +122,8 @@ func (r *ProductRepo) GetProductByName(name string) (*models.Product, error) {
 	return product, err
 }
 
-// ProductFilterParams defines the parameters for filtering product lists.
-type ProductFilterParams struct {
-	MaxWidth       float32
-	Limit          int
-	Color          string
-	InventoryLevel int     // Assumed filter: inventory_level >= ? (if > 0)
-	Price          float32 // Assumed filter: price <= ? (if > 0)
-}
-
 // buildProductQuery dynamically constructs the WHERE clause and arguments for filtering.
-func buildProductQuery(baseSelect string, productType ProductType, params ProductFilterParams) (string, []any) {
+func buildProductQuery(baseSelect string, productType models.ProductType, params repos.ProductFilterParams) (string, []any) {
 	args := []any{productType}
 	conditions := []string{"type = ?"}
 
@@ -161,7 +149,7 @@ func buildProductQuery(baseSelect string, productType ProductType, params Produc
 }
 
 // GetProducts retrieves a list of products based on type and filter parameters.
-func (r *ProductRepo) GetProducts(productType ProductType, params ProductFilterParams) ([]*models.Product, error) {
+func (r *ProductRepo) GetProducts(productType models.ProductType, params repos.ProductFilterParams) ([]*models.Product, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -197,7 +185,7 @@ func (r *ProductRepo) GetProducts(productType ProductType, params ProductFilterP
 }
 
 // CountProducts counts products based on type and filter parameters (ignoring Limit).
-func (r *ProductRepo) CountProducts(productType ProductType, params ProductFilterParams) (int, error) {
+func (r *ProductRepo) CountProducts(productType models.ProductType, params repos.ProductFilterParams) (int, error) {
 	if r.db == nil {
 		return 0, errors.New("database connection is nil")
 	}
@@ -227,7 +215,7 @@ func (r *ProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]*models.Pro
 			  INNER JOIN compatibles c ON p.id = c.extension_id
 			  WHERE c.gate_id = ? AND p.type = ?`
 
-	rows, err := r.db.Query(query, gateID, Extension)
+	rows, err := r.db.Query(query, gateID, models.ProductTypeExtension)
 	if err != nil {
 		return nil, fmt.Errorf("error querying compatible extensions for gate ID %d: %w", gateID, err)
 	}
@@ -319,8 +307,8 @@ func (r *ProductRepo) GetProductByID(productID int) (*models.Product, error) {
 // arguably belong in the service or application layer, but kept here for now
 // as simple convenience wrappers based on previous code.
 
-func (r *ProductRepo) GetGates(params ProductFilterParams) ([]*models.Product, error) {
-	gates, err := r.GetProducts(Gate, params)
+func (r *ProductRepo) GetGates(params repos.ProductFilterParams) ([]*models.Product, error) {
+	gates, err := r.GetProducts(models.ProductTypeGate, params)
 	if err != nil {
 		return nil, err // Error already wrapped
 	}
@@ -330,8 +318,8 @@ func (r *ProductRepo) GetGates(params ProductFilterParams) ([]*models.Product, e
 	return gates, nil
 }
 
-func (r *ProductRepo) GetExtensions(params ProductFilterParams) ([]*models.Product, error) {
-	extensions, err := r.GetProducts(Extension, params)
+func (r *ProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*models.Product, error) {
+	extensions, err := r.GetProducts(models.ProductTypeExtension, params)
 	if err != nil {
 		return nil, err // Error already wrapped
 	}
@@ -341,9 +329,9 @@ func (r *ProductRepo) GetExtensions(params ProductFilterParams) ([]*models.Produ
 	return extensions, nil
 }
 
-func (r *ProductRepo) GetBundles(params ProductFilterParams) ([]*models.Product, error) {
+func (r *ProductRepo) GetBundles(params repos.ProductFilterParams) ([]*models.Product, error) {
 	// Bundles may not naturally have a single Qty=1 concept.
-	return r.GetProducts(Bundle, params) // Error already wrapped
+	return r.GetProducts(models.ProductTypeBundle, params) // Error already wrapped
 }
 
 // NOTE: The CreateProduct function and CreateProductParams struct have been removed.

@@ -23,9 +23,12 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/seanomeara96/auth"
-	"github.com/seanomeara96/gates/cachedrepos"
+
+	"github.com/seanomeara96/gates/config"
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repos"
+	"github.com/seanomeara96/gates/repos/cache"
+	"github.com/seanomeara96/gates/repos/sqlite"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/checkout/session"
 	"github.com/stripe/stripe-go/v82/webhook"
@@ -33,101 +36,20 @@ import (
 	"golang.org/x/text/language"
 )
 
-type Environment string
 type customHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
 type middlewareFunc func(next customHandleFunc) customHandleFunc
 type customHandler func(path string, fn customHandleFunc)
 
-const (
-	Development Environment = "development"
-	Production  Environment = "production"
-)
+func configCookieStore(cfg *config.Config) (*sessions.CookieStore, error) {
 
-type config struct {
-	Port                 string
-	Domain               string
-	Mode                 Environment
-	DBPath               string
-	CookieStoreSecretKey string
-	AdminUserID          string
-	AdminUserPassword    string
-	JWTSecretKey         string
-	StripeWebhookSecret  string
-}
-
-func configEnv() (*config, error) {
-
-	var config config
-	var errs []error
-
-	config.Port = os.Getenv("PORT")
-	if config.Port == "" {
-		errs = append(errs, errors.New("env PORT value not set in env"))
-	}
-
-	config.Mode = Environment(os.Getenv("MODE"))
-	if config.Mode != Development && config.Mode != Production {
-		errs = append(errs, errors.New("env MODE not set in env"))
-	}
-
-	config.Domain = os.Getenv("DOMAIN")
-	if config.Domain == "" {
-		errs = append(errs, errors.New("env DOMAIN value not set in env"))
-	}
-
-	config.DBPath = os.Getenv("DB_FILE_PATH")
-	if config.DBPath == "" {
-		config.DBPath = "main.db"
-	}
-
-	config.AdminUserID = os.Getenv("ADMIN_USER_ID")
-	if config.AdminUserID == "" {
-		errs = append(errs, errors.New("env ADMIN_USER_ID not set"))
-	}
-
-	config.AdminUserPassword = os.Getenv("ADMIN_USER_PASSWORD")
-	if config.AdminUserPassword == "" {
-		errs = append(errs, errors.New("env ADMIN_USER_PASSWORD not set"))
-	}
-
-	stripe.Key = os.Getenv("STRIPE_API_KEY")
-	// This is your Stripe CLI webhook secret for testing your endpoint locally.
-	config.StripeWebhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
-	if config.StripeWebhookSecret == "" {
-		errs = append(errs, errors.New("env STRIPE_WEBHOOK_SECRET not set"))
-	}
-
-	config.CookieStoreSecretKey = os.Getenv("COOKIE_SECRET")
-	if config.CookieStoreSecretKey == "" {
-		errs = append(errs, errors.New("env COOKIE_SECRET not set"))
-	}
-
-	config.JWTSecretKey = os.Getenv("JWT_SECRET_KEY")
-	if config.JWTSecretKey == "" {
-		errs = append(errs, errors.New("env JWT_SECRET_KEY not set"))
-	}
-
-	if len(errs) > 0 {
-		var err = errors.New("env config err(s)")
-		for _, e := range errs {
-			err = fmt.Errorf("%w|%w", err, e)
-		}
-		return nil, err
-	}
-
-	return &config, nil
-}
-
-func configCookieStore(config *config) (*sessions.CookieStore, error) {
-
-	if config.CookieStoreSecretKey == "" {
-		if config.Mode == Development {
-			config.CookieStoreSecretKey = "suprSecrtStoreKey"
+	if cfg.CookieStoreSecretKey == "" {
+		if cfg.Mode == config.Development {
+			cfg.CookieStoreSecretKey = "suprSecrtStoreKey"
 		} else {
 			return nil, errors.New("cookie secret not set in env")
 		}
 	}
-	return sessions.NewCookieStore([]byte(config.CookieStoreSecretKey)), nil
+	return sessions.NewCookieStore([]byte(cfg.CookieStoreSecretKey)), nil
 }
 
 func app() error {
@@ -136,34 +58,35 @@ func app() error {
 		return err
 	}
 
-	config, err := configEnv()
+	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
+	stripe.Key = cfg.StripeAPIKey
 
-	db := SqliteOpen(config.DBPath)
+	db := SqliteOpen(cfg.DBPath)
 	defer db.Close()
 
-	authConfig := auth.AuthConfig{DB: db, JWTSecretKey: config.JWTSecretKey}
+	authConfig := auth.AuthConfig{DB: db, JWTSecretKey: cfg.JWTSecretKey}
 
 	auth, err := auth.Init(authConfig)
 	if err != nil {
 		return err
 	}
 
-	auth.Register(context.Background(), config.AdminUserID, config.AdminUserPassword)
+	auth.Register(context.Background(), cfg.AdminUserID, cfg.AdminUserPassword)
 
-	productRepo := repos.NewProductRepo(db)
-	productCache := cachedrepos.NewCachedProductRepo(productRepo)
+	productRepo := sqlite.NewProductRepo(db)
+	productCache := cache.NewCachedProductRepo(productRepo)
 
-	cartRepo := repos.NewCartRepo(db, productCache)
-	orderRepo := repos.NewOrderRepo(db)
-	store, err := configCookieStore(config)
+	cartRepo := sqlite.NewCartRepo(db, productCache)
+	orderRepo := sqlite.NewOrderRepo(db)
+	store, err := configCookieStore(cfg)
 	if err != nil {
 		return err
 	}
 
-	tmpl := templateParser(config.Mode)
+	tmpl := templateParser(cfg.Mode)
 	renderPage := NewPageRenderer(tmpl)
 	renderPartial := NewPartialRenderer(tmpl)
 
@@ -175,7 +98,7 @@ func app() error {
 		// Example for middleware usage:
 	}
 
-	handle := createCustomHandler(config.Mode, router, middleware, getCartFromRequest)
+	handle := createCustomHandler(cfg.Mode, router, middleware, getCartFromRequest)
 
 	handle("/webhook", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		const MaxBodyBytes = int64(65536)
@@ -187,7 +110,7 @@ func app() error {
 			return nil
 		}
 
-		endpointSecret := config.StripeWebhookSecret
+		endpointSecret := cfg.StripeWebhookSecret
 		// Pass the request body and Stripe-Signature header to ConstructEvent, along
 		// with the webhook signing key.
 		event, err := webhook.ConstructEvent(payload, r.Header.Get("Stripe-Signature"),
@@ -256,7 +179,7 @@ func app() error {
 			"MetaDescription": "Welcome to the home page",
 
 			"Cart": cart,
-			"Env":  config.Mode,
+			"Env":  cfg.Mode,
 		}
 
 		return renderPage(w, "admin-login", data)
@@ -300,7 +223,7 @@ func app() error {
 			"MetaDescription": "Welcome to the home page",
 
 			"Cart": cart,
-			"Env":  config.Mode,
+			"Env":  cfg.Mode,
 		}
 
 		return renderPage(w, "home", data)
@@ -324,7 +247,7 @@ func app() error {
 				"FeaturedGates":      featuredGates,
 				"FeaturedExtensions": extensions,
 				"Cart":               cart,
-				"Env":                config.Mode,
+				"Env":                cfg.Mode,
 			}
 
 			return renderPage(w, "home", data)
@@ -338,7 +261,7 @@ func app() error {
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
-			"Env":             config.Mode,
+			"Env":             cfg.Mode,
 		}
 		return renderPage(w, "contact", data)
 	})
@@ -408,8 +331,8 @@ func app() error {
 			ClientReferenceID: stripe.String(strconv.Itoa(id)),
 			LineItems:         lineItems,
 			Mode:              stripe.String(string(stripe.CheckoutSessionModePayment)),
-			SuccessURL:        stripe.String(config.Domain + "/success"),
-			CancelURL:         stripe.String(config.Domain + "/cart"),
+			SuccessURL:        stripe.String(cfg.Domain + "/success"),
+			CancelURL:         stripe.String(cfg.Domain + "/cart"),
 			ShippingAddressCollection: &stripe.CheckoutSessionShippingAddressCollectionParams{
 				AllowedCountries: []*string{stripe.String("IE")},
 			},
@@ -461,7 +384,7 @@ func app() error {
 				"PageTitle":       "Contact us | Message Too Long",
 				"MetaDescription": "Please provide a shorter message",
 				"Cart":            cart,
-				"Env":             config.Mode,
+				"Env":             cfg.Mode,
 				"Error":           "Message exceeds maximum length",
 			})
 		}
@@ -472,7 +395,7 @@ func app() error {
 				"PageTitle":       "Contact us | No Message Provided",
 				"MetaDescription": "Please provide a message",
 				"Cart":            cart,
-				"Env":             config.Mode,
+				"Env":             cfg.Mode,
 				"Error":           "Message is required",
 			})
 		}
@@ -483,7 +406,7 @@ func app() error {
 				"PageTitle":       "Contact us | Invalid Email",
 				"MetaDescription": "Please provide a valid email address",
 				"Cart":            cart,
-				"Env":             config.Mode,
+				"Env":             cfg.Mode,
 				"Error":           "Valid email is required",
 			})
 		}
@@ -494,7 +417,7 @@ func app() error {
 				"PageTitle":       "Contact us | Invalid Name",
 				"MetaDescription": "Please provide a valid name",
 				"Cart":            cart,
-				"Env":             config.Mode,
+				"Env":             cfg.Mode,
 				"Error":           "Valid name is required (maximum 100 characters)",
 			})
 		}
@@ -521,7 +444,7 @@ func app() error {
 				"PageTitle":       "Contact Error",
 				"MetaDescription": "An error occurred processing your request",
 				"Cart":            cart,
-				"Env":             config.Mode,
+				"Env":             cfg.Mode,
 				"Error":           "Unable to process your request at this time",
 			})
 		}
@@ -530,7 +453,7 @@ func app() error {
 			"PageTitle":       "Contact BabyGate Builders",
 			"MetaDescription": "Contact form for Babygate builders",
 			"Cart":            cart,
-			"Env":             config.Mode,
+			"Env":             cfg.Mode,
 			"Success":         "Your message has been sent successfully",
 		}
 		return renderPage(w, "contact", data)
@@ -569,7 +492,7 @@ func app() error {
 		data := map[string]any{
 			"RequestedBundleSize": float32(desiredWidth),
 			"Bundles":             bundles,
-			"Env":                 config.Mode,
+			"Env":                 cfg.Mode,
 		}
 
 		return renderPage(w, "build-results", data)
@@ -588,7 +511,7 @@ func app() error {
 			"MetaDescription": "Shop our full range of gates",
 			"Products":        gates,
 			"Cart":            cart,
-			"Env":             config.Mode,
+			"Env":             cfg.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -610,7 +533,7 @@ func app() error {
 			"MetaDescription": gate.Name,
 			"Product":         gate,
 			"Cart":            cart,
-			"Env":             config.Mode,
+			"Env":             cfg.Mode,
 		}
 
 		return renderPage(w, "product", data)
@@ -628,7 +551,7 @@ func app() error {
 			"MetaDescription": "Shop all extensions",
 			"Products":        extensions,
 			"Cart":            cart,
-			"Env":             config.Mode,
+			"Env":             cfg.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -649,7 +572,7 @@ func app() error {
 			"PageTitle":       extension.Name,
 			"MetaDescription": extension.Name,
 			"Cart":            cart,
-			"Env":             config.Mode,
+			"Env":             cfg.Mode,
 		}
 
 		return renderPage(w, "products", data)
@@ -661,7 +584,7 @@ func app() error {
 			"PageTitle":       "Your shopping cart",
 			"MetaDescription": "",
 			"Cart":            cart,
-			"Env":             config.Mode,
+			"Env":             cfg.Mode,
 		}
 
 		return renderPage(w, "cart", data)
@@ -679,7 +602,7 @@ func app() error {
 		return nil
 	})
 
-	if config.Mode == Development {
+	if cfg.Mode == config.Development {
 		handle("/test", func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 			if r.Method == http.MethodGet {
 				return renderPage(w, "test", map[string]any{})
@@ -872,15 +795,15 @@ func app() error {
 	}))
 
 	srv := http.Server{
-		Addr:    ":" + config.Port,
+		Addr:    ":" + cfg.Port,
 		Handler: router,
 	}
 
 	errChan := make(chan error)
 	go func() {
-		log.Println("Listening on http://localhost:" + config.Port)
+		log.Println("Listening on http://localhost:" + cfg.Port)
 		if err := srv.ListenAndServe(); err != nil {
-			errChan <- fmt.Errorf("server startup: failed to listen and serve on env.config.Port %s: %w", config.Port, err)
+			errChan <- fmt.Errorf("server startup: failed to listen and serve on env.config.Port %s: %w", cfg.Port, err)
 		}
 	}()
 
@@ -910,24 +833,6 @@ func main() {
 	}
 }
 
-func refreshCartDetails(cart *models.Cart, productCache *cachedrepos.CachedProductRepo) error {
-	for i := range cart.Items {
-		item := &cart.Items[i]
-		for j := range item.Components {
-			component := &item.Components[j]
-			product, err := productCache.GetProductByID(component.Id)
-			if err != nil {
-				return err
-			}
-			originalQty := component.Qty
-			component.Product = *product
-			component.Product.Qty = originalQty
-		}
-		item.SetName()
-	}
-	return nil
-}
-
 func sendErr(w http.ResponseWriter, err error) {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
@@ -941,7 +846,7 @@ func attachNewCartToSession(cart *models.Cart, session *sessions.Session, w http
 	return nil
 }
 
-func NewCartFromSessionGetter(cartRepo *repos.CartRepo, products *cachedrepos.CachedProductRepo, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
+func NewCartFromSessionGetter(cartRepo *sqlite.CartRepo, products *cache.CachedProductRepo, store *sessions.CookieStore) func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
 	return func(w http.ResponseWriter, r *http.Request) (*models.Cart, error) {
 		session, err := getCartSession(r, store)
 		if err != nil {
@@ -992,7 +897,7 @@ func NewCartFromSessionGetter(cartRepo *repos.CartRepo, products *cachedrepos.Ca
 	}
 }
 
-func createCustomHandler(environment Environment, router *http.ServeMux, middleware []middlewareFunc, getCartFromRequest func(w http.ResponseWriter, r *http.Request) (*models.Cart, error)) customHandler {
+func createCustomHandler(environment config.Environment, router *http.ServeMux, middleware []middlewareFunc, getCartFromRequest func(w http.ResponseWriter, r *http.Request) (*models.Cart, error)) customHandler {
 	return func(path string, fn customHandleFunc) {
 
 		// wrap fn in middleware funcs
@@ -1001,7 +906,7 @@ func createCustomHandler(environment Environment, router *http.ServeMux, middlew
 		}
 
 		router.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			if environment == Development {
+			if environment == config.Development {
 				rMsg := "[INFO] %s request made to %s"
 				log.Printf(rMsg, r.Method, r.URL.Path)
 			}
@@ -1012,7 +917,7 @@ func createCustomHandler(environment Environment, router *http.ServeMux, middlew
 				log.Printf(errMsg, r.Method, path, err)
 
 				// ideally I would get notified of an error here
-				if environment == Development {
+				if environment == config.Development {
 					sendErr(w, err)
 				} else {
 					// TODO handle production env err handling different
@@ -1028,7 +933,7 @@ func createCustomHandler(environment Environment, router *http.ServeMux, middlew
 				log.Printf(errMsg, r.Method, path, err)
 
 				// ideally I would get notified of an error here
-				if environment == Development {
+				if environment == config.Development {
 					sendErr(w, err)
 				} else {
 					// TODO handle production env err handling different
@@ -1088,10 +993,10 @@ func NotFoundPage(w http.ResponseWriter, renderPage renderPageFunc) error {
 
 /* service funcs start */
 
-func BuildPressureFitBundles(products *cachedrepos.CachedProductRepo, limit float32) ([]models.Bundle, error) {
+func BuildPressureFitBundles(products *cache.CachedProductRepo, limit float32) ([]models.Bundle, error) {
 	var bundles []models.Bundle
 
-	gates, err := products.GetProducts(repos.Gate, repos.ProductFilterParams{MaxWidth: limit})
+	gates, err := products.GetProducts(models.ProductTypeGate, repos.ProductFilterParams{MaxWidth: limit})
 	if err != nil {
 		return bundles, err
 	}
@@ -1181,7 +1086,7 @@ func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*m
 	return bundle, nil
 }
 
-func TotalValue(products *cachedrepos.CachedProductRepo, cart models.Cart) (float32, error) {
+func TotalValue(products *cache.CachedProductRepo, cart models.Cart) (float32, error) {
 	var value float32 = 0.0
 	for _, item := range cart.Items {
 		for _, component := range item.Components {
@@ -1195,7 +1100,7 @@ func TotalValue(products *cachedrepos.CachedProductRepo, cart models.Cart) (floa
 	return value, nil
 }
 
-func NewCart(cartRepo *repos.CartRepo) (*models.Cart, error) {
+func NewCart(cartRepo *sqlite.CartRepo) (*models.Cart, error) {
 	cart := models.NewCart()
 	if _, err := cartRepo.SaveCart(cart); err != nil {
 		return nil, err
@@ -1203,7 +1108,7 @@ func NewCart(cartRepo *repos.CartRepo) (*models.Cart, error) {
 	return &cart, nil
 }
 
-func AddItemToCart(cartRepo *repos.CartRepo, cartID string, cartItem models.CartItem) error {
+func AddItemToCart(cartRepo *sqlite.CartRepo, cartID string, cartItem models.CartItem) error {
 	exists, err := cartRepo.DoesCartItemExist(cartID, cartItem.ID)
 	if err != nil {
 		return err
@@ -1226,7 +1131,7 @@ func AddItemToCart(cartRepo *repos.CartRepo, cartID string, cartItem models.Cart
 	return nil
 }
 
-func RemoveItem(cartRepo *repos.CartRepo, cartID, itemID string) error {
+func RemoveItem(cartRepo *sqlite.CartRepo, cartID, itemID string) error {
 	// TODO add transactions
 	if err := cartRepo.RemoveCartItem(cartID, itemID); err != nil {
 		return fmt.Errorf("failed to remove item. %w", err)
@@ -1328,10 +1233,10 @@ func structToString(v any) string {
 	return string(b)
 }
 
-func templateParser(env Environment) tmplFunc {
+func templateParser(env config.Environment) tmplFunc {
 	var tmpl *template.Template
 	return func() *template.Template {
-		if env == Production && tmpl != nil {
+		if env == config.Production && tmpl != nil {
 			return tmpl
 		}
 		tmpl = template.Must(template.New("").Funcs(template.FuncMap{
