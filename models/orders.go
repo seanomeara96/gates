@@ -1,6 +1,9 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Define a custom type for OrderStatus for better type safety
 type OrderStatus string
@@ -80,7 +83,14 @@ func (s OrderStatus) Validate() error {
 }
 
 type Order struct {
-	Status    string
-	CartID    string
-	SessionID string
+	ID              int
+	Status          string
+	CartID          string
+	SessionID       string
+	CustomerName    string
+	CustomerPhone   string
+	ShippingAddress string
+	BillingAddress  string
+	PaymentMethod   string
+	CreatedAt       time.Time
 }

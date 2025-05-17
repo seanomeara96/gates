@@ -31,6 +31,7 @@ type ProductFilterParams struct {
 	Color          string
 	InventoryLevel int     // Assumed filter: inventory_level >= ? (if > 0)
 	Price          float32 // Assumed filter: price <= ? (if > 0)
+	Type           models.ProductType
 }
 
 type ProductRepository interface {
@@ -43,7 +44,7 @@ type ProductRepository interface {
 	CountProductByID(id int) (int, error)
 
 	// Filtering
-	GetProducts(productType models.ProductType, params ProductFilterParams) ([]*models.Product, error)
+	GetProducts(params ProductFilterParams) ([]*models.Product, error)
 	CountProducts(productType models.ProductType, params ProductFilterParams) (int, error)
 
 	// Type-specific retrieval
@@ -80,4 +81,8 @@ type OrderRepository interface {
 	// so if you don't plan to call them outside, you can omit them from the public interface.
 	InsertItem(tx *sql.Tx, orderID int, item models.CartItem) error
 	InsertComponent(tx *sql.Tx, orderID int, orderItemID int, component models.CartItemComponent) error
+}
+
+type GetOrdersParams struct {
+	Limit, Offset int
 }

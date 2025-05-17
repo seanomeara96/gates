@@ -122,10 +122,20 @@ func (r *ProductRepo) GetProductByName(name string) (*models.Product, error) {
 	return product, err
 }
 
-// buildProductQuery dynamically constructs the WHERE clause and arguments for filtering.
-func buildProductQuery(baseSelect string, productType models.ProductType, params repos.ProductFilterParams) (string, []any) {
-	args := []any{productType}
-	conditions := []string{"type = ?"}
+// GetProducts retrieves a list of products based on type and filter parameters.
+func (r *ProductRepo) GetProducts(params repos.ProductFilterParams) ([]*models.Product, error) {
+	if r.db == nil {
+		return nil, errors.New("database connection is nil")
+	}
+
+	baseSelect := "SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products"
+	args := []any{}
+	conditions := []string{}
+
+	if params.Type != "" {
+		conditions = append(conditions, "type = ?")
+		args = append(args, params.Type)
+	}
 
 	if params.MaxWidth > 0 {
 		conditions = append(conditions, "width < ?")
@@ -145,17 +155,6 @@ func buildProductQuery(baseSelect string, productType models.ProductType, params
 	}
 
 	query := baseSelect + " WHERE " + strings.Join(conditions, " AND ")
-	return query, args
-}
-
-// GetProducts retrieves a list of products based on type and filter parameters.
-func (r *ProductRepo) GetProducts(productType models.ProductType, params repos.ProductFilterParams) ([]*models.Product, error) {
-	if r.db == nil {
-		return nil, errors.New("database connection is nil")
-	}
-
-	baseSelect := "SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products"
-	query, args := buildProductQuery(baseSelect, productType, params)
 
 	// Add LIMIT clause if provided
 	if params.Limit > 0 {
@@ -191,8 +190,32 @@ func (r *ProductRepo) CountProducts(productType models.ProductType, params repos
 	}
 
 	baseSelect := "SELECT COUNT(*) FROM products"
-	query, args := buildProductQuery(baseSelect, productType, params)
+	args := []any{}
+	conditions := []string{}
 
+	if params.Type != "" {
+		conditions = append(conditions, "type = ?")
+		args = append(args, params.Type)
+	}
+
+	if params.MaxWidth > 0 {
+		conditions = append(conditions, "width < ?")
+		args = append(args, params.MaxWidth)
+	}
+	if params.Color != "" {
+		conditions = append(conditions, "color = ?")
+		args = append(args, params.Color)
+	}
+	if params.InventoryLevel > 0 { // Filter if InventoryLevel is explicitly positive
+		conditions = append(conditions, "inventory_level >= ?")
+		args = append(args, params.InventoryLevel)
+	}
+	if params.Price > 0 { // Filter if Price is explicitly positive
+		conditions = append(conditions, "price <= ?")
+		args = append(args, params.Price)
+	}
+
+	query := baseSelect + " WHERE " + strings.Join(conditions, " AND ")
 	var count int
 	err := r.db.QueryRow(query, args...).Scan(&count)
 	if err != nil {
@@ -308,7 +331,8 @@ func (r *ProductRepo) GetProductByID(productID int) (*models.Product, error) {
 // as simple convenience wrappers based on previous code.
 
 func (r *ProductRepo) GetGates(params repos.ProductFilterParams) ([]*models.Product, error) {
-	gates, err := r.GetProducts(models.ProductTypeGate, params)
+	params.Type = models.ProductTypeGate
+	gates, err := r.GetProducts(params)
 	if err != nil {
 		return nil, err // Error already wrapped
 	}
@@ -319,7 +343,8 @@ func (r *ProductRepo) GetGates(params repos.ProductFilterParams) ([]*models.Prod
 }
 
 func (r *ProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*models.Product, error) {
-	extensions, err := r.GetProducts(models.ProductTypeExtension, params)
+	params.Type = models.ProductTypeExtension
+	extensions, err := r.GetProducts(params)
 	if err != nil {
 		return nil, err // Error already wrapped
 	}
@@ -330,8 +355,9 @@ func (r *ProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*models
 }
 
 func (r *ProductRepo) GetBundles(params repos.ProductFilterParams) ([]*models.Product, error) {
+	params.Type = models.ProductTypeBundle
 	// Bundles may not naturally have a single Qty=1 concept.
-	return r.GetProducts(models.ProductTypeBundle, params) // Error already wrapped
+	return r.GetProducts(params) // Error already wrapped
 }
 
 // NOTE: The CreateProduct function and CreateProductParams struct have been removed.
