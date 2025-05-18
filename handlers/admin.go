@@ -94,3 +94,21 @@ func (h *Handler) GetAdminLoginPage(cart *models.Cart, w http.ResponseWriter, r 
 
 	return h.rndr.Page(w, "admin-login", data)
 }
+
+func (h *Handler) AdminLogout(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+
+	_, refreshToken, err := h.auth.GetTokensFromRequest(r)
+	if err != nil {
+		return err
+	}
+
+	if err := h.auth.Logout(r.Context(), refreshToken); err != nil {
+		return err
+	}
+	h.auth.SetTokens(w, "", "")
+
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+
+	return nil
+
+}

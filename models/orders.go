@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 )
@@ -87,7 +88,7 @@ type Order struct {
 	Status          string
 	CartID          string
 	SessionID       string
-	CustomerName    string
+	CustomerName    sql.NullString
 	CustomerPhone   string
 	ShippingAddress string
 	BillingAddress  string

@@ -154,14 +154,17 @@ func (r *ProductRepo) GetProducts(params repos.ProductFilterParams) ([]*models.P
 		args = append(args, params.Price)
 	}
 
-	query := baseSelect + " WHERE " + strings.Join(conditions, " AND ")
+	if len(conditions) > 1 {
+		baseSelect += " WHERE " + strings.Join(conditions, " AND ")
 
+	}
+
+	query := baseSelect
 	// Add LIMIT clause if provided
 	if params.Limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, params.Limit)
 	}
-
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error querying products: %w", err)

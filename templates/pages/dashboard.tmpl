@@ -1,0 +1,62 @@
+{{ define "dashboard" }}
+ {{ template "header" . }}
+   
+<div class="container mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-6">Admin Dashboard</h1>
+
+    <!-- Products Section -->
+    <section>
+        <h2 class="text-2xl font-semibold mb-4">Products</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {{range .Products}}
+            <div class="bg-white shadow rounded p-4">
+                <img src="{{.img}}" alt="{{.name}}" class="h-32 w-auto mx-auto mb-2">
+                <h3 class="text-lg font-semibold">{{.name}}</h3>
+                <p>Type: {{.type}}</p>
+                <p>Width: {{.width}}cm</p>
+                <p>Color: {{.color}}</p>
+                <p>Price: €{{.price}}</p>
+                <p class="font-bold mt-2">Inventory: {{.inventory_level}}</p>
+            </div>
+            {{end}}
+        </div>
+    </section>
+
+    <!-- Orders Section -->
+    <section class="mt-10">
+        <h2 class="text-2xl font-semibold mb-4">Orders</h2>
+        <table class="min-w-full bg-white shadow rounded">
+            <thead>
+                <tr class="bg-gray-200 text-left text-sm font-semibold text-gray-600">
+                    <th class="py-3 px-4">ID</th>
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4">Update</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Orders}}
+                <tr class="border-t">
+                    <td class="py-2 px-4">{{.ID}}</td>
+                    <td class="py-2 px-4" id="status-{{.ID}}">{{.Status}}</td>
+                    <td class="py-2 px-4">
+                        <select 
+                            class="border rounded px-2 py-1"
+                            hx-post="/admin/orders/update"
+                            hx-include="[name='order_id-{{.ID}}']"
+                            hx-target="#status-{{.ID}}"
+                            hx-swap="outerHTML">
+                            <option value="">--Change--</option>
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="shipped">Shipped</option>
+                        </select>
+                        <input type="hidden" name="order_id-{{.ID}}" value="{{.ID}}">
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </section>
+</div> 
+ {{ template "footer" . }}
+{{ end }}
