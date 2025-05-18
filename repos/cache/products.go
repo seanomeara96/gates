@@ -83,11 +83,11 @@ func (r *CachedProductRepo) GetProductByName(name string) (*models.Product, erro
 }
 
 // Helper function to generate cache key for product list filters
-func generateProductListCacheKey(prefix string, productType models.ProductType, params repos.ProductFilterParams) string {
+func generateProductListCacheKey(prefix string, params repos.ProductFilterParams) string {
 	// Ensure consistent key format, handling zero values appropriately
 	return fmt.Sprintf("%s_%s_maxwidth_%.2f_color_%s_invlvl_%d_price_%.2f_limit_%d",
 		prefix,
-		productType,
+		params.Type,
 		params.MaxWidth,
 		params.Color, // Empty string is handled fine
 		params.InventoryLevel,
@@ -97,15 +97,15 @@ func generateProductListCacheKey(prefix string, productType models.ProductType, 
 }
 
 // GetProducts checks cache first based on *all* filter params, otherwise fetches and caches.
-func (r *CachedProductRepo) GetProducts(productType models.ProductType, params repos.ProductFilterParams) ([]*models.Product, error) {
-	cacheKey := generateProductListCacheKey("products", productType, params)
+func (r *CachedProductRepo) GetProducts(params repos.ProductFilterParams) ([]*models.Product, error) {
+	cacheKey := generateProductListCacheKey("products", params)
 	if cachedProducts, found := r.cache.Get(cacheKey); found {
 		if products, ok := cachedProducts.([]*models.Product); ok {
 			return products, nil
 		}
 	}
 
-	products, err := r.productRepo.GetProducts(productType, params)
+	products, err := r.productRepo.GetProducts(params)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (r *CachedProductRepo) GetProducts(productType models.ProductType, params r
 func (r *CachedProductRepo) CountProducts(productType models.ProductType, params repos.ProductFilterParams) (int, error) {
 	// Use the same key generation logic but maybe a different prefix
 	// Note: Limit in params is ignored by the underlying CountProducts, but included in key for consistency with params struct
-	cacheKey := generateProductListCacheKey("count", productType, params) // Use "count" prefix
+	cacheKey := generateProductListCacheKey("count", params) // Use "count" prefix
 
 	if cachedCount, found := r.cache.Get(cacheKey); found {
 		if count, ok := cachedCount.(int); ok {
@@ -200,7 +200,8 @@ func (r *CachedProductRepo) GetProductByID(productID int) (*models.Product, erro
 // These now correctly generate cache keys based on the full ProductFilterParams
 
 func (r *CachedProductRepo) GetGates(params repos.ProductFilterParams) ([]*models.Product, error) {
-	cacheKey := generateProductListCacheKey("gates", models.ProductTypeGate, params) // Use helper
+	params.Type = models.ProductTypeGate
+	cacheKey := generateProductListCacheKey("gates", params) // Use helper
 	if cachedGates, found := r.cache.Get(cacheKey); found {
 		if gates, ok := cachedGates.([]*models.Product); ok {
 			return gates, nil
@@ -217,7 +218,8 @@ func (r *CachedProductRepo) GetGates(params repos.ProductFilterParams) ([]*model
 }
 
 func (r *CachedProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*models.Product, error) {
-	cacheKey := generateProductListCacheKey("extensions", models.ProductTypeExtension, params) // Use helper
+	params.Type = models.ProductTypeExtension
+	cacheKey := generateProductListCacheKey("extensions", params) // Use helper
 	if cachedExtensions, found := r.cache.Get(cacheKey); found {
 		if extensions, ok := cachedExtensions.([]*models.Product); ok {
 			return extensions, nil
@@ -234,7 +236,8 @@ func (r *CachedProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*
 }
 
 func (r *CachedProductRepo) GetBundles(params repos.ProductFilterParams) ([]*models.Product, error) {
-	cacheKey := generateProductListCacheKey("bundles", models.ProductTypeBundle, params) // Use helper
+	params.Type = models.ProductTypeBundle
+	cacheKey := generateProductListCacheKey("bundles", params) // Use helper
 	if cachedBundles, found := r.cache.Get(cacheKey); found {
 		if bundles, ok := cachedBundles.([]*models.Product); ok {
 			return bundles, nil

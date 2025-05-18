@@ -16,7 +16,7 @@ import (
 func BuildPressureFitBundles(products *cache.CachedProductRepo, limit float32) ([]models.Bundle, error) {
 	var bundles []models.Bundle
 
-	gates, err := products.GetProducts(models.ProductTypeGate, repos.ProductFilterParams{MaxWidth: limit})
+	gates, err := products.GetProducts(repos.ProductFilterParams{MaxWidth: limit, Type: models.ProductTypeGate})
 	if err != nil {
 		return bundles, err
 	}
