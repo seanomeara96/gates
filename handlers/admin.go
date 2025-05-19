@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/seanomeara96/gates/models"
@@ -99,11 +100,11 @@ func (h *Handler) AdminLogout(cart *models.Cart, w http.ResponseWriter, r *http.
 
 	_, refreshToken, err := h.auth.GetTokensFromRequest(r)
 	if err != nil {
-		return err
+		log.Printf("[WARNING] Could not get tokens from request. Likely no cookie. %v", err)
 	}
 
 	if err := h.auth.Logout(r.Context(), refreshToken); err != nil {
-		return err
+		log.Printf("[WARNING] Could not log user out properly. %v", err)
 	}
 	h.auth.SetTokens(w, "", "")
 
