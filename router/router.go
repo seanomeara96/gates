@@ -12,15 +12,11 @@ import (
 	"github.com/seanomeara96/gates/models"
 )
 
-type customHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
-type middlewareFunc func(next customHandleFunc) customHandleFunc
-type customHandler func(path string, fn customHandleFunc)
-
 type Router struct {
 	cfg        *config.Config
 	handler    *handlers.Handler
 	mux        *http.ServeMux
-	middleware []middlewareFunc
+	middleware []handlers.MiddlewareFunc
 }
 
 func (r *Router) Mux() *http.ServeMux {
@@ -46,6 +42,14 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	r.middleware = append(r.middleware, r.handler.GetCartFromRequest) // last one added gets called first?
+	r.middleware = append(r.middleware, func(next handlers.CustomHandleFunc) handlers.CustomHandleFunc {
+		return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+			fmt.Printf("#### cart #### %+v\n", cart)
+			return next(cart, w, r)
+		}
+	})
 
 	r.mux = http.NewServeMux()
 
@@ -94,10 +98,8 @@ func sendErr(w http.ResponseWriter, err error) {
 	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
 
-func (r *Router) Handle(pattern string, fn customHandleFunc) {
-
-	// wrap fn in middleware funcs
-	for i := range r.middleware {
+func (r *Router) Handle(pattern string, fn handlers.CustomHandleFunc) {
+	for i := len(r.middleware) - 1; i >= 0; i-- {
 		fn = r.middleware[i](fn)
 	}
 
@@ -107,24 +109,9 @@ func (r *Router) Handle(pattern string, fn customHandleFunc) {
 			log.Printf(rMsg, req.Method, req.URL.Path)
 		}
 
-		cart, err := r.handler.GetCartFromRequest(w, req)
-		if err != nil {
-			errMsg := "[ERROR] Failed  %s request to %s. %v"
-			log.Printf(errMsg, req.Method, pattern, err)
-
-			// ideally I would get notified of an error here
-			if r.cfg.Mode == config.Development {
-				sendErr(w, err)
-			} else {
-				// TODO handle production env err handling different
-				sendErr(w, err)
-			}
-			return
-		}
-
 		// custom handler get passed throgh the cart handler middleware first to
 		// ensure there is a cart session
-		if err := fn(cart, w, req); err != nil {
+		if err := fn(nil, w, req); err != nil {
 			errMsg := "[ERROR] Failed  %s request to %s. %v"
 			log.Printf(errMsg, req.Method, pattern, err)
 
@@ -140,17 +127,17 @@ func (r *Router) Handle(pattern string, fn customHandleFunc) {
 
 }
 
-func (r *Router) Get(path string, fn customHandleFunc) {
+func (r *Router) Get(path string, fn handlers.CustomHandleFunc) {
 	r.Handle("GET "+path, fn)
 }
-func (r *Router) Post(path string, fn customHandleFunc) {
+func (r *Router) Post(path string, fn handlers.CustomHandleFunc) {
 	r.Handle("POST "+path, fn)
 }
 
-//	func (r *Router) put(path string, fn customHandleFunc) {
+//	func (r *Router) put(path string, fn handlers.CustomHandleFunc) {
 //		r.Handle("PUT "+path, fn)
 //	}
 
-func (r *Router) Delete(path string, fn customHandleFunc) {
+func (r *Router) Delete(path string, fn handlers.CustomHandleFunc) {
 	r.Handle("DELETE"+path, fn)
 }

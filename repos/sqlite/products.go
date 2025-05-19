@@ -160,6 +160,7 @@ func (r *ProductRepo) GetProducts(params repos.ProductFilterParams) ([]*models.P
 	}
 
 	query := baseSelect
+	fmt.Println("#####", query)
 	// Add LIMIT clause if provided
 	if params.Limit > 0 {
 		query += " LIMIT ?"
@@ -285,7 +286,7 @@ func (r *ProductRepo) UpdateProductByID(productID int, product *models.Product) 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		// Log or ignore this error, the update might have succeeded anyway
-		return fmt.Errorf("Warning: could not get rows affected after update for product ID %d: %v\n", productID, err)
+		return fmt.Errorf("warning: could not get rows affected after update for product ID %d: %v", productID, err)
 	} else if rowsAffected == 0 {
 		// Return a specific error indicating the product wasn't found
 		return fmt.Errorf("no product found with ID %d to update", productID) // Or return sql.ErrNoRows
@@ -307,7 +308,7 @@ func (r *ProductRepo) DeleteProductByID(productID int) error {
 	// Check if any row was actually deleted
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("Warning: could not get rows affected after delete for product ID %d: %v\n", productID, err)
+		return fmt.Errorf("warning: could not get rows affected after delete for product ID %d: %v", productID, err)
 	} else if rowsAffected == 0 {
 		// Return a specific error indicating the product wasn't found
 		return fmt.Errorf("no product found with ID %d to delete", productID) // Or return sql.ErrNoRows

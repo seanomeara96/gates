@@ -228,7 +228,7 @@ func (r *CachedProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*
 
 	extensions, err := r.productRepo.GetExtensions(params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("product cache failed to get extensions from repo: %w", err)
 	}
 
 	r.cache.Set(cacheKey, extensions, cache.DefaultExpiration)

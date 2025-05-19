@@ -44,6 +44,8 @@ type Handler struct {
 	rndr         *render.Render
 }
 
+type CustomHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
+
 func (h *Handler) Close() {
 	if h.db != nil {
 		h.db.Close()
@@ -196,12 +198,12 @@ func (h *Handler) AdminLoginPage(cart *models.Cart, w http.ResponseWriter, r *ht
 
 func (h *Handler) GetHomePage(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 	if r.URL.Path == "/" {
-		featuredGates, err := h.productCache.GetGates(repos.ProductFilterParams{})
+		featuredGates, err := h.productCache.GetGates(repos.ProductFilterParams{Type: models.ProductTypeGate})
 		if err != nil {
 			return fmt.Errorf("home page: failed to get featured gates: %w", err)
 		}
 
-		extensions, err := h.productCache.GetExtensions(repos.ProductFilterParams{Limit: 2})
+		extensions, err := h.productCache.GetExtensions(repos.ProductFilterParams{Limit: 2, Type: models.ProductTypeExtension})
 		if err != nil {
 			return fmt.Errorf("home page: failed to get featured extensions: %w", err)
 		}
