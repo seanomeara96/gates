@@ -96,20 +96,23 @@ func (h *Handler) GetAdminLoginPage(cart *models.Cart, w http.ResponseWriter, r 
 	return h.rndr.Page(w, "admin-login", data)
 }
 
-func (h *Handler) AdminLogout(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) Logout(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 
 	_, refreshToken, err := h.auth.GetTokensFromRequest(r)
 	if err != nil {
 		log.Printf("[WARNING] Could not get tokens from request. Likely no cookie. %v", err)
 	}
-
 	if err := h.auth.Logout(r.Context(), refreshToken); err != nil {
 		log.Printf("[WARNING] Could not log user out properly. %v", err)
 	}
-	h.auth.SetTokens(w, "", "")
 
+	h.auth.SetTokens(w, "", "")
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 
 	return nil
 
+}
+
+func (h *Handler) AdminLogout(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+	return h.Logout(cart, w, r)
 }
