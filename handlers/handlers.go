@@ -26,6 +26,7 @@ import (
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/checkout/session"
 	"github.com/stripe/stripe-go/v82/webhook"
+	"golang.org/x/time/rate"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -320,18 +321,20 @@ func (h *Handler) GetCheckoutPage(cart *models.Cart, w http.ResponseWriter, r *h
 	return nil
 }
 
+var contactFormRateLimiter = rate.NewLimiter(1, 3)
+
 func (h *Handler) ProcessContactFormSumbission(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+
+	if !contactFormRateLimiter.Allow() {
+		log.Printf("[WARNING] rate limit for contact form submission exceeded")
+		return nil
+	}
+
 	// Limit request body size to prevent DoS attacks
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB limit
 
 	if err := r.ParseForm(); err != nil {
 		return fmt.Errorf("contact page: failed to parse form: %w", err)
-	}
-
-	// Rate limit check could be added here
-	clientIP := r.Header.Get("X-Forwarded-For")
-	if clientIP == "" {
-		clientIP = r.RemoteAddr
 	}
 
 	email := r.Form.Get("email")

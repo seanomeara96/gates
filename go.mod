@@ -14,6 +14,7 @@ require (
 	github.com/spf13/viper v1.20.1
 	github.com/stripe/stripe-go/v82 v82.1.0
 	golang.org/x/text v0.24.0
+	golang.org/x/time v0.11.0
 )
 
 require (
