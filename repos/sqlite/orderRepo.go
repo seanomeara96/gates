@@ -167,7 +167,7 @@ func (r *OrderRepo) InsertComponent(tx *sql.Tx, orderID int, orderItemID int, co
 }
 
 func (r *OrderRepo) GetOrders(params repos.GetOrdersParams) ([]models.Order, error) {
-	rows, err := r.db.Query(`SELECT id, status, customer_name FROM orders LIMIT ? OFFSET ?`, params.Limit, params.Offset)
+	rows, err := r.db.Query(`SELECT id, status, customer_name, created_at FROM orders LIMIT ? OFFSET ?`, params.Limit, params.Offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query orders table %w", err)
 	}
@@ -175,7 +175,7 @@ func (r *OrderRepo) GetOrders(params repos.GetOrdersParams) ([]models.Order, err
 	var orders []models.Order
 	for rows.Next() {
 		var o models.Order
-		if err := rows.Scan(&o.ID, &o.Status, &o.CustomerName); err != nil {
+		if err := rows.Scan(&o.ID, &o.Status, &o.CustomerName, &o.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan order to struct %w", err)
 		}
 		orders = append(orders, o)

@@ -8,15 +8,16 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repos"
+	"github.com/seanomeara96/gates/repos/sqlite"
 )
 
 type CachedProductRepo struct {
 	cache       *cache.Cache
-	productRepo repos.ProductRepository // The underlying non-cached repository
+	productRepo *sqlite.ProductRepo // The underlying non-cached repository
 }
 
 // NewCachedProductRepo creates a new caching wrapper around a ProductRepo.
-func NewCachedProductRepo(productRepo repos.ProductRepository) *CachedProductRepo {
+func NewCachedProductRepo(productRepo *sqlite.ProductRepo) *CachedProductRepo {
 	if productRepo == nil {
 		panic("underlying productRepo cannot be nil for CachedProductRepo")
 	}

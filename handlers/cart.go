@@ -101,8 +101,6 @@ func (h *Handler) RemoveItemFromCart(cart *models.Cart, w http.ResponseWriter, r
 
 func (h *Handler) ClearItemsFromCart(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 
-	fmt.Println("clear items from cart called")
-
 	tx, err := h.db.Begin()
 	if err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {

@@ -46,36 +46,57 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 	r.middleware = append(r.middleware, r.handler.GetCartFromRequest) // last one added gets called first?
 	r.middleware = append(r.middleware, func(next handlers.CustomHandleFunc) handlers.CustomHandleFunc {
 		return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
-			fmt.Printf("#### cart #### %+v\n", cart)
+			if cfg.Mode == config.Development {
+				rMsg := "[INFO] %s request made to %s"
+				log.Printf(rMsg, r.Method, r.URL.Path)
+			}
 			return next(cart, w, r)
 		}
+
 	})
+	// Should I need to print my cart for debug reasons
+	// r.middleware = append(r.middleware, func(next handlers.CustomHandleFunc) handlers.CustomHandleFunc {
+	// 	return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+	// 		fmt.Printf("#### cart #### %+v\n", cart)
+	// 		return next(cart, w, r)
+	// 	}
+	// })
 
 	r.mux = http.NewServeMux()
 
 	r.Handle("/webhook", r.handler.StripeWebhook)
-	r.Handle("/", r.handler.GetHomePage)
+
+	/*
+		admin endpoints
+	*/
 	r.Get("/admin/login", r.handler.GetAdminLoginPage)
 	r.Post("/admin/login", r.handler.AdminLogin)
 	r.Get("/admin/logout", r.handler.AdminLogout)
 	r.Get("/admin", r.handler.GetAdminDashboard)
-	r.Get("/contact", r.handler.GetContactPage)
-	r.Get("/checkout", r.handler.GetCheckoutPage)
-	r.Post("/contact", r.handler.ProcessContactFormSumbission)
-	// Build endpoint. Currently only handling builds for pressure gates.
-	r.Post("/build", r.handler.BuildBundle)
-	// Product page endpoints.
+	r.Get("/admin/dashboard", r.handler.GetAdminDashboard)
+	/*
+		pages
+	*/
+	r.Handle("/", r.handler.GetHomePage)
 	r.Get("/gates", r.handler.GetGatesPage)
 	r.Get("/gates/{gate_id}", r.handler.GetGatePage)
 	r.Get("/extensions", r.handler.GetExtensionsPage)
 	r.Get("/extensions/{extension_id}", r.handler.GetExtensionPage)
-	// Cart endpoints.
+	r.Get("/contact", r.handler.GetContactPage)
+	r.Get("/checkout", r.handler.GetCheckoutPage)
 	r.Get("/cart", r.handler.GetCartPage)
-	r.Get("/cart/json", r.handler.GetCartJSON)
+
+	/*
+		user actions
+	*/
+	r.Post("/build", r.handler.BuildBundle)
+	r.Post("/contact", r.handler.ProcessContactFormSumbission)
 
 	if cfg.Mode == config.Development {
 		r.Handle("/test", r.handler.Test)
+		r.Get("/cart/json", r.handler.GetCartJSON)
 	}
+
 	r.Post("/cart/add", r.handler.AddItemToCart)
 	r.Post("/cart/item/{mode}", r.handler.AdjustCartItemQty)
 	r.Delete("/cart/item", r.handler.RemoveItemFromCart)
@@ -94,37 +115,23 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 	return &r, nil
 
 }
-func sendErr(w http.ResponseWriter, err error) {
-	http.Error(w, err.Error(), http.StatusInternalServerError)
-}
 
 func (r *Router) Handle(pattern string, fn handlers.CustomHandleFunc) {
 	for i := len(r.middleware) - 1; i >= 0; i-- {
 		fn = r.middleware[i](fn)
 	}
-
 	r.mux.HandleFunc(pattern, func(w http.ResponseWriter, req *http.Request) {
-		if r.cfg.Mode == config.Development {
-			rMsg := "[INFO] %s request made to %s"
-			log.Printf(rMsg, req.Method, req.URL.Path)
-		}
-
 		// custom handler get passed throgh the cart handler middleware first to
 		// ensure there is a cart session
 		if err := fn(nil, w, req); err != nil {
-			errMsg := "[ERROR] Failed  %s request to %s. %v"
-			log.Printf(errMsg, req.Method, pattern, err)
-
-			// ideally I would get notified of an error here
-			if r.cfg.Mode == config.Development {
-				sendErr(w, err)
-			} else {
-				// TODO handle production env err handling different
-				sendErr(w, err)
+			errMsg := fmt.Sprintf("[ERROR] Failed  %s request to %s. %v", req.Method, pattern, err)
+			log.Println(errMsg)
+			if err := r.handler.InternalError(nil, w, req); err != nil {
+				log.Printf("failed to call default internal error handler: %v", err)
+				http.Error(w, errMsg, http.StatusInternalServerError)
 			}
 		}
 	})
-
 }
 
 func (r *Router) Get(path string, fn handlers.CustomHandleFunc) {

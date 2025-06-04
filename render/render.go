@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"maps"
 	"net/http"
 
 	"github.com/seanomeara96/gates/config"
@@ -26,6 +27,7 @@ func (r *Render) tmpl() *template.Template {
 		return r.template
 	}
 	r.template = template.Must(template.New("").Funcs(template.FuncMap{
+		"add":      func(a, b int) int { return a + b },
 		"toString": structToString,
 		"sizeRange": func(width, tolerance float32) float32 {
 			return width - tolerance
@@ -66,39 +68,30 @@ func (r *Render) tmpl() *template.Template {
 }
 
 func (r *Render) Partial(w http.ResponseWriter, templateName string, templateData any) error {
-
 	var buffer bytes.Buffer
 	if err := r.tmpl().ExecuteTemplate(&buffer, templateName, templateData); err != nil {
 		return fmt.Errorf("problem executing partial template %s: %w", templateName, err)
 	}
-
 	if _, err := w.Write(buffer.Bytes()); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 func (r *Render) Page(w http.ResponseWriter, templateName string, templateData map[string]any) error {
-
 	data := map[string]any{
 		"MetaDescription": "default meta description",
 		"PageTitle":       "default page title",
 	}
-
-	for k, v := range templateData {
-		data[k] = v
-	}
+	maps.Copy(data, templateData)
 
 	var buffer bytes.Buffer
 	if err := r.tmpl().ExecuteTemplate(&buffer, templateName, data); err != nil {
 		return fmt.Errorf("problem executing template %s: %w", templateName, err)
 	}
-
 	if _, err := w.Write(buffer.Bytes()); err != nil {
 		return err
 	}
-
 	return nil
 }
 
