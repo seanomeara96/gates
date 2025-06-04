@@ -1,3 +1,7 @@
+need admin dashboard functions. e.g. ability to edit and manage products
+
+need orders to work properly and adjust product inventory etc
+
 implement a proper database migration
 
 n config.go, the Load function appends errors to a slice. This is okay, but for a larger number of checks, a dedicated error aggregation mechanism might be cleaner
