@@ -72,8 +72,8 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 	r.Get("/admin/login", r.handler.GetAdminLoginPage)
 	r.Post("/admin/login", r.handler.AdminLogin)
 	r.Get("/admin/logout", r.handler.AdminLogout)
-	r.Get("/admin", r.handler.GetAdminDashboard)
-	r.Get("/admin/dashboard", r.handler.GetAdminDashboard)
+	r.Get("/admin", r.handler.MustBeAdmin(r.handler.GetAdminDashboard))
+	r.Get("/admin/dashboard", r.handler.MustBeAdmin(r.handler.GetAdminDashboard))
 	/*
 		pages
 	*/
@@ -91,6 +91,13 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 	*/
 	r.Post("/build", r.handler.BuildBundle)
 	r.Post("/contact", r.handler.ProcessContactFormSumbission)
+
+	/*
+		admin actions
+	*/
+	r.Put("/admin/products/{id}", r.handler.MustBeAdmin(r.handler.UpdateProduct))
+	r.Put("/admin/orders/{id}", r.handler.MustBeAdmin(r.handler.UpdateOrder))
+	r.Put("/admin/orders/update-status/{id}", r.handler.MustBeAdmin(r.handler.UpdateOrderStatus))
 
 	if cfg.Mode == config.Development {
 		r.Handle("/test", r.handler.Test)
@@ -141,9 +148,9 @@ func (r *Router) Post(path string, fn handlers.CustomHandleFunc) {
 	r.Handle("POST "+path, fn)
 }
 
-//	func (r *Router) put(path string, fn handlers.CustomHandleFunc) {
-//		r.Handle("PUT "+path, fn)
-//	}
+func (r *Router) Put(path string, fn handlers.CustomHandleFunc) {
+	r.Handle("PUT "+path, fn)
+}
 
 func (r *Router) Delete(path string, fn handlers.CustomHandleFunc) {
 	r.Handle("DELETE"+path, fn)

@@ -59,3 +59,28 @@ func (h *Handler) GetCartFromRequest(next CustomHandleFunc) CustomHandleFunc {
 		return next(cart, w, r)
 	}
 }
+
+func (h *Handler) MustBeAdmin(next CustomHandleFunc) CustomHandleFunc {
+	return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+		accessToken, refreshToken, err := h.auth.GetTokensFromRequest(r)
+		if err != nil {
+			return fmt.Errorf("cant get tokens from request in must be admin middleware func %w", err)
+		}
+		claims, err := h.auth.ValidateToken(accessToken)
+		if err != nil {
+			accessToken, refreshToken, err = h.auth.Refresh(r.Context(), refreshToken)
+			if err != nil {
+				return err
+			}
+		}
+		/*
+			we have an issue here
+			claims should include the public user id on the auth user struct
+			but instead contains the int id
+			this needs to be fixed before we can move forward
+		*/
+		if claims.UserID == h.cfg.AdminUserID {
+		}
+		return next(cart, w, r)
+	}
+}
