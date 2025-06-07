@@ -34,7 +34,7 @@ import (
 type Handler struct {
 	db           *sql.DB
 	cfg          *config.Config
-	auth         auth.Authenticator
+	auth         *auth.Authenticator
 	orderRepo    *sqlite.OrderRepo
 	cartRepo     *sqlite.CartRepo
 	productRepo  *sqlite.ProductRepo
