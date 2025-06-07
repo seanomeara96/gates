@@ -83,15 +83,21 @@ func (s OrderStatus) Validate() error {
 	return nil
 }
 
+/*
+session id has been removed for now but I think
+i should keep it so I can associate  orders with abandoned cart recovery
+*/
 type Order struct {
 	ID              int
-	Status          string
 	CartID          string
-	SessionID       string
+	SessionID       sql.NullString // Added SessionID for abandoned cart recovery
+	Status          OrderStatus    // Changed from string to OrderStatus type
 	CustomerName    sql.NullString
-	CustomerPhone   string
-	ShippingAddress string
-	BillingAddress  string
-	PaymentMethod   string
+	CustomerEmail   sql.NullString
+	CustomerPhone   sql.NullString
+	ShippingAddress sql.NullString
+	BillingAddress  sql.NullString
+	PaymentMethod   sql.NullString
 	CreatedAt       time.Time
+	StripeRef       sql.NullString
 }

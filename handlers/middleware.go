@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -79,7 +80,8 @@ func (h *Handler) MustBeAdmin(next CustomHandleFunc) CustomHandleFunc {
 			but instead contains the int id
 			this needs to be fixed before we can move forward
 		*/
-		if claims.UserID == h.cfg.AdminUserID {
+		if claims.UserID != h.cfg.AdminUserID {
+			return errors.New("user is not admin")
 		}
 		return next(cart, w, r)
 	}
