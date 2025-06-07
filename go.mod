@@ -4,16 +4,16 @@ go 1.23.1
 
 toolchain go1.24.1
 
-require github.com/mattn/go-sqlite3 v1.14.27
+require github.com/mattn/go-sqlite3 v1.14.28
 
 require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/sessions v1.4.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/seanomeara96/auth v0.0.0-20250311125829-3f40be05d59a
+	github.com/seanomeara96/auth v0.0.0-20250606095014-8c1e66642523
 	github.com/spf13/viper v1.20.1
 	github.com/stripe/stripe-go/v82 v82.1.0
-	golang.org/x/text v0.24.0
+	golang.org/x/text v0.26.0
 	golang.org/x/time v0.11.0
 )
 
@@ -31,7 +31,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
-	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/crypto v0.39.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
