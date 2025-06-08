@@ -173,6 +173,14 @@
                                         class="text-indigo-600 hover:text-indigo-900 mr-3 transition ease-in-out duration-150">
                                         <i class="fas fa-eye mr-1"></i>View
                                     </button>
+                                    {{ if or (eq .Status "pending_payment") (eq .Status "awaiting_payment") }}
+                                    <button hx-get="/admin/orders/refresh-stripe/{{ .ID }}"
+                                        hx-target="#order-row-{{ .ID }}"
+                                        hx-swap="outerHTML"
+                                        class="text-blue-600 hover:text-blue-900 mr-3 transition ease-in-out duration-150">
+                                        <i class="fas fa-sync-alt mr-1"></i>Refresh
+                                    </button>
+                                    {{ end }}
                                     <select
                                         name="status"
                                         hx-put="/admin/orders/update-status/{{ .ID }}"
@@ -205,6 +213,51 @@
                                     </select>
                                 </td>
                             </tr>
+                            <tr class="order-details-row bg-gray-50" id="order-details-{{ .ID }}" style="display: none;">
+                                <td colspan="5" class="px-6 py-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <h3 class="text-lg font-medium text-gray-900 mb-2">Order Information</h3>
+                                            <div class="space-y-2">
+                                                <p><span class="font-medium">Cart ID:</span> {{ .CartID }}</p>
+                                                <p><span class="font-medium">Email:</span> {{ if .CustomerEmail.Valid }}{{ .CustomerEmail.String }}{{ else }}N/A{{ end }}</p>
+                                                <p><span class="font-medium">Phone:</span> {{ if .CustomerPhone.Valid }}{{ .CustomerPhone.String }}{{ else }}N/A{{ end }}</p>
+                                                <p><span class="font-medium">Payment Method:</span> {{ if .PaymentMethod.Valid }}{{ .PaymentMethod.String }}{{ else }}N/A{{ end }}</p>
+                                                <p><span class="font-medium">Stripe Reference:</span> {{ if .StripeRef.Valid }}{{ .StripeRef.String }}{{ else }}N/A{{ end }}</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-lg font-medium text-gray-900 mb-2">Addresses</h3>
+                                            <div class="space-y-4">
+                                                <div>
+                                                    <h4 class="font-medium text-gray-700">Shipping Address</h4>
+                                                    <p class="text-gray-600">{{ if .ShippingAddress.Valid }}{{ .ShippingAddress.String }}{{ else }}N/A{{ end }}</p>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-medium text-gray-700">Billing Address</h4>
+                                                    <p class="text-gray-600">{{ if .BillingAddress.Valid }}{{ .BillingAddress.String }}{{ else }}N/A{{ end }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <script>
+                                document.getElementById('order-row-{{ .ID }}').addEventListener('click', function(e) {
+                                    // Don't toggle if clicked on buttons or select
+                                    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT' ||
+                                        e.target.closest('button') || e.target.closest('select')) {
+                                        return;
+                                    }
+
+                                    const detailsRow = document.getElementById('order-details-{{ .ID }}');
+                                    if (detailsRow.style.display === 'none') {
+                                        detailsRow.style.display = 'table-row';
+                                    } else {
+                                        detailsRow.style.display = 'none';
+                                    }
+                                });
+                            </script>
                             {{ end }}
                         </tbody>
                     </table>
