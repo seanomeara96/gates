@@ -179,8 +179,61 @@ func (h *Handler) StripeWebhook(cart *models.Cart, w http.ResponseWriter, r *htt
 			return fmt.Errorf("could not unmarshal checkout session %w", err)
 		}
 
-		fmt.Printf("[DEV] session.CustomerDetails: %+v\n", session.CustomerDetails)
-		fmt.Printf("[DEV] session.CustomerDetails.Address: %+v\n", session.CustomerDetails.Address)
+		_id, found := session.Metadata["order_id"]
+		if !found {
+			log.Println("[WARNING] order id not found on chckout session object")
+		}
+
+		id, err := strconv.Atoi(_id)
+		if err != nil {
+			return err
+		}
+
+		details := session.CustomerDetails
+		if details == nil {
+			log.Printf("[WARNING] customer details on checkout session is nil order %d", id)
+		} else if found && details != nil {
+			order, err := h.orderRepo.GetOrderByID(id)
+			if err != nil {
+				return err
+			}
+
+			if details.Name != "" {
+				order.CustomerName = sql.NullString{
+					String: details.Name,
+					Valid:  true,
+				}
+			}
+
+			if details.Email != "" {
+				order.CustomerEmail = sql.NullString{
+					String: details.Email,
+					Valid:  true,
+				}
+			}
+
+			if details.Phone != "" {
+				order.CustomerPhone = sql.NullString{
+					String: details.Phone,
+					Valid:  true,
+				}
+			}
+
+			b, err := json.Marshal(details.Address)
+			if err != nil {
+				log.Printf("[WARNING] could not marshal json for customer details shipping address order: %d", id)
+			} else {
+				order.ShippingAddress = sql.NullString{
+					String: string(b),
+					Valid:  true,
+				}
+			}
+
+			if err := h.orderRepo.UpdateOrder(order); err != nil {
+				return err
+			}
+
+		}
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
@@ -331,6 +384,9 @@ func (h *Handler) GetCheckoutPage(cart *models.Cart, w http.ResponseWriter, r *h
 			Metadata: map[string]string{
 				"order_id": strconv.Itoa(id),
 			},
+		},
+		Metadata: map[string]string{
+			"order_id": strconv.Itoa(id),
 		},
 	}
 	s, err := session.New(params)
