@@ -100,7 +100,7 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 	r.Put("/admin/products/{id}", r.handler.MustBeAdmin(r.handler.UpdateProduct))
 	r.Put("/admin/orders/{id}", r.handler.MustBeAdmin(r.handler.UpdateOrder))
 	r.Put("/admin/orders/update-status/{id}", r.handler.MustBeAdmin(r.handler.UpdateOrderStatus))
-
+	r.Get("/admin/orders/refresh-stripe/{id}", r.handler.MustBeAdmin(r.handler.FetchOrderDetailsFromStripe))
 	if cfg.Mode == config.Development {
 		r.Handle("/test", r.handler.Test)
 		r.Get("/cart/json", r.handler.GetCartJSON)
