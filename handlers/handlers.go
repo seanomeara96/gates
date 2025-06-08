@@ -389,9 +389,14 @@ func (h *Handler) GetCheckoutPage(cart *models.Cart, w http.ResponseWriter, r *h
 			"order_id": strconv.Itoa(id),
 		},
 	}
+
 	s, err := session.New(params)
 	if err != nil {
-		log.Printf("session.New: %v", err)
+		return err
+	}
+
+	if err := h.orderRepo.UpdateStripeRef(id, s.ID); err != nil {
+		return err
 	}
 
 	http.Redirect(w, r, s.URL, http.StatusSeeOther)
