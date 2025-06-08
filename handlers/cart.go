@@ -148,6 +148,7 @@ func (h *Handler) newCart() (*models.Cart, error) {
 	return &cart, nil
 }
 
+/*returns a new session if the session does not exist*/
 func getCartSession(r *http.Request, store *sessions.CookieStore) (*sessions.Session, error) {
 	session, err := store.Get(r, "cart-session")
 	if err != nil {
@@ -156,12 +157,21 @@ func getCartSession(r *http.Request, store *sessions.CookieStore) (*sessions.Ses
 	return session, nil
 }
 
-func getCartID(session *sessions.Session) (interface{}, error) {
+func getCartID(session *sessions.Session) (string, bool, error) {
 	if session == nil {
-		return nil, errors.New("cart Session is nil")
+		return "", false, errors.New("cart Session is nil")
 	}
-	return session.Values["cart_id"], nil
+	cartID, found := session.Values["cart_id"]
+	if !found {
+		return "", false, nil
+	}
 
+	cartIDString, ok := cartID.(string)
+	if !ok {
+		return "", false, errors.New("could not convert cartID interface to string")
+	}
+
+	return cartIDString, found, nil
 }
 
 func attachNewCartToSession(cart *models.Cart, session *sessions.Session, w http.ResponseWriter, r *http.Request) error {
@@ -171,10 +181,4 @@ func attachNewCartToSession(cart *models.Cart, session *sessions.Session, w http
 		return err
 	}
 	return nil
-}
-func validateCartID(cartID interface{}) (valid bool) {
-	if _, ok := cartID.(string); !ok {
-		return false
-	}
-	return true
 }

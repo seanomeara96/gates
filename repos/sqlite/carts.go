@@ -55,20 +55,25 @@ func (r *CartRepo) CartExists(id string) (bool, error) {
 	return count > 0, nil
 }
 
-func (r *CartRepo) GetCartByID(id string) (*models.Cart, error) {
-	cart, err := r.selectCart(id)
+func (r *CartRepo) GetCartByID(id string) (*models.Cart, bool, error) {
+	cart, found, err := r.selectCart(id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to select cart with ID %s: %v", id, err)
+		return nil, found, fmt.Errorf("failed to select cart with ID %s: %v", id, err)
 	}
+
+	if !found {
+		return nil, found, nil
+	}
+
 	if cart.Items, err = r.selectCartItems(cart.ID); err != nil {
-		return nil, fmt.Errorf("failed to select items for cart %s: %v", cart.ID, err)
+		return nil, found, fmt.Errorf("failed to select items for cart %s: %v", cart.ID, err)
 	}
 	for i := range cart.Items {
 		if cart.Items[i].Components, err = r.selectCartItemComponents(
 			cart.ID,
 			cart.Items[i].ID,
 		); err != nil {
-			return nil, fmt.Errorf("failed to select components for cart item %s: %v", cart.Items[i].ID, err)
+			return nil, found, fmt.Errorf("failed to select components for cart item %s: %v", cart.Items[i].ID, err)
 		}
 		cart.Items[i].SetName()
 		cart.Items[i].SetPrice()
@@ -76,10 +81,10 @@ func (r *CartRepo) GetCartByID(id string) (*models.Cart, error) {
 
 	cart.SetTotalValue()
 
-	return &cart, nil
+	return &cart, found, nil
 }
 
-func (r *CartRepo) selectCart(id string) (models.Cart, error) {
+func (r *CartRepo) selectCart(id string) (models.Cart, bool, error) {
 	row := r.db.QueryRow(`
 	SELECT
 		id,
@@ -95,9 +100,14 @@ func (r *CartRepo) selectCart(id string) (models.Cart, error) {
 		&cart.CreatedAt,
 		&cart.LastUpdatedAt,
 	); err != nil {
-		return models.Cart{}, fmt.Errorf("failed to scan cart data: %v", err)
+
+		if err == sql.ErrNoRows {
+			return models.Cart{}, false, nil
+		}
+
+		return models.Cart{}, true, fmt.Errorf("failed to scan cart data: %v", err)
 	}
-	return cart, nil
+	return cart, true, nil
 }
 
 func (r *CartRepo) SelectCartItem(cartID, itemID string) (*models.CartItem, error) {
