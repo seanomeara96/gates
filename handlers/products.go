@@ -305,8 +305,8 @@ func (h *Handler) AddItemToCart(cart *models.Cart, w http.ResponseWriter, r *htt
 		return fmt.Errorf("AddItemToCart: failed to add item to cart (ID: %s): %w", cart.ID, err)
 	}
 
-	cart, err := h.cartRepo.GetCartByID(cart.ID)
-	if err != nil {
+	cart, found, err := h.cartRepo.GetCartByID(cart.ID)
+	if err != nil || !found {
 		return fmt.Errorf("AddItemToCart: failed to retrieve updated cart (ID: %s): %w", cart.ID, err)
 	}
 

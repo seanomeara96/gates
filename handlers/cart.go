@@ -55,8 +55,8 @@ func (h *Handler) AdjustCartItemQty(cart *models.Cart, w http.ResponseWriter, r 
 		}
 	}
 
-	cart, err = h.cartRepo.GetCartByID(cart.ID)
-	if err != nil {
+	cart, found, err := h.cartRepo.GetCartByID(cart.ID)
+	if err != nil || !found {
 		return fmt.Errorf("cart item update: failed to retrieve updated cart: %w", err)
 	}
 	if err := h.rndr.Partial(w, "cart-main", cart); err != nil {
@@ -83,8 +83,8 @@ func (h *Handler) RemoveItemFromCart(cart *models.Cart, w http.ResponseWriter, r
 		return fmt.Errorf("cart item remove: failed to delete cart item: %w", err)
 	}
 
-	cart, err := h.cartRepo.GetCartByID(cart.ID)
-	if err != nil {
+	cart, found, err := h.cartRepo.GetCartByID(cart.ID)
+	if err != nil || !found {
 		return fmt.Errorf("cart item remove: failed to retrieve updated cart: %w", err)
 	}
 
@@ -124,8 +124,8 @@ func (h *Handler) ClearItemsFromCart(cart *models.Cart, w http.ResponseWriter, r
 		return err
 	}
 
-	cart, err = h.cartRepo.GetCartByID(cart.ID)
-	if err != nil {
+	cart, found, err := h.cartRepo.GetCartByID(cart.ID)
+	if err != nil || !found {
 		return fmt.Errorf("cart clear: failed to retrieve updated cart: %w", err)
 	}
 
