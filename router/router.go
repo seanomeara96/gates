@@ -64,16 +64,6 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 
 	r.mux = http.NewServeMux()
 
-	r.Handle("/webhook", r.handler.StripeWebhook)
-
-	/*
-		admin endpoints
-	*/
-	r.Get("/admin/login", r.handler.GetAdminLoginPage)
-	r.Post("/admin/login", r.handler.AdminLogin)
-	r.Get("/admin/logout", r.handler.AdminLogout)
-	r.Get("/admin", r.handler.MustBeAdmin(r.handler.GetAdminDashboard))
-	r.Get("/admin/dashboard", r.handler.MustBeAdmin(r.handler.GetAdminDashboard))
 	/*
 		pages
 	*/
@@ -85,6 +75,18 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 	r.Get("/contact", r.handler.GetContactPage)
 	r.Get("/checkout", r.handler.GetCheckoutPage)
 	r.Get("/cart", r.handler.GetCartPage)
+	r.Get("/success", r.handler.GetSuccessPage)
+
+	r.Post("/webhook", r.handler.StripeWebhook)
+
+	/*
+		admin endpoints
+	*/
+	r.Get("/admin/login", r.handler.GetAdminLoginPage)
+	r.Post("/admin/login", r.handler.AdminLogin)
+	r.Get("/admin/logout", r.handler.AdminLogout)
+	r.Get("/admin", r.handler.MustBeAdmin(r.handler.GetAdminDashboard))
+	r.Get("/admin/dashboard", r.handler.MustBeAdmin(r.handler.GetAdminDashboard))
 
 	/*
 		user actions

@@ -124,8 +124,11 @@ func (h *Handler) StripeWebhook(cart *models.Cart, w http.ResponseWriter, r *htt
 	endpointSecret := h.cfg.StripeWebhookSecret
 	// Pass the request body and Stripe-Signature header to ConstructEvent, along
 	// with the webhook signing key.
-	event, err := webhook.ConstructEvent(payload, r.Header.Get("Stripe-Signature"),
-		endpointSecret)
+	event, err := webhook.ConstructEvent(
+		payload,
+		r.Header.Get("Stripe-Signature"),
+		endpointSecret,
+	)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error verifying webhook signature: %v\n", err)
@@ -162,6 +165,22 @@ func (h *Handler) StripeWebhook(cart *models.Cart, w http.ResponseWriter, r *htt
 		if err := h.orderRepo.UpdateStatus(id, models.OrderStatusProcessing); err != nil {
 			return err
 		}
+
+	case "checkout.session.completed":
+		if event.Data == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			log.Println("[WARNING] event data for checkout.session.completed  is nil")
+			return nil
+		}
+		var session stripe.CheckoutSession
+		err := json.Unmarshal(event.Data.Raw, &session)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return fmt.Errorf("could not unmarshal checkout session %w", err)
+		}
+
+		fmt.Printf("[DEV] session.CustomerDetails: %+v\n", session.CustomerDetails)
+		fmt.Printf("[DEV] session.CustomerDetails.Address: %+v\n", session.CustomerDetails.Address)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unhandled event type: %s\n", event.Type)
@@ -298,7 +317,7 @@ func (h *Handler) GetCheckoutPage(cart *models.Cart, w http.ResponseWriter, r *h
 		ClientReferenceID: stripe.String(strconv.Itoa(id)),
 		LineItems:         lineItems,
 		Mode:              stripe.String(string(stripe.CheckoutSessionModePayment)),
-		SuccessURL:        stripe.String(h.cfg.Domain + "/success"),
+		SuccessURL:        stripe.String(h.cfg.Domain + fmt.Sprintf("/success?order_id=%d", id)),
 		CancelURL:         stripe.String(h.cfg.Domain + "/cart"),
 		ShippingAddressCollection: &stripe.CheckoutSessionShippingAddressCollectionParams{
 			AllowedCountries: []*string{stripe.String("IE")},

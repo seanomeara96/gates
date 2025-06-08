@@ -30,7 +30,7 @@ func (h *Handler) GetCartFromRequest(next CustomHandleFunc) CustomHandleFunc {
 			if err := attachNewCartToSession(cart, session, w, r); err != nil {
 				return err
 			}
-			return nil
+			return next(cart, w, r)
 		}
 
 		if valid := validateCartID(cartID); !valid {
@@ -65,7 +65,7 @@ func (h *Handler) MustBeAdmin(next CustomHandleFunc) CustomHandleFunc {
 	return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
 		accessToken, refreshToken, err := h.auth.GetTokensFromRequest(r)
 		if err != nil {
-			return fmt.Errorf("cant get tokens from request in must be admin middleware func %w", err)
+			return fmt.Errorf(". Cant get tokens from request in MustBeAdmin middleware func: %w", err)
 		}
 		claims, err := h.auth.ValidateToken(accessToken)
 		if err != nil {
