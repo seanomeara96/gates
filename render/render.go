@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/seanomeara96/gates/config"
+	"github.com/seanomeara96/gates/models"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -82,6 +83,13 @@ func (r *Render) Page(w http.ResponseWriter, templateName string, templateData m
 	data := map[string]any{
 		"MetaDescription": "default meta description",
 		"PageTitle":       "default page title",
+		"NavItems": []models.NavItem{
+			{Href: "/", Text: "Home"},
+			{Href: "/gates", Text: "Gates"},
+			{Href: "/extensions", Text: "Extensions"},
+			{Href: "/contact", Text: "Contact"},
+			{Href: "/cart", Text: "Cart"},
+		},
 	}
 	maps.Copy(data, templateData)
 
