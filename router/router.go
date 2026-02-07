@@ -38,6 +38,7 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 		return nil, fmt.Errorf("config passed to default router cannot be nil")
 	}
 
+	// really not the best place to put this, should be injeccted. ok for now
 	r.handler, err = handlers.DefaultHandler(cfg)
 	if err != nil {
 		return nil, err

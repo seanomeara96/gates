@@ -9,15 +9,15 @@
             {{ end }}
 
             <!-- Checkout Section -->
-            <div class="border-t pt-4">
+            <div class="flex gap-2 border-t items-center">
                 <div class="flex justify-between items-center">
                     <span class="text-lg font-semibold">Total</span>
                     <span class="text-lg font-semibold">€{{ .TotalValue }}</span>
                 </div>
                 <a href="/checkout">
-                        <button class="mt-4 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Proceed to Checkout</button>
+                        <button class="px-4 py-2 mt-4 w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">Proceed to Checkout</button>
                 </a>
-                <button class="mt-4 w-full bg-red-500 text-white py-2 rounded-md hover:bg-red-700" hx-post="/cart/clear" hx-target="#cart-main" hx-swap="outerHTML">Clear Cart</button>
+                <button class="mt-4  bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-700" hx-post="/cart/clear" hx-target="#cart-main" hx-swap="outerHTML">Clear Cart</button>
             </div>
         </div>
     </main> 

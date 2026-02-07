@@ -56,7 +56,7 @@ func Load() (*Config, error) {
 		errs = append(errs, errors.New("env PORT value not set in env"))
 	}
 	if config.Mode != Development && config.Mode != Production {
-		errs = append(errs, errors.New("env MODE not set in env"))
+		errs = append(errs, fmt.Errorf("env MODE not set in env. must be one of %s or %s", Development, Production))
 	}
 	if config.Domain == "" {
 		errs = append(errs, errors.New("env DOMAIN value not set in env"))
