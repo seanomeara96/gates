@@ -1,0 +1,12 @@
+package pages
+
+type AdminPageProps struct {
+  BaseProps BaseProps
+}
+
+templ Admin(props AdminPageProps) {
+  @Base(props.BaseProps) {
+    hello admin
+  }
+}
+

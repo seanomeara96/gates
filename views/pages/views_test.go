@@ -57,6 +57,10 @@ func TestRender(t *testing.T) {
 			props := InternalErrorPageProps{}
 			return InternalError(props)
 		},
+		func() templ.Component {
+			props := DashboardPageProps{}
+			return Dashboard(props)
+		},
 	}
 
 	for _, test := range tests {
