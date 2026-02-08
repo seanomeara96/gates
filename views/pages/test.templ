@@ -1,20 +1,17 @@
 package pages
 
-templ Test() {
-  @base(){
-<form
-hx-post="/test"
-hx-trigger="submit"
->
-<input type="hidden" name="data" value="{'name':`sean`}">
-<input type="hidden" name="data" value="{'name':`steven`}">
-<input type="hidden" name="data" value="{'name':`rachel`}">
+type TestPageProps struct {
+    BaseProps BaseProps
+  }
 
-<button class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
-style="background-color: #683B1C">Add Bundle To Cart</button>
-</button>
-</form>
-
+templ Test(props TestPageProps) {
+  @Base(props.BaseProps){
+    <form hx-post="/test" hx-trigger="submit">
+      <input type="hidden" name="data" value="{'name':`sean`}">
+      <input type="hidden" name="data" value="{'name':`steven`}">
+      <input type="hidden" name="data" value="{'name':`rachel`}">
+      <button class="hover:bg-gray-700 text-white font-bold py-2 px-4 rounded" style="background-color: #683B1C">Add Bundle To Cart</button>
+    </form>
     }
 }
 

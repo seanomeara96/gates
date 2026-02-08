@@ -1,4 +1,6 @@
-{{ define "build-results" }}
+package partials
+
+templ BuildResults() {
 <section
   id="build-results"
   hx-on::after-settle="document.getElementById('build-results').scrollIntoView({ behavior: 'smooth' });"
@@ -51,4 +53,6 @@
     {{ end }}
   </div>
 </section>
-{{ end }}
+
+  }
+

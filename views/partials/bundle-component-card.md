@@ -1,6 +1,8 @@
-{{ define "bundle-component-card" }}
 
-<div class="px-2 mb-4 relative inline-block">
+package partials
+
+templ BundleComponentCard() {
+  <div class="px-2 mb-4 relative inline-block">
     <div class="flex justify-between items-centerbg-white rounded-lg overflow-hidden shadow-md">
         <a class="relative" href="/{{ .Type }}s/{{ .Id }}">
             <img class="h-full aspect-square max-w-16"
@@ -20,4 +22,5 @@
     </div>
 </div>
 
-{{ end }}
+}
+

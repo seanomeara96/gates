@@ -1,8 +1,17 @@
 package pages
 
-templ Cart(){
-  @base(){
-    @partials.Cart()
+
+import "github.com/seanomeara96/gates/models"
+import "github.com/seanomeara96/gates/views/partials"
+
+type CartPageProps struct {
+  BaseProps BaseProps
+  Cart models.Cart
+}
+
+templ Cart(props CartPageProps){
+  @Base(props.BaseProps){
+    @partials.CartMain(props.Cart)
   }
 }
 

@@ -1,5 +1,9 @@
-{{ define "cart-modal" }}
-<a
+package partials
+
+import "github.com/seanomeara96/gates/models"
+
+templ CartModal(props models.Cart){
+  <a
   id="cart-modal"
   class="fixed bottom-0 right-0 p-4 bg-white shadow-lg rounded-tl-lg z-10"
   href="/cart"
@@ -13,14 +17,16 @@
 
     <div class="text-gray-500 font-medium">
       <span class="text-sm font-normal">Cart</span>
-      <span class="text-xl font-semibold">${{ .TotalValue }}</span>
-      <span class="text-xs font-normal">({{ len .Items }} items)</span>
+      <span class="text-xl font-semibold">${ props.TotalValue }</span>
+      <span class="text-xs font-normal">({ len(props.Items) } items)</span>
     </div>
   </div>
 </a>
-{{ end }}
 
-{{ define "cart-modal-oob" }}
+}
+
+templ CartModalOOB(props models.Cart) {
+
 <a
   id="cart-modal"
   hx-swap-oob="true"
@@ -36,9 +42,12 @@
 
     <div class="text-gray-500 font-medium">
       <span class="text-sm font-normal">Cart</span>
-      <span class="text-xl font-semibold">${{ .TotalValue }}</span>
-      <span class="text-xs font-normal">({{ len .Items }} items)</span>
+      <span class="text-xl font-semibold">${ props.TotalValue }</span>
+      <span class="text-xs font-normal">({ len(props.Items) } items)</span>
     </div>
   </div>
 </a>
-{{ end }}
+
+}
+
+

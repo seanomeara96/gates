@@ -1,10 +1,16 @@
 package pages
 
-templ OrderSuccess() {
-  @base(){
+type OrderSuccessPageProps struct {
+  BaseProps BaseProps
+  OrderID int
+}
+
+
+templ OrderSuccess(props OrderSuccessPageProps) {
+  @Base(props.BaseProps){
     <main class="container text-center">
         Thank you for your order
-        Your order number is {{ .OrderID }}
+        Your order number is { props.OrderID }
     </main>
     }
 }

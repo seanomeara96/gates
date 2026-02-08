@@ -1,29 +1,35 @@
-{{define "cart-item"}}
-{{/*expects cart item object*/}}
-<div class="mb-4" id="item-{{.ID}}">
+package partials
+
+import "github.com/seanomeara96/gates/models"
+
+templ CartItem(props models.CartItem){
+
+{{ thumbnail := props.Components[0].Img }}
+
+<div class="mb-4" id={ "item-" + props.ID }>
     <div class="flex gap-4 items-center border-b pb-2 mb-2">
         
         <div class="flex w-1/2">
-            <img class="w-20 h-20 object-cover mr-4" src="{{ (index .Components 0).Img }}" alt="Product Image">
+            <img class="w-20 h-20 object-cover mr-4" src={ thumbnail } alt="Product Image" />
             <div>
-                <h2 class="text-lg font-semibold">{{ .Name }}</h2>
+                <h2 class="text-lg font-semibold">{ props.Name }</h2>
                 <p class="text-gray-600">
                      <ul>
-                        {{ range .Components }}
-                            <li>{{ .Name }}</li>
-                        {{ end }}
+                        for _, component := range props.Components {
+                            <li>{ component.Name }</li>
+                        }
                      </ul>
                 </p>
             </div>
         </div>
 
-        {{ template "item-details" . }}
-        
+        @ItemDetails(props) 
     </div>
 </div>
-{{ end }}
+}
 
-{{ define "item-details" }}
+
+templ ItemDetails(props models.CartItem){
 <div class="details w-1/2 flex items-center justify-between">
     <div class="flex items-center space-x-2">
         <button 
@@ -32,19 +38,21 @@
             hx-post="/cart/item/decrement"
             hx-target="#cart-main"
             hx-swap="outerHTML"
-            hx-vals='{"cart_item_id":"{{.ID}}"}'
+            hx-vals='{"cart_item_id":{ props.ID }}'
         >
             <span class="sr-only">Decrease Quantity:</span>
             <span aria-hidden="true">−</span>
         </button>
-        {{ template "item-counter" . }}
+        
+        @ItemCounter(props)
+  
         <button 
             class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-2 rounded-full" 
             hx-triger="click"
             hx-post="/cart/item/increment"
             hx-target="#cart-main"
             hx-swap="outerHTML"
-            hx-vals='{"cart_item_id":"{{.ID}}"}'
+            hx-vals='{"cart_item_id":{ props.ID }}'
             >
             <span class="sr-only">Increase Quantity:</span>
             <span aria-hidden="true">+</span>
@@ -52,20 +60,21 @@
     </div>   
 
     <div class="text-right">
-        <p class="text-lg font-semibold">€{{ mul .SalePrice .Qty }}</p>
+        {{ total := props.SalePrice * float32(props.Qty) }}
+        <p class="text-lg font-semibold">€{ total }</p>
         <button 
         class="text-red-600 hover:underline"
         hx-triger="click"
         hx-delete="/cart/item"
         hx-target="#cart-main"
         hx-swap="outerHTML"
-        hx-vals='{"cart_item_id":"{{.ID}}"}'
+        hx-vals='{"cart_item_id":{ props.ID }}'
         >Remove</button>
     </div>
 </div>
-{{ end }}
+}
 
-{{ define "item-counter" }}
-{{/*expects cart item object*/}}
-    <input class="item-qty border border-gray-300 rounded w-12 text-center py-1" type="tel" value="{{.Qty}}" min="1">
-{{ end }}
+templ ItemCounter(props models.CartItem){
+    <input class="item-qty border border-gray-300 rounded w-12 text-center py-1" type="tel" value={ props.Qty } min="1">
+}
+

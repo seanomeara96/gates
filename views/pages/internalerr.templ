@@ -1,7 +1,12 @@
 package pages
 
-templ SomethingWentWrong () {
-  @base(){
+type InternalErrorPageProps struct {
+    BaseProps BaseProps
+  }
+
+
+templ SomethingWentWrong (props InternalErrorPageProps) {
+  @Base(props.BaseProps){
     <div class="container my-4 mx-auto px-4">
         Something went wrong. Please try again later
     </div>  

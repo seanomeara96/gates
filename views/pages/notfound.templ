@@ -1,7 +1,13 @@
 package pages
 
-templ NotFound(){
-  @base(){
+
+type NotFoundPageProps struct {
+  BaseProps BaseProps
+}
+
+
+templ NotFound(props NotFoundPageProps){
+  @Base(props.BaseProps){
     <div class="container my-4 mx-auto px-4">
         Page Not Found
     </div>  
