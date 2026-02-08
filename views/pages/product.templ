@@ -1,0 +1,19 @@
+package pages
+
+temple Product() {
+  @base(){
+        <div class="w-full md:w-1/2 lg:w-1/4 px-2 mb-4">
+        <img src="https://via.placeholder.com/500x300" alt="Baby Safety Gate" class="w-full">
+        <div class="p-4">
+            <h3 class="font-bold mb-2">{{ .Product.Name }} {{ .Product.Color }}</h3>
+            <p class="text-gray-600 mb-4">This baby safety gate is perfect for keeping your baby safe in any room of your house.</p>
+            <div class="flex justify-between items-center">
+                <span class="text-xl font-bold">€{{ .Product.Price }}</span>
+                <button class="atc-button bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded" data-product="{{ . }}" >Add to Cart</button>
+            </div>
+        </div>
+    </div>
+
+    }
+}
+

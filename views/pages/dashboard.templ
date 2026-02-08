@@ -1,0 +1,276 @@
+package pages
+
+templ Dashboard () {
+  @base() {
+    <div class="flex bg-gray-100">
+        <aside class="w-64 bg-gray-800 text-white p-6 space-y-6">
+            <h2 class="text-2xl font-semibold mb-6">Admin Panel</h2>
+            <nav>
+                <a href="/admin/dashboard" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 active:bg-gray-900 {{ if eq .ActiveTab "dashboard" }}bg-gray-900{{ end }}">
+                    <i class="fas fa-home mr-3"></i>Dashboard
+                </a>
+                <a href="/admin/products" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 active:bg-gray-900 {{ if eq .ActiveTab "products" }}bg-gray-900{{ end }}">
+                    <i class="fas fa-box mr-3"></i>Products
+                </a>
+                <a href="/admin/orders" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 active:bg-gray-900 {{ if eq .ActiveTab "orders" }}bg-gray-900{{ end }}">
+                    <i class="fas fa-clipboard-list mr-3"></i>Orders
+                </a>
+                </nav>
+        </aside>
+
+        <main class="flex-1 bg-gray-100 p-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-5 rounded-lg shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Total Products</p>
+                        <p class="text-3xl font-semibold text-gray-900">{{ len .Products }}</p>
+                    </div>
+                    <i class="fas fa-boxes text-blue-500 text-4xl"></i>
+                </div>
+                <div class="bg-white p-5 rounded-lg shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Total Orders</p>
+                        <p class="text-3xl font-semibold text-gray-900">{{ len .Orders }}</p>
+                    </div>
+                    <i class="fas fa-shopping-cart text-green-500 text-4xl"></i>
+                </div>
+                <div class="bg-white p-5 rounded-lg shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Pending Orders</p>
+                        <p class="text-3xl font-semibold text-gray-900">
+                            {{ $pendingCount := 0 }}
+                            {{ range .Orders }}
+                                {{ if or (eq .Status "pending_payment") (eq .Status "awaiting_payment") }}
+                                    {{ $pendingCount = add $pendingCount 1 }}
+                                {{ end }}
+                            {{ end }}
+                            {{ $pendingCount }}
+                        </p>
+                    </div>
+                    <i class="fas fa-hourglass-half text-yellow-500 text-4xl"></i>
+                </div>
+                <div class="bg-white p-5 rounded-lg shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">Out of Stock</p>
+                        <p class="text-3xl font-semibold text-gray-900">
+                            {{ $outOfStockCount := 0 }}
+                            {{ range .Products }}
+                                {{ if eq .InventoryLevel 0 }}
+                                    {{ $outOfStockCount = add $outOfStockCount 1 }}
+                                {{ end }}
+                            {{ end }}
+                            {{ $outOfStockCount }}
+                        </p>
+                    </div>
+                    <i class="fas fa-exclamation-circle text-red-500 text-4xl"></i>
+                </div>
+            </div>
+
+            <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Product Management</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Width</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Color</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inventory</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="product-list">
+                            {{ range .Products }}
+                            <tr class="hover:bg-gray-50" id="product-row-{{ .Id }}">
+                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{{ .Id }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <img src="{{ .Img }}" alt="{{ .Name }}" class="h-14 w-14 object-cover rounded-md shadow-sm">
+                                </td>
+                                <td class="px-4 py-3 text-sm text-gray-900">{{ .Name }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ .Type }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ .Width }}cm</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">€{{ .Price }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ .Color }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm {{ if eq .InventoryLevel 0 }}text-red-600 font-semibold{{ else if lt .InventoryLevel 5 }}text-yellow-600{{ else }}text-green-600{{ end }}">
+                                    {{ .InventoryLevel }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                    <button hx-get="/admin/products/edit/{{ .Id }}" hx-target="#modals-here" hx-swap="outerHTML"
+                                        class="text-indigo-600 hover:text-indigo-900 mr-3 transition ease-in-out duration-150">
+                                        <i class="fas fa-edit mr-1"></i>Edit
+                                    </button>
+                                    <button hx-delete="/admin/products/delete/{{ .Id }}" hx-confirm="Are you sure you want to delete '{{ .Name }}'?" hx-swap="outerHTML" hx-target="#product-row-{{ .Id }}"
+                                        class="text-red-600 hover:text-red-900 transition ease-in-out duration-150">
+                                        <i class="fas fa-trash-alt mr-1"></i>Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {{ end }}
+                        </tbody>
+                    </table>
+                </div>
+                <button hx-get="/admin/products/new" hx-target="#modals-here" hx-swap="outerHTML"
+                    class="mt-6 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150 shadow-md">
+                    <i class="fas fa-plus-circle mr-2"></i>Add New Product
+                </button>
+            </div>
+
+            <div class="bg-white shadow-md rounded-lg p-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Order Management</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="order-list">
+                            {{ range .Orders }}
+                            <tr class="hover:bg-gray-50" id="order-row-{{ .ID }}">
+                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{{ .ID }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <span id="order-status-{{ .ID }}" class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full
+                                        {{ if eq .Status "pending_payment" }}bg-yellow-100 text-yellow-800
+                                        {{ else if eq .Status "awaiting_payment" }}bg-yellow-100 text-yellow-800
+                                        {{ else if eq .Status "draft" }}bg-gray-100 text-gray-800
+                                        {{ else if eq .Status "processing" }}bg-blue-100 text-blue-800
+                                        {{ else if eq .Status "on_hold" }}bg-purple-100 text-purple-800
+                                        {{ else if eq .Status "awaiting_fulfillment" }}bg-indigo-100 text-indigo-800
+                                        {{ else if eq .Status "awaiting_shipment" }}bg-teal-100 text-teal-800
+                                        {{ else if eq .Status "partially_shipped" }}bg-orange-100 text-orange-800
+                                        {{ else if eq .Status "shipped" }}bg-green-100 text-green-800
+                                        {{ else if eq .Status "out_for_delivery" }}bg-green-100 text-green-800
+                                        {{ else if eq .Status "awaiting_pickup" }}bg-cyan-100 text-cyan-800
+                                        {{ else if eq .Status "completed" }}bg-green-100 text-green-800
+                                        {{ else if eq .Status "delivered" }}bg-green-100 text-green-800
+                                        {{ else if eq .Status "picked_up" }}bg-green-100 text-green-800
+                                        {{ else if eq .Status "canceled" }}bg-red-100 text-red-800
+                                        {{ else if eq .Status "failed" }}bg-red-100 text-red-800
+                                        {{ else if eq .Status "refunded" }}bg-red-100 text-red-800
+                                        {{ else if eq .Status "partial_refunded" }}bg-red-100 text-red-800
+                                        {{ else if eq .Status "closed" }}bg-gray-500 text-white
+                                        {{ else if eq .Status "fraud" }}bg-pink-100 text-pink-800
+                                        {{ else if eq .Status "chargeback" }}bg-red-200 text-red-900
+                                        {{ else if eq .Status "error" }}bg-red-600 text-white{{ end }}">
+                                        {{ .Status }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                    {{ if .CustomerName.Valid }}{{ .CustomerName.String }}{{ else }}<span class="text-gray-400">N/A</span>{{ end }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ .CreatedAt.Format "02 Jan 2006, 15:04" }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                    <button hx-get="/admin/orders/view/{{ .ID }}" hx-target="#modals-here" hx-swap="outerHTML"
+                                        class="text-indigo-600 hover:text-indigo-900 mr-3 transition ease-in-out duration-150">
+                                        <i class="fas fa-eye mr-1"></i>View
+                                    </button>
+                                    {{ if or (eq .Status "pending_payment") (eq .Status "awaiting_payment") }}
+                                    <button hx-get="/admin/orders/refresh-stripe/{{ .ID }}"
+                                        hx-target="#order-row-{{ .ID }}"
+                                        hx-swap="outerHTML"
+                                        class="text-blue-600 hover:text-blue-900 mr-3 transition ease-in-out duration-150">
+                                        <i class="fas fa-sync-alt mr-1"></i>Refresh
+                                    </button>
+                                    {{ end }}
+                                    <select
+                                        name="status"
+                                        hx-put="/admin/orders/update-status/{{ .ID }}"
+                                        hx-target="#order-status-{{ .ID }}"
+                                        hx-swap="outerHTML"
+                                        class="border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-1.5 cursor-pointer">
+                                        <option value="">Update Status</option>
+                                        <option value="pending_payment" {{ if eq .Status "pending_payment" }}selected{{ end }}>Pending Payment</option>
+                                        <option value="awaiting_payment" {{ if eq .Status "awaiting_payment" }}selected{{ end }}>Awaiting Payment</option>
+                                        <option value="draft" {{ if eq .Status "draft" }}selected{{ end }}>Draft</option>
+                                        <option value="processing" {{ if eq .Status "processing" }}selected{{ end }}>Processing</option>
+                                        <option value="on_hold" {{ if eq .Status "on_hold" }}selected{{ end }}>On Hold</option>
+                                        <option value="awaiting_fulfillment" {{ if eq .Status "awaiting_fulfillment" }}selected{{ end }}>Awaiting Fulfillment</option>
+                                        <option value="awaiting_shipment" {{ if eq .Status "awaiting_shipment" }}selected{{ end }}>Awaiting Shipment</option>
+                                        <option value="partially_shipped" {{ if eq .Status "partially_shipped" }}selected{{ end }}>Partially Shipped</option>
+                                        <option value="shipped" {{ if eq .Status "shipped" }}selected{{ end }}>Shipped</option>
+                                        <option value="out_for_delivery" {{ if eq .Status "out_for_delivery" }}selected{{ end }}>Out for Delivery</option>
+                                        <option value="awaiting_pickup" {{ if eq .Status "awaiting_pickup" }}selected{{ end }}>Awaiting Pickup</option>
+                                        <option value="completed" {{ if eq .Status "completed" }}selected{{ end }}>Completed</option>
+                                        <option value="delivered" {{ if eq .Status "delivered" }}selected{{ end }}>Delivered</option>
+                                        <option value="picked_up" {{ if eq .Status "picked_up" }}selected{{ end }}>Picked Up</option>
+                                        <option value="canceled" {{ if eq .Status "canceled" }}selected{{ end }}>Canceled</option>
+                                        <option value="failed" {{ if eq .Status "failed" }}selected{{ end }}>Failed</option>
+                                        <option value="refunded" {{ if eq .Status "refunded" }}selected{{ end }}>Refunded</option>
+                                        <option value="partial_refunded" {{ if eq .Status "partial_refunded" }}selected{{ end }}>Partial Refunded</option>
+                                        <option value="closed" {{ if eq .Status "closed" }}selected{{ end }}>Closed</option>
+                                        <option value="fraud" {{ if eq .Status "fraud" }}selected{{ end }}>Fraud</option>
+                                        <option value="chargeback" {{ if eq .Status "chargeback" }}selected{{ end }}>Chargeback</option>
+                                        <option value="error" {{ if eq .Status "error" }}selected{{ end }}>Error</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr class="order-details-row bg-gray-50" id="order-details-{{ .ID }}" style="display: none;">
+                                <td colspan="5" class="px-6 py-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <h3 class="text-lg font-medium text-gray-900 mb-2">Order Information</h3>
+                                            <div class="space-y-2">
+                                                <p><span class="font-medium">Cart ID:</span> {{ .CartID }}</p>
+                                                <p><span class="font-medium">Email:</span> {{ if .CustomerEmail.Valid }}{{ .CustomerEmail.String }}{{ else }}N/A{{ end }}</p>
+                                                <p><span class="font-medium">Phone:</span> {{ if .CustomerPhone.Valid }}{{ .CustomerPhone.String }}{{ else }}N/A{{ end }}</p>
+                                                <p><span class="font-medium">Payment Method:</span> {{ if .PaymentMethod.Valid }}{{ .PaymentMethod.String }}{{ else }}N/A{{ end }}</p>
+                                                <p><span class="font-medium">Stripe Reference:</span> {{ if .StripeRef.Valid }}{{ .StripeRef.String }}{{ else }}N/A{{ end }}</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-lg font-medium text-gray-900 mb-2">Addresses</h3>
+                                            <div class="space-y-4">
+                                                <div>
+                                                    <h4 class="font-medium text-gray-700">Shipping Address</h4>
+                                                    <p class="text-gray-600">{{ if .ShippingAddress.Valid }}{{ .ShippingAddress.String }}{{ else }}N/A{{ end }}</p>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-medium text-gray-700">Billing Address</h4>
+                                                    <p class="text-gray-600">{{ if .BillingAddress.Valid }}{{ .BillingAddress.String }}{{ else }}N/A{{ end }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <script>
+                                document.getElementById('order-row-{{ .ID }}').addEventListener('click', function(e) {
+                                    // Don't toggle if clicked on buttons or select
+                                    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT' ||
+                                        e.target.closest('button') || e.target.closest('select')) {
+                                        return;
+                                    }
+
+                                    const detailsRow = document.getElementById('order-details-{{ .ID }}');
+                                    if (detailsRow.style.display === 'none') {
+                                        detailsRow.style.display = 'table-row';
+                                    } else {
+                                        detailsRow.style.display = 'none';
+                                    }
+                                });
+                            </script>
+                            {{ end }}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modals-here" class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+        </div>
+
+
+    }
+}
+

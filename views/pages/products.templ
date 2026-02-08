@@ -1,0 +1,16 @@
+package pages
+
+temple Products() {
+ @base(){
+        <div class="container my-4 mx-auto px-4">
+        <h2 class="text-3xl font-bold mb-4">{{ .Heading }}</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+            {{ range .Products }}
+                {{ template "product-card" . }}
+            {{ end }}
+        </div>
+    </div>  
+
+  }
+}
+
