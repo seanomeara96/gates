@@ -8,16 +8,11 @@ package pages
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/seanomeara96/gates/views/partials"
-import "github.com/seanomeara96/gates/models"
-
-type ProductsPageProps struct {
+type AdminLoginPageProps struct {
 	BaseProps BaseProps
-	Products  []models.Product
-	Heading   string
 }
 
-func Products(props ProductsPageProps) templ.Component {
+func AdminLogin(props AdminLoginPageProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -50,30 +45,7 @@ func Products(props ProductsPageProps) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"container my-4 mx-auto px-4\"><h2 class=\"text-3xl font-bold mb-4\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(props.Heading)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `views/pages/products.templ`, Line: 16, Col: 59}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h2><div style=\"display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			for _, product := range props.Products {
-				templ_7745c5c3_Err = partials.ProductCard(product).Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<form method=\"POST\" action=\"/admin/login\" class=\"max-w-md mx-auto mt-12 bg-white p-6 rounded-xl shadow-md space-y-6\"><h2 class=\"text-2xl font-semibold text-center text-gray-800\">Admin Login</h2><div><label for=\"user_id\" class=\"block text-sm font-medium text-gray-700 mb-1\">User ID</label> <input type=\"text\" name=\"user_id\" id=\"user_id\" class=\"w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#A28868] focus:border-transparent\" required></div><div><label for=\"password\" class=\"block text-sm font-medium text-gray-700 mb-1\">Password</label> <input type=\"password\" name=\"password\" id=\"password\" class=\"w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#A28868] focus:border-transparent\" required></div><div><button type=\"submit\" class=\"w-full bg-[#A28868] text-white py-2 px-4 rounded-md font-semibold hover:bg-[#8f7859] transition-colors\">Log In</button></div></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

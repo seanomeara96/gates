@@ -61,6 +61,14 @@ func TestRender(t *testing.T) {
 			props := DashboardPageProps{}
 			return Dashboard(props)
 		},
+		func() templ.Component {
+			props := AdminLoginPageProps{}
+			return AdminLogin(props)
+		},
+		func() templ.Component {
+			props := AdminPageProps{}
+			return Admin(props)
+		},
 	}
 
 	for _, test := range tests {
