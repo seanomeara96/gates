@@ -23,6 +23,7 @@ import (
 	"github.com/seanomeara96/gates/repos"
 	"github.com/seanomeara96/gates/repos/cache"
 	"github.com/seanomeara96/gates/repos/sqlite"
+	"github.com/seanomeara96/gates/views/pages"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/checkout/session"
 	"github.com/stripe/stripe-go/v82/webhook"
@@ -42,7 +43,7 @@ type Handler struct {
 	cookieStore  *sessions.CookieStore
 	emailRegex   *regexp.Regexp
 	rndr         *render.Render
-	useTempl bool
+	useTempl     bool
 }
 
 type CustomHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
@@ -258,6 +259,15 @@ func (h *Handler) AdminLoginPage(cart *models.Cart, w http.ResponseWriter, r *ht
 		return nil
 	}
 
+	if h.cfg.UseTempl {
+		props := pages.AdminLoginPageProps{
+			BaseProps: pages.BaseProps{
+				PageTitle:       "Admin Login Page",
+				MetaDescription: "Admin Login Page",
+			},
+		}
+		return pages.AdminLogin(props).Render(r.Context(), w)
+	}
 	data := map[string]any{
 		"PageTitle":       "Home Page",
 		"MetaDescription": "Welcome to the home page",
@@ -279,6 +289,18 @@ func (h *Handler) GetHomePage(cart *models.Cart, w http.ResponseWriter, r *http.
 		extensions, err := h.productCache.GetExtensions(repos.ProductFilterParams{Limit: 2, Type: models.ProductTypeExtension})
 		if err != nil {
 			return fmt.Errorf("home page: failed to get featured extensions: %w", err)
+		}
+
+		if h.cfg.UseTempl {
+			props := pages.HomeProps{
+				BaseProps: pages.BaseProps{
+					PageTitle:       "Welcome to Baby Safety Gates Ireland",
+					MetaDescription: "The best service for finding the exact size gate for your requirements.",
+				},
+				FeaturedGates:      featuredGates,
+				FeaturedExtensions: featuredExtensions,
+			}
+			return pages.Home(props).Render(r.Context(), w)
 		}
 
 		data := map[string]any{

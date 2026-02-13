@@ -31,7 +31,7 @@ type scannable interface {
 }
 
 // scanProductFromRow scans a single product row into a models.Product struct.
-func scanProductFromRow(row scannable) (*models.Product, error) {
+func scanProductFromRow(row scannable) (models.Product, error) {
 	var product models.Product
 	err := row.Scan(
 		&product.Id,
@@ -47,17 +47,17 @@ func scanProductFromRow(row scannable) (*models.Product, error) {
 	if err != nil {
 		// Specifically check for ErrNoRows and return it so callers can distinguish
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, sql.ErrNoRows
+			return models.Product{}, sql.ErrNoRows
 		}
 		// Wrap other errors for context
-		return nil, fmt.Errorf("could not scan product from row: %w", err)
+		return models.Product{}, fmt.Errorf("could not scan product from row: %w", err)
 	}
-	return &product, nil
+	return product, nil
 }
 
 // InsertProduct inserts a new product record into the database.
 // Assumes the input product object has been validated by the service layer.
-func (r *ProductRepo) InsertProduct(product *models.Product) (int, error) {
+func (r *ProductRepo) InsertProduct(product models.Product) (int, error) {
 	// Basic check for nil db pointer remains relevant
 	if r.db == nil {
 		return 0, errors.New("database connection is nil")
@@ -111,9 +111,9 @@ func (r *ProductRepo) GetProductPrice(id int) (float32, error) {
 
 // GetProductByName retrieves a product by its unique name.
 // Returns sql.ErrNoRows if no product with that name exists.
-func (r *ProductRepo) GetProductByName(name string) (*models.Product, error) {
+func (r *ProductRepo) GetProductByName(name string) (models.Product, error) {
 	if r.db == nil {
-		return nil, errors.New("database connection is nil")
+		return models.Product{}, errors.New("database connection is nil")
 	}
 	product, err := scanProductFromRow(
 		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products WHERE name = ?", name),
@@ -123,7 +123,7 @@ func (r *ProductRepo) GetProductByName(name string) (*models.Product, error) {
 }
 
 // GetProducts retrieves a list of products based on type and filter parameters.
-func (r *ProductRepo) GetProducts(params repos.ProductFilterParams) ([]*models.Product, error) {
+func (r *ProductRepo) GetProducts(params repos.ProductFilterParams) ([]models.Product, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -170,7 +170,7 @@ func (r *ProductRepo) GetProducts(params repos.ProductFilterParams) ([]*models.P
 	}
 	defer rows.Close()
 
-	var products []*models.Product
+	var products []models.Product
 	for rows.Next() {
 		product, err := scanProductFromRow(rows)
 		if err != nil {
@@ -228,7 +228,7 @@ func (r *ProductRepo) CountProducts(productType models.ProductType, params repos
 }
 
 // GetCompatibleExtensionsByGateID retrieves extensions compatible with a given gate ID.
-func (r *ProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]*models.Product, error) {
+func (r *ProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]models.Product, error) {
 	if r.db == nil {
 		return nil, errors.New("database connection is nil")
 	}
@@ -246,7 +246,7 @@ func (r *ProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]*models.Pro
 	}
 	defer rows.Close()
 
-	var extensions []*models.Product
+	var extensions []models.Product
 	for rows.Next() {
 		extension, err := scanProductFromRow(rows)
 		if err != nil {
@@ -262,7 +262,7 @@ func (r *ProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]*models.Pro
 
 // UpdateProductByID updates an existing product record.
 // Assumes the input product object has been validated by the service layer.
-func (r *ProductRepo) UpdateProductByID(productID int, product *models.Product) error {
+func (r *ProductRepo) UpdateProductByID(productID int, product models.Product) error {
 	if r.db == nil {
 		return errors.New("database connection is nil")
 	}
@@ -316,9 +316,9 @@ func (r *ProductRepo) DeleteProductByID(productID int) error {
 
 // GetProductByID retrieves a single product by its primary key ID.
 // Returns sql.ErrNoRows if no product with that ID exists.
-func (r *ProductRepo) GetProductByID(productID int) (*models.Product, error) {
+func (r *ProductRepo) GetProductByID(productID int) (models.Product, error) {
 	if r.db == nil {
-		return nil, errors.New("database connection is nil")
+		return models.Product{}, errors.New("database connection is nil")
 	}
 	product, err := scanProductFromRow(
 		r.db.QueryRow("SELECT id, type, name, width, price, img, color, tolerance, inventory_level FROM products WHERE id = ?", productID),
@@ -332,7 +332,7 @@ func (r *ProductRepo) GetProductByID(productID int) (*models.Product, error) {
 // arguably belong in the service or application layer, but kept here for now
 // as simple convenience wrappers based on previous code.
 
-func (r *ProductRepo) GetGates(params repos.ProductFilterParams) ([]*models.Product, error) {
+func (r *ProductRepo) GetGates(params repos.ProductFilterParams) ([]models.Product, error) {
 	params.Type = models.ProductTypeGate
 	gates, err := r.GetProducts(params)
 	if err != nil {
@@ -344,7 +344,7 @@ func (r *ProductRepo) GetGates(params repos.ProductFilterParams) ([]*models.Prod
 	return gates, nil
 }
 
-func (r *ProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*models.Product, error) {
+func (r *ProductRepo) GetExtensions(params repos.ProductFilterParams) ([]models.Product, error) {
 	params.Type = models.ProductTypeExtension
 	extensions, err := r.GetProducts(params)
 	if err != nil {
@@ -356,7 +356,7 @@ func (r *ProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*models
 	return extensions, nil
 }
 
-func (r *ProductRepo) GetBundles(params repos.ProductFilterParams) ([]*models.Product, error) {
+func (r *ProductRepo) GetBundles(params repos.ProductFilterParams) ([]models.Product, error) {
 	params.Type = models.ProductTypeBundle
 	// Bundles may not naturally have a single Qty=1 concept.
 	return r.GetProducts(params) // Error already wrapped

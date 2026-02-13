@@ -26,6 +26,7 @@ type Config struct {
 	JWTSecretKey         string      `mapstructure:"JWT_SECRET_KEY"`
 	StripeWebhookSecret  string      `mapstructure:"STRIPE_WEBHOOK_SECRET"`
 	StripeAPIKey         string      `mapstructure:"STRIPE_API_KEY"`
+	UseTempl             bool        `mapstructure:"USE_TEMPL"`
 }
 
 func Load() (*Config, error) {

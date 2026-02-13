@@ -40,7 +40,7 @@ func BuildPressureFitBundles(products *cache.CachedProductRepo, limit float32) (
 	return bundles, nil
 }
 
-func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*models.Product) (models.Bundle, error) {
+func BuildPressureFitBundle(limit float32, gate models.Product, extensions []models.Product) (models.Bundle, error) {
 	widthLimit := limit
 
 	var bundle = models.Bundle{}
@@ -57,7 +57,7 @@ func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*m
 		gate.Qty = 1
 	}
 
-	bundle.Components = append(bundle.Components, *gate)
+	bundle.Components = append(bundle.Components, gate)
 
 	widthLimit -= gate.Width
 
@@ -98,7 +98,7 @@ func BuildPressureFitBundle(limit float32, gate *models.Product, extensions []*m
 			widthLimit -= existingExtension.Width
 		} else {
 			extension.Qty = 1
-			bundle.Components = append(bundle.Components, *extension)
+			bundle.Components = append(bundle.Components, extension)
 			widthLimit -= extension.Width
 		}
 	}

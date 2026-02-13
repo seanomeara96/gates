@@ -33,7 +33,7 @@ func NewCachedProductRepo(productRepo *sqlite.ProductRepo) *CachedProductRepo {
 // --- Method Implementations ---
 
 // InsertProduct clears relevant caches and calls the underlying repository's InsertProduct.
-func (r *CachedProductRepo) InsertProduct(product *models.Product) (int, error) {
+func (r *CachedProductRepo) InsertProduct(product models.Product) (int, error) {
 	// Cache Invalidation: Flush is simple but potentially broad.
 	// More granular invalidation could delete specific keys related to 'product.Name', 'product.Type', etc.
 	// For now, Flush ensures correctness.
@@ -62,10 +62,10 @@ func (r *CachedProductRepo) GetProductPrice(id int) (float32, error) {
 }
 
 // GetProductByName checks cache first, otherwise fetches from underlying repo and caches the result.
-func (r *CachedProductRepo) GetProductByName(name string) (*models.Product, error) {
+func (r *CachedProductRepo) GetProductByName(name string) (models.Product, error) {
 	cacheKey := fmt.Sprintf("product_by_name_%s", name) // Consider case sensitivity if needed
 	if cachedProduct, found := r.cache.Get(cacheKey); found {
-		if product, ok := cachedProduct.(*models.Product); ok {
+		if product, ok := cachedProduct.(models.Product); ok {
 			return product, nil
 		}
 	}
@@ -73,11 +73,11 @@ func (r *CachedProductRepo) GetProductByName(name string) (*models.Product, erro
 	product, err := r.productRepo.GetProductByName(name)
 	if err != nil {
 		// Don't cache errors, especially sql.ErrNoRows
-		return nil, err
+		return models.Product{}, err
 	}
 
 	// Cache the found product (make sure product is not nil here)
-	if product != nil {
+	if product.Id != 0 {
 		r.cache.Set(cacheKey, product, cache.DefaultExpiration)
 	}
 	return product, nil
@@ -98,10 +98,10 @@ func generateProductListCacheKey(prefix string, params repos.ProductFilterParams
 }
 
 // GetProducts checks cache first based on *all* filter params, otherwise fetches and caches.
-func (r *CachedProductRepo) GetProducts(params repos.ProductFilterParams) ([]*models.Product, error) {
+func (r *CachedProductRepo) GetProducts(params repos.ProductFilterParams) ([]models.Product, error) {
 	cacheKey := generateProductListCacheKey("products", params)
 	if cachedProducts, found := r.cache.Get(cacheKey); found {
-		if products, ok := cachedProducts.([]*models.Product); ok {
+		if products, ok := cachedProducts.([]models.Product); ok {
 			return products, nil
 		}
 	}
@@ -139,10 +139,10 @@ func (r *CachedProductRepo) CountProducts(productType models.ProductType, params
 }
 
 // GetCompatibleExtensionsByGateID checks cache first, otherwise fetches and caches.
-func (r *CachedProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]*models.Product, error) {
+func (r *CachedProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]models.Product, error) {
 	cacheKey := fmt.Sprintf("compatible_extensions_%d", gateID)
 	if cachedExtensions, found := r.cache.Get(cacheKey); found {
-		if extensions, ok := cachedExtensions.([]*models.Product); ok {
+		if extensions, ok := cachedExtensions.([]models.Product); ok {
 			return extensions, nil
 		}
 	}
@@ -157,7 +157,7 @@ func (r *CachedProductRepo) GetCompatibleExtensionsByGateID(gateID int) ([]*mode
 }
 
 // UpdateProductByID flushes the cache and calls the underlying repository's UpdateProductByID.
-func (r *CachedProductRepo) UpdateProductByID(productID int, product *models.Product) error {
+func (r *CachedProductRepo) UpdateProductByID(productID int, product models.Product) error {
 	// Cache Invalidation: Flush is simple. Granular would involve deleting keys for:
 	// - product_by_id_...
 	// - product_by_name_... (if name changed)
@@ -177,10 +177,10 @@ func (r *CachedProductRepo) DeleteProductByID(productID int) error {
 }
 
 // GetProductByID checks cache first, otherwise fetches from underlying repo and caches the result.
-func (r *CachedProductRepo) GetProductByID(productID int) (*models.Product, error) {
+func (r *CachedProductRepo) GetProductByID(productID int) (models.Product, error) {
 	cacheKey := fmt.Sprintf("product_by_id_%d", productID)
 	if cachedProduct, found := r.cache.Get(cacheKey); found {
-		if product, ok := cachedProduct.(*models.Product); ok {
+		if product, ok := cachedProduct.(models.Product); ok {
 			return product, nil
 		}
 	}
@@ -188,10 +188,10 @@ func (r *CachedProductRepo) GetProductByID(productID int) (*models.Product, erro
 	product, err := r.productRepo.GetProductByID(productID)
 	if err != nil {
 		// Don't cache errors like sql.ErrNoRows
-		return nil, err
+		return models.Product{}, err
 	}
 
-	if product != nil {
+	if product.Id != 0 {
 		r.cache.Set(cacheKey, product, cache.DefaultExpiration)
 	}
 	return product, nil
@@ -200,11 +200,11 @@ func (r *CachedProductRepo) GetProductByID(productID int) (*models.Product, erro
 // --- Convenience Wrappers (GetGates, GetExtensions, GetBundles) ---
 // These now correctly generate cache keys based on the full ProductFilterParams
 
-func (r *CachedProductRepo) GetGates(params repos.ProductFilterParams) ([]*models.Product, error) {
+func (r *CachedProductRepo) GetGates(params repos.ProductFilterParams) ([]models.Product, error) {
 	params.Type = models.ProductTypeGate
 	cacheKey := generateProductListCacheKey("gates", params) // Use helper
 	if cachedGates, found := r.cache.Get(cacheKey); found {
-		if gates, ok := cachedGates.([]*models.Product); ok {
+		if gates, ok := cachedGates.([]models.Product); ok {
 			return gates, nil
 		}
 	}
@@ -218,11 +218,11 @@ func (r *CachedProductRepo) GetGates(params repos.ProductFilterParams) ([]*model
 	return gates, nil
 }
 
-func (r *CachedProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*models.Product, error) {
+func (r *CachedProductRepo) GetExtensions(params repos.ProductFilterParams) ([]models.Product, error) {
 	params.Type = models.ProductTypeExtension
 	cacheKey := generateProductListCacheKey("extensions", params) // Use helper
 	if cachedExtensions, found := r.cache.Get(cacheKey); found {
-		if extensions, ok := cachedExtensions.([]*models.Product); ok {
+		if extensions, ok := cachedExtensions.([]models.Product); ok {
 			return extensions, nil
 		}
 	}
@@ -236,11 +236,11 @@ func (r *CachedProductRepo) GetExtensions(params repos.ProductFilterParams) ([]*
 	return extensions, nil
 }
 
-func (r *CachedProductRepo) GetBundles(params repos.ProductFilterParams) ([]*models.Product, error) {
+func (r *CachedProductRepo) GetBundles(params repos.ProductFilterParams) ([]models.Product, error) {
 	params.Type = models.ProductTypeBundle
 	cacheKey := generateProductListCacheKey("bundles", params) // Use helper
 	if cachedBundles, found := r.cache.Get(cacheKey); found {
-		if bundles, ok := cachedBundles.([]*models.Product); ok {
+		if bundles, ok := cachedBundles.([]models.Product); ok {
 			return bundles, nil
 		}
 	}
