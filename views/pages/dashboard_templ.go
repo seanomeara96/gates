@@ -653,7 +653,7 @@ func Dashboard(props DashboardPageProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\" style=\"display: none;\"><td colspan=\"5\" class=\"px-6 py-4\"><!-- details content as before --></td></tr><script>\n\t\t\t\t\t\t\t\t\t\tconst row = document.getElementById({ templ.SafeJS(fmt.Sprintf(\"%q\", \"order-row-\"+order.ID)) });\n\t\t\t\t\t\t\t\t\t\tconst details = document.getElementById({ templ.SafeJS(fmt.Sprintf(\"%q\", \"order-details-\"+order.ID)) });\n\t\t\t\t\t\t\t\t\t\trow.addEventListener('click', (e) => {\n\t\t\t\t\t\t\t\t\t\t\tif (e.target.closest('button') || e.target.closest('select')) return;\n\t\t\t\t\t\t\t\t\t\t\tdetails.style.display = details.style.display === 'none' ? 'table-row' : 'none';\n\t\t\t\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\t\t\t</script>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\" style=\"display: none;\"><td colspan=\"5\" class=\"px-6 py-4\"><!-- details content as before --></td></tr><script>\r\n\t\t\t\t\t\t\t\t\t\tconst row = document.getElementById({ templ.SafeJS(fmt.Sprintf(\"%q\", \"order-row-\"+order.ID)) });\r\n\t\t\t\t\t\t\t\t\t\tconst details = document.getElementById({ templ.SafeJS(fmt.Sprintf(\"%q\", \"order-details-\"+order.ID)) });\r\n\t\t\t\t\t\t\t\t\t\trow.addEventListener('click', (e) => {\r\n\t\t\t\t\t\t\t\t\t\t\tif (e.target.closest('button') || e.target.closest('select')) return;\r\n\t\t\t\t\t\t\t\t\t\t\tdetails.style.display = details.style.display === 'none' ? 'table-row' : 'none';\r\n\t\t\t\t\t\t\t\t\t\t});\r\n\t\t\t\t\t\t\t\t\t</script>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

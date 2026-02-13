@@ -88,7 +88,7 @@ func Base(props BaseProps) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</head><style>\n\t\t\t@keyframes fadeIn {\n\t\t\t\t0% { opacity: 0; }\n\t\t\t\t100% { opacity: 1; }\n\t\t\t}\n\t\t\t.fade-in {\n\t\t\t\tanimation: fadeIn 0.5s ease-in-out;\n\t\t\t}\n\t\t</style><body class=\"min-h-screen flex flex-col\"><nav style=\"background-color: #A28868;\" class=\"py-4\"><div class=\"container mx-auto px-4\"><div class=\"flex justify-between items-center\"><a href=\"/\" class=\"text-white font-bold text-xl\">Baby Safety Gates Ireland</a><!-- Hamburger (mobile only) --><button id=\"menu-btn\" class=\"text-white md:hidden focus:outline-none\" type=\"button\" aria-label=\"Toggle menu\"><svg class=\"w-6 h-6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></button><!-- Desktop menu --><ul class=\"hidden md:flex gap-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</head><style>\r\n\t\t\t@keyframes fadeIn {\r\n\t\t\t\t0% { opacity: 0; }\r\n\t\t\t\t100% { opacity: 1; }\r\n\t\t\t}\r\n\t\t\t.fade-in {\r\n\t\t\t\tanimation: fadeIn 0.5s ease-in-out;\r\n\t\t\t}\r\n\t\t</style><body class=\"min-h-screen flex flex-col\"><nav style=\"background-color: #A28868;\" class=\"py-4\"><div class=\"container mx-auto px-4\"><div class=\"flex justify-between items-center\"><a href=\"/\" class=\"text-white font-bold text-xl\">Baby Safety Gates Ireland</a><!-- Hamburger (mobile only) --><button id=\"menu-btn\" class=\"text-white md:hidden focus:outline-none\" type=\"button\" aria-label=\"Toggle menu\"><svg class=\"w-6 h-6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></button><!-- Desktop menu --><ul class=\"hidden md:flex gap-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -160,7 +160,7 @@ func Base(props BaseProps) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</ul></div></nav><script>\n\t\t\t\tconst btn = document.getElementById('menu-btn');\n\t\t\t\tconst menu = document.getElementById('mobile-menu');\n\t\t\t\tif (btn && menu) {\n\t\t\t\t\tbtn.addEventListener('click', () => {\n\t\t\t\t\t\tmenu.classList.toggle('hidden');\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</ul></div></nav><script>\r\n\t\t\t\tconst btn = document.getElementById('menu-btn');\r\n\t\t\t\tconst menu = document.getElementById('mobile-menu');\r\n\t\t\t\tif (btn && menu) {\r\n\t\t\t\t\tbtn.addEventListener('click', () => {\r\n\t\t\t\t\t\tmenu.classList.toggle('hidden');\r\n\t\t\t\t\t});\r\n\t\t\t\t}\r\n\t\t\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

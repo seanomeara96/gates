@@ -42,6 +42,7 @@ type Handler struct {
 	cookieStore  *sessions.CookieStore
 	emailRegex   *regexp.Regexp
 	rndr         *render.Render
+	useTempl bool
 }
 
 type CustomHandleFunc func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error
