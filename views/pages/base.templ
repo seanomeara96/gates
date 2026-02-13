@@ -2,6 +2,7 @@ package pages
 
 import "github.com/seanomeara96/gates/models"
 import "github.com/seanomeara96/gates/views/partials"
+import "github.com/seanomeara96/gates/config"
 
 // ────────────────────────────────────────────────
 // Types (you can also put them in a separate types.go file)
@@ -15,9 +16,9 @@ type NavItem struct {
 type BaseProps struct {
 	PageTitle       string
 	MetaDescription string
-	Env             string
-	NavItems        []NavItem    
-	Cart            models.Cart           
+	Env             config.Environment
+	NavItems        []NavItem
+	Cart            models.Cart
 }
 
 // ────────────────────────────────────────────────

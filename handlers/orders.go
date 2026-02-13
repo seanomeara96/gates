@@ -8,19 +8,19 @@ import (
 	"github.com/seanomeara96/gates/models"
 )
 
-func (h *Handler) UpdateOrder(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) UpdateOrder(cart models.Cart, w http.ResponseWriter, r *http.Request) error {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		return err
+		return fmt.Errorf("parse order id from path: %w", err)
 	}
 	order, err := h.orderRepo.GetOrderByID(id)
 	if err != nil {
-		return err
+		return fmt.Errorf("get order by id %d: %w", id, err)
 	}
 
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
-		return err
+		return fmt.Errorf("parse form for order update (id %d): %w", id, err)
 	}
 
 	// Update order fields from form data
@@ -68,26 +68,32 @@ func (h *Handler) UpdateOrder(cart *models.Cart, w http.ResponseWriter, r *http.
 		order.SessionID.Valid = true
 	}
 
-	return h.orderRepo.UpdateOrder(order)
+	if err := h.orderRepo.UpdateOrder(order); err != nil {
+		return fmt.Errorf("update order (id %d): %w", id, err)
+	}
+	return nil
 }
 
-func (h *Handler) UpdateOrderStatus(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) UpdateOrderStatus(cart models.Cart, w http.ResponseWriter, r *http.Request) error {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		return err
+		return fmt.Errorf("parse order id from path: %w", err)
 	}
 
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
-		return err
+		return fmt.Errorf("parse form for order status update (id %d): %w", id, err)
 	}
 
 	// Get status from form
 	status := r.FormValue("status")
 	if status == "" {
-		return fmt.Errorf("status is required")
+		return fmt.Errorf("status is required (order id %d)", id)
 	}
 
 	// Update order status
-	return h.orderRepo.UpdateStatus(id, models.OrderStatus(status))
+	if err := h.orderRepo.UpdateStatus(id, models.OrderStatus(status)); err != nil {
+		return fmt.Errorf("update order status (id %d): %w", id, err)
+	}
+	return nil
 }

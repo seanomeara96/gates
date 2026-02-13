@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -11,6 +10,7 @@ import (
 	"github.com/seanomeara96/gates/models"
 	"github.com/seanomeara96/gates/repos"
 	"github.com/seanomeara96/gates/repos/cache"
+	"github.com/seanomeara96/gates/views/partials"
 )
 
 func BuildPressureFitBundles(products *cache.CachedProductRepo, limit float32) ([]models.Bundle, error) {
@@ -18,7 +18,7 @@ func BuildPressureFitBundles(products *cache.CachedProductRepo, limit float32) (
 
 	gates, err := products.GetProducts(repos.ProductFilterParams{MaxWidth: limit, Type: models.ProductTypeGate})
 	if err != nil {
-		return bundles, err
+		return bundles, fmt.Errorf("build pressure fit bundles: failed to get gates (maxWidth=%v): %w", limit, err)
 	}
 	if len(gates) < 1 {
 		return bundles, nil
@@ -27,12 +27,12 @@ func BuildPressureFitBundles(products *cache.CachedProductRepo, limit float32) (
 	for _, gate := range gates {
 		compatibleExtensions, err := products.GetCompatibleExtensionsByGateID(gate.Id)
 		if err != nil {
-			return bundles, err
+			return bundles, fmt.Errorf("build pressure fit bundles: failed to get compatible extensions (gateId=%d): %w", gate.Id, err)
 		}
 
 		bundle, err := BuildPressureFitBundle(limit, gate, compatibleExtensions)
 		if err != nil {
-			return bundles, err
+			return bundles, fmt.Errorf("build pressure fit bundles: failed to build bundle (limit=%v, gateId=%d): %w", limit, gate.Id, err)
 		}
 		bundles = append(bundles, bundle)
 	}
@@ -50,7 +50,7 @@ func BuildPressureFitBundle(limit float32, gate models.Product, extensions []mod
 
 	//  add gate to the bundle. Ensure Qty is at least 1
 	if gate.Width > widthLimit {
-		return bundle, errors.New("gate too big")
+		return bundle, fmt.Errorf("build pressure fit bundle: gate too big (gateId=%d, gateWidth=%v, limit=%v): %w", gate.Id, gate.Width, widthLimit, fmt.Errorf("gate too big"))
 	}
 
 	if gate.Qty < 1 {
@@ -109,12 +109,12 @@ func BuildPressureFitBundle(limit float32, gate models.Product, extensions []mod
 func SaveRequestedBundleSize(db *sql.DB, desiredWidth float32) error {
 	_, err := db.Exec("INSERT INTO bundle_sizes (type, size) VALUES ('pressure fit', ?)", desiredWidth)
 	if err != nil {
-		return err
+		return fmt.Errorf("save requested bundle size: insert bundle_sizes failed (type=%q, size=%v): %w", "pressure fit", desiredWidth, err)
 	}
 	return nil
 }
 
-func (h *Handler) BuildBundle(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) BuildBundle(cart models.Cart, w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
 		return fmt.Errorf("build endpoint: failed to parse form: %w", err)
 	}
@@ -141,6 +141,15 @@ func (h *Handler) BuildBundle(cart *models.Cart, w http.ResponseWriter, r *http.
 	bundles, err := BuildPressureFitBundles(h.productCache, float32(desiredWidth))
 	if err != nil {
 		return fmt.Errorf("build endpoint: failed to build pressure fit bundles: %w", err)
+	}
+
+	if h.cfg.UseTempl {
+		props := partials.BuildResultsProps{
+			RequestedBundleSize: (desiredWidth),
+			Bundles:             bundles,
+			// /	Env:                 h.cfg.Mode,
+		}
+		return partials.BuildResults(props).Render(r.Context(), w)
 	}
 
 	data := map[string]any{

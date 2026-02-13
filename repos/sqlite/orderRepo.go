@@ -66,15 +66,14 @@ func NewOrderRepo(db *sql.DB) *OrderRepo {
 }
 
 // Create operations
-func (r *OrderRepo) New(cart *models.Cart) (int, error) {
-	if cart == nil {
-		return 0, errors.New("cart cannot be nil")
+func (r *OrderRepo) New(cart models.Cart) (int, error) {
+	if cart.ID == "" {
+		return 0, errors.New("new order: cart ID cannot be empty")
 	}
 
 	tx, err := r.db.Begin()
 	if err != nil {
-		tx.Rollback()
-		return 0, err
+		return 0, fmt.Errorf("new order: begin transaction (cart_id=%s): %w", cart.ID, err)
 	}
 
 	// Default status to pending payment
@@ -82,61 +81,75 @@ func (r *OrderRepo) New(cart *models.Cart) (int, error) {
 
 	res, err := tx.Exec(`INSERT INTO orders(cart_id, status) VALUES(?, ?)`, cart.ID, defaultStatus)
 	if err != nil {
-		tx.Rollback()
-		return 0, err
+		_ = tx.Rollback()
+		return 0, fmt.Errorf("new order: insert into orders (cart_id=%s, status=%s): %w", cart.ID, defaultStatus, err)
 	}
 
 	_id, err := res.LastInsertId()
 	if err != nil {
-		tx.Rollback()
-		return 0, err
+		_ = tx.Rollback()
+		return 0, fmt.Errorf("new order: get last insert id (cart_id=%s): %w", cart.ID, err)
 	}
 
 	id := int(_id)
 
-	for _, item := range cart.Items {
+	for idx, item := range cart.Items {
 		if err := r.InsertItem(tx, id, item); err != nil {
-			tx.Rollback()
-			return 0, err
+			_ = tx.Rollback()
+			return 0, fmt.Errorf("new order: insert item (order_id=%d, item_index=%d, item_name=%q): %w", id, idx, item.Name, err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		tx.Rollback()
-		return 0, err
+		_ = tx.Rollback()
+		return 0, fmt.Errorf("new order: commit transaction (order_id=%d, cart_id=%s): %w", id, cart.ID, err)
 	}
 
 	return id, nil
 }
 
 func (r *OrderRepo) InsertItem(tx *sql.Tx, orderID int, item models.CartItem) error {
+	if tx == nil {
+		return errors.New("insert item: transaction cannot be nil")
+	}
+
 	res, err := tx.Exec(`INSERT INTO order_items(order_id, item_name, item_quantity) VALUES (?,?,?)`, orderID, item.Name, item.Qty)
 	if err != nil {
-		return err
+		return fmt.Errorf("insert item: insert into order_items (order_id=%d, item_name=%q, item_qty=%d): %w", orderID, item.Name, item.Qty, err)
 	}
 
 	_id, err := res.LastInsertId()
 	if err != nil {
-		return err
+		return fmt.Errorf("insert item: get last insert id (order_id=%d, item_name=%q): %w", orderID, item.Name, err)
 	}
 
 	id := int(_id)
 
-	for _, component := range item.Components {
+	for idx, component := range item.Components {
 		if err := r.InsertComponent(tx, orderID, id, component); err != nil {
-			return err
+			return fmt.Errorf(
+				"insert item: insert component (order_id=%d, order_item_id=%d, component_index=%d, product_id=%d): %w",
+				orderID, id, idx, component.Product.Id, err,
+			)
 		}
 	}
 	return nil
 }
 
 func (r *OrderRepo) InsertComponent(tx *sql.Tx, orderID int, orderItemID int, component models.CartItemComponent) error {
+	if tx == nil {
+		return errors.New("insert component: transaction cannot be nil")
+	}
+
 	_, err := tx.Exec(
 		`INSERT INTO order_item_components(order_id, order_item_id, product_id, product_name, product_price, product_qty) VALUES (?,?,?,?,?,?)`,
 		orderID, orderItemID, component.Product.Id, component.Product.Name, component.Product.Price, component.Qty,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf(
+			"insert component: insert into order_item_components (order_id=%d, order_item_id=%d, product_id=%d, product_name=%q, product_qty=%d): %w",
+			orderID, orderItemID, component.Product.Id, component.Product.Name, component.Qty, err,
+		)
 	}
 	return nil
 }
@@ -149,7 +162,7 @@ func (r *OrderRepo) GetOrders(params repos.GetOrdersParams) ([]models.Order, err
 
 	rows, err := r.db.Query(query, params.Limit, params.Offset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query orders table: %w", err)
+		return nil, fmt.Errorf("get orders: query orders (limit=%d, offset=%d): %w", params.Limit, params.Offset, err)
 	}
 	defer rows.Close()
 
@@ -162,13 +175,13 @@ func (r *OrderRepo) GetOrders(params repos.GetOrdersParams) ([]models.Order, err
 			&o.CreatedAt, &o.StripeRef,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan order to struct: %w", err)
+			return nil, fmt.Errorf("get orders: scan order row: %w", err)
 		}
 		orders = append(orders, o)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating order rows: %w", err)
+		return nil, fmt.Errorf("get orders: iterate order rows: %w", err)
 	}
 
 	return orders, nil
@@ -190,9 +203,9 @@ func (r *OrderRepo) GetOrderByID(id int) (*models.Order, error) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("order not found with id %d", id)
+			return nil, fmt.Errorf("get order by id: order not found (id=%d)", id)
 		}
-		return nil, fmt.Errorf("failed to scan order to struct: %w", err)
+		return nil, fmt.Errorf("get order by id: scan order row (id=%d): %w", id, err)
 	}
 
 	return &o, nil
@@ -203,7 +216,7 @@ func (r *OrderRepo) GetOrderItems(orderID int) ([]models.CartItem, error) {
 
 	rows, err := r.db.Query(query, orderID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query order items: %w", err)
+		return nil, fmt.Errorf("get order items: query order_items (order_id=%d): %w", orderID, err)
 	}
 	defer rows.Close()
 
@@ -213,13 +226,13 @@ func (r *OrderRepo) GetOrderItems(orderID int) ([]models.CartItem, error) {
 		var itemID int
 
 		if err := rows.Scan(&itemID, &item.Name, &item.Qty); err != nil {
-			return nil, fmt.Errorf("failed to scan order item: %w", err)
+			return nil, fmt.Errorf("get order items: scan order item row (order_id=%d): %w", orderID, err)
 		}
 
 		// Get components for this item
 		components, err := r.GetOrderItemComponents(orderID, itemID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get order items: get components (order_id=%d, order_item_id=%d): %w", orderID, itemID, err)
 		}
 
 		item.Components = components
@@ -227,7 +240,7 @@ func (r *OrderRepo) GetOrderItems(orderID int) ([]models.CartItem, error) {
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating order item rows: %w", err)
+		return nil, fmt.Errorf("get order items: iterate order item rows (order_id=%d): %w", orderID, err)
 	}
 
 	return items, nil
@@ -240,7 +253,7 @@ func (r *OrderRepo) GetOrderItemComponents(orderID, itemID int) ([]models.CartIt
 
 	rows, err := r.db.Query(query, orderID, itemID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query order item components: %w", err)
+		return nil, fmt.Errorf("get order item components: query order_item_components (order_id=%d, order_item_id=%d): %w", orderID, itemID, err)
 	}
 	defer rows.Close()
 
@@ -252,7 +265,7 @@ func (r *OrderRepo) GetOrderItemComponents(orderID, itemID int) ([]models.CartIt
 		var productPrice float32
 
 		if err := rows.Scan(&productID, &productName, &productPrice, &component.Qty); err != nil {
-			return nil, fmt.Errorf("failed to scan order item component: %w", err)
+			return nil, fmt.Errorf("get order item components: scan component row (order_id=%d, order_item_id=%d): %w", orderID, itemID, err)
 		}
 
 		// Create product for this component
@@ -266,7 +279,7 @@ func (r *OrderRepo) GetOrderItemComponents(orderID, itemID int) ([]models.CartIt
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating component rows: %w", err)
+		return nil, fmt.Errorf("get order item components: iterate component rows (order_id=%d, order_item_id=%d): %w", orderID, itemID, err)
 	}
 
 	return components, nil
@@ -276,12 +289,12 @@ func (r *OrderRepo) GetOrderItemComponents(orderID, itemID int) ([]models.CartIt
 func (r *OrderRepo) UpdateStatus(orderID int, status models.OrderStatus) error {
 	// Validate the status before updating
 	if err := status.Validate(); err != nil {
-		return err
+		return fmt.Errorf("update order status: invalid status (order_id=%d, status=%q): %w", orderID, status, err)
 	}
 
 	_, err := r.db.Exec("UPDATE orders SET status = ? WHERE id = ?", status, orderID)
 	if err != nil {
-		return fmt.Errorf("failed to update order status: %w", err)
+		return fmt.Errorf("update order status: exec update (order_id=%d, status=%s): %w", orderID, status, err)
 	}
 	return nil
 }
@@ -304,19 +317,19 @@ func (r *OrderRepo) UpdateCustomerDetails(orderID int, details CustomerDetails) 
 		details.PaymentMethod,
 		orderID)
 	if err != nil {
-		return fmt.Errorf("failed to update customer details: %w", err)
+		return fmt.Errorf("update customer details: exec update (order_id=%d, customer_email=%q): %w", orderID, details.Email, err)
 	}
 	return nil
 }
 
 func (r *OrderRepo) UpdateOrder(order *models.Order) error {
 	if order == nil {
-		return errors.New("order cannot be nil")
+		return errors.New("update order: order cannot be nil")
 	}
 
 	// Validate the status before updating
 	if err := order.Status.Validate(); err != nil {
-		return err
+		return fmt.Errorf("update order: invalid status (order_id=%d, status=%q): %w", order.ID, order.Status, err)
 	}
 
 	_, err := r.db.Exec(`
@@ -345,7 +358,7 @@ func (r *OrderRepo) UpdateOrder(order *models.Order) error {
 		order.ID)
 
 	if err != nil {
-		return fmt.Errorf("failed to update order: %w", err)
+		return fmt.Errorf("update order: exec update (order_id=%d, cart_id=%s): %w", order.ID, order.CartID, err)
 	}
 
 	return nil
@@ -354,7 +367,7 @@ func (r *OrderRepo) UpdateOrder(order *models.Order) error {
 func (r *OrderRepo) UpdateStripeRef(orderID int, stripeRef string) error {
 	_, err := r.db.Exec("UPDATE orders SET stripe_ref = ? WHERE id = ?", stripeRef, orderID)
 	if err != nil {
-		return fmt.Errorf("failed to update stripe reference: %w", err)
+		return fmt.Errorf("update stripe reference: exec update (order_id=%d, stripe_ref=%q): %w", orderID, stripeRef, err)
 	}
 	return nil
 }
@@ -362,7 +375,7 @@ func (r *OrderRepo) UpdateStripeRef(orderID int, stripeRef string) error {
 func (r *OrderRepo) UpdateSessionID(orderID int, sessionID string) error {
 	_, err := r.db.Exec("UPDATE orders SET session_id = ? WHERE id = ?", sessionID, orderID)
 	if err != nil {
-		return fmt.Errorf("failed to update session ID: %w", err)
+		return fmt.Errorf("update session ID: exec update (order_id=%d, session_id=%q): %w", orderID, sessionID, err)
 	}
 	return nil
 }
@@ -371,33 +384,33 @@ func (r *OrderRepo) UpdateSessionID(orderID int, sessionID string) error {
 func (r *OrderRepo) DeleteOrder(orderID int) error {
 	tx, err := r.db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("delete order: begin transaction (order_id=%d): %w", orderID, err)
 	}
 
 	// First delete from components (child)
 	_, err = tx.Exec("DELETE FROM order_item_components WHERE order_id = ?", orderID)
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete order components: %w", err)
+		_ = tx.Rollback()
+		return fmt.Errorf("delete order: delete order_item_components (order_id=%d): %w", orderID, err)
 	}
 
 	// Then delete from items (middle)
 	_, err = tx.Exec("DELETE FROM order_items WHERE order_id = ?", orderID)
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete order items: %w", err)
+		_ = tx.Rollback()
+		return fmt.Errorf("delete order: delete order_items (order_id=%d): %w", orderID, err)
 	}
 
 	// Finally delete the order itself (parent)
 	_, err = tx.Exec("DELETE FROM orders WHERE id = ?", orderID)
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete order: %w", err)
+		_ = tx.Rollback()
+		return fmt.Errorf("delete order: delete orders row (order_id=%d): %w", orderID, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		_ = tx.Rollback()
+		return fmt.Errorf("delete order: commit transaction (order_id=%d): %w", orderID, err)
 	}
 
 	return nil
@@ -406,26 +419,26 @@ func (r *OrderRepo) DeleteOrder(orderID int) error {
 func (r *OrderRepo) DeleteOrderItem(orderID, itemID int) error {
 	tx, err := r.db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return fmt.Errorf("delete order item: begin transaction (order_id=%d, item_id=%d): %w", orderID, itemID, err)
 	}
 
 	// First delete from components (child)
 	_, err = tx.Exec("DELETE FROM order_item_components WHERE order_id = ? AND order_item_id = ?", orderID, itemID)
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete order item components: %w", err)
+		_ = tx.Rollback()
+		return fmt.Errorf("delete order item: delete order_item_components (order_id=%d, item_id=%d): %w", orderID, itemID, err)
 	}
 
 	// Then delete the item itself (parent)
 	_, err = tx.Exec("DELETE FROM order_items WHERE order_id = ? AND id = ?", orderID, itemID)
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete order item: %w", err)
+		_ = tx.Rollback()
+		return fmt.Errorf("delete order item: delete order_items row (order_id=%d, item_id=%d): %w", orderID, itemID, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		_ = tx.Rollback()
+		return fmt.Errorf("delete order item: commit transaction (order_id=%d, item_id=%d): %w", orderID, itemID, err)
 	}
 
 	return nil

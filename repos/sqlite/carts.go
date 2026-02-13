@@ -8,16 +8,12 @@ import (
 	"github.com/seanomeara96/gates/models"
 )
 
-type productRepo interface {
-	GetProductByID(id int) (*models.Product, error)
-}
-
 type CartRepo struct {
 	db          *sql.DB
-	productRepo productRepo
+	productRepo *ProductRepo
 }
 
-func NewCartRepo(db *sql.DB, productRepo productRepo) *CartRepo {
+func NewCartRepo(db *sql.DB, productRepo *ProductRepo) *CartRepo {
 	if db == nil {
 		// Consider panic or returning an error if a nil db is critical
 		panic("database connection is nil for CartRepo")
@@ -55,25 +51,25 @@ func (r *CartRepo) CartExists(id string) (bool, error) {
 	return count > 0, nil
 }
 
-func (r *CartRepo) GetCartByID(id string) (*models.Cart, bool, error) {
+func (r *CartRepo) GetCartByID(id string) (models.Cart, bool, error) {
 	cart, found, err := r.selectCart(id)
 	if err != nil {
-		return nil, found, fmt.Errorf("failed to select cart with ID %s: %v", id, err)
+		return models.Cart{}, found, fmt.Errorf("failed to select cart with ID %s: %v", id, err)
 	}
 
 	if !found {
-		return nil, found, nil
+		return models.Cart{}, found, nil
 	}
 
 	if cart.Items, err = r.selectCartItems(cart.ID); err != nil {
-		return nil, found, fmt.Errorf("failed to select items for cart %s: %v", cart.ID, err)
+		return models.Cart{}, found, fmt.Errorf("failed to select items for cart %s: %v", cart.ID, err)
 	}
 	for i := range cart.Items {
 		if cart.Items[i].Components, err = r.selectCartItemComponents(
 			cart.ID,
 			cart.Items[i].ID,
 		); err != nil {
-			return nil, found, fmt.Errorf("failed to select components for cart item %s: %v", cart.Items[i].ID, err)
+			return models.Cart{}, found, fmt.Errorf("failed to select components for cart item %s: %v", cart.Items[i].ID, err)
 		}
 		cart.Items[i].SetName()
 		cart.Items[i].SetPrice()
@@ -81,7 +77,7 @@ func (r *CartRepo) GetCartByID(id string) (*models.Cart, bool, error) {
 
 	cart.SetTotalValue()
 
-	return &cart, found, nil
+	return cart, found, nil
 }
 
 func (r *CartRepo) selectCart(id string) (models.Cart, bool, error) {
@@ -207,7 +203,7 @@ func (r *CartRepo) selectCartItemComponents(cartID, cartItemID string) ([]models
 			return nil, fmt.Errorf("failed to get product (ID: %d) for cart component: %v", component.Product.Id, err)
 		}
 		product.Qty = component.Product.Qty
-		component.Product = *product
+		component.Product = product
 		components = append(components, component)
 	}
 	return components, nil

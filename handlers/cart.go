@@ -7,9 +7,23 @@ import (
 
 	"github.com/gorilla/sessions"
 	"github.com/seanomeara96/gates/models"
+	"github.com/seanomeara96/gates/views/pages"
 )
 
-func (h *Handler) GetCartPage(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) GetCartPage(cart models.Cart, w http.ResponseWriter, r *http.Request) error {
+
+	if h.cfg.UseTempl {
+		props := pages.CartPageProps{
+			BaseProps: pages.BaseProps{
+				PageTitle: "Cart Page",
+				Env:       h.cfg.Mode,
+				Cart:      cart,
+			},
+			Cart: cart,
+		}
+		return pages.Cart(props).Render(r.Context(), w)
+	}
+
 	data := map[string]any{
 		"PageTitle":       "Your shopping cart",
 		"MetaDescription": "",
@@ -17,9 +31,12 @@ func (h *Handler) GetCartPage(cart *models.Cart, w http.ResponseWriter, r *http.
 		"Env":             h.cfg.Mode,
 	}
 
-	return h.rndr.Page(w, "cart", data)
+	if err := h.rndr.Page(w, "cart", data); err != nil {
+		return fmt.Errorf("get cart page: render page (cart): %w", err)
+	}
+	return nil
 }
-func (h *Handler) AdjustCartItemQty(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) AdjustCartItemQty(cart models.Cart, w http.ResponseWriter, r *http.Request) error {
 
 	mode := r.PathValue("mode")
 
@@ -28,22 +45,22 @@ func (h *Handler) AdjustCartItemQty(cart *models.Cart, w http.ResponseWriter, r 
 	}
 
 	if err := r.ParseForm(); err != nil {
-		return fmt.Errorf("cart item update: failed to parse form: %w", err)
+		return fmt.Errorf("cart item update: parse form: %w", err)
 	}
 
 	cartItemID := r.Form.Get("cart_item_id")
 	if cartItemID == "" {
-		return fmt.Errorf("cart item update: cart_item_id is blank")
+		return fmt.Errorf("cart item update: cart_item_id is blank (cart_id=%s, mode=%s)", cart.ID, mode)
 	}
 
 	cartItem, err := h.cartRepo.SelectCartItem(cart.ID, cartItemID)
 	if err != nil {
-		return fmt.Errorf("cart item update: failed to select cart item: %w", err)
+		return fmt.Errorf("cart item update: select cart item (cart_id=%s, cart_item_id=%s): %w", cart.ID, cartItemID, err)
 	}
 
 	if mode == "increment" {
 		if err := h.cartRepo.IncrementCartItem(cart.ID, cartItem.ID); err != nil {
-			return fmt.Errorf("cart item update: failed to increment cart item: %w", err)
+			return fmt.Errorf("cart item update: increment cart item (cart_id=%s, cart_item_id=%s): %w", cart.ID, cartItem.ID, err)
 		}
 	} else {
 		if cartItem.Qty < 2 {
@@ -51,27 +68,30 @@ func (h *Handler) AdjustCartItemQty(cart *models.Cart, w http.ResponseWriter, r 
 			return nil
 		}
 		if err := h.cartRepo.DecrementCartItem(cart.ID, cartItem.ID); err != nil {
-			return fmt.Errorf("cart item update: failed to decrement cart item: %w", err)
+			return fmt.Errorf("cart item update: decrement cart item (cart_id=%s, cart_item_id=%s): %w", cart.ID, cartItem.ID, err)
 		}
 	}
 
 	cart, found, err := h.cartRepo.GetCartByID(cart.ID)
-	if err != nil || !found {
-		return fmt.Errorf("cart item update: failed to retrieve updated cart: %w", err)
+	if err != nil {
+		return fmt.Errorf("cart item update: retrieve updated cart (cart_id=%s): %w", cart.ID, err)
+	}
+	if !found {
+		return fmt.Errorf("cart item update: retrieve updated cart (cart_id=%s): not found", cart.ID)
 	}
 	if err := h.rndr.Partial(w, "cart-main", cart); err != nil {
-		return fmt.Errorf("cart item update: failed to render partial (cart-main): %w", err)
+		return fmt.Errorf("cart item update: render partial (cart-main) (cart_id=%s): %w", cart.ID, err)
 	}
 	if err := h.rndr.Partial(w, "cart-modal-oob", cart); err != nil {
-		return fmt.Errorf("cart item update: failed to render partial (cart-modal-oob): %w", err)
+		return fmt.Errorf("cart item update: render partial (cart-modal-oob) (cart_id=%s): %w", cart.ID, err)
 	}
 
 	return nil
 }
 
-func (h *Handler) RemoveItemFromCart(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) RemoveItemFromCart(cart models.Cart, w http.ResponseWriter, r *http.Request) error {
 	if err := r.ParseForm(); err != nil {
-		return fmt.Errorf("cart item remove: failed to parse form: %w", err)
+		return fmt.Errorf("cart item remove: parse form: %w", err)
 	}
 
 	cartItemID := r.Form.Get("cart_item_id")
@@ -80,86 +100,92 @@ func (h *Handler) RemoveItemFromCart(cart *models.Cart, w http.ResponseWriter, r
 	}
 
 	if _, err := h.db.Exec(`DELETE FROM cart_item WHERE id = ? AND cart_id = ?`, cartItemID, cart.ID); err != nil {
-		return fmt.Errorf("cart item remove: failed to delete cart item: %w", err)
+		return fmt.Errorf("cart item remove: delete cart item (cart_id=%s, cart_item_id=%s): %w", cart.ID, cartItemID, err)
 	}
 
 	cart, found, err := h.cartRepo.GetCartByID(cart.ID)
-	if err != nil || !found {
-		return fmt.Errorf("cart item remove: failed to retrieve updated cart: %w", err)
+	if err != nil {
+		return fmt.Errorf("cart item remove: retrieve updated cart (cart_id=%s): %w", cart.ID, err)
+	}
+	if !found {
+		return fmt.Errorf("cart item remove: retrieve updated cart (cart_id=%s): not found", cart.ID)
 	}
 
 	if err := h.rndr.Partial(w, "cart-main", cart); err != nil {
-		return fmt.Errorf("cart item delete: failed to render partial (cart-main): %w", err)
+		return fmt.Errorf("cart item delete: render partial (cart-main) (cart_id=%s): %w", cart.ID, err)
 	}
 
 	if err := h.rndr.Partial(w, "cart-modal-oob", cart); err != nil {
-		return fmt.Errorf("cart item delete: failed to render partial (cart-modal-oob): %w", err)
+		return fmt.Errorf("cart item delete: render partial (cart-modal-oob) (cart_id=%s): %w", cart.ID, err)
 	}
 
 	return nil
 }
 
-func (h *Handler) ClearItemsFromCart(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+func (h *Handler) ClearItemsFromCart(cart models.Cart, w http.ResponseWriter, r *http.Request) error {
 
 	tx, err := h.db.Begin()
 	if err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			return rbErr
+			return fmt.Errorf("cart clear: rollback after begin failure (cart_id=%s): %w", cart.ID, rbErr)
 		}
-		return err
+		return fmt.Errorf("cart clear: begin transaction (cart_id=%s): %w", cart.ID, err)
 	}
 
 	if _, err := tx.Exec(`DELETE FROM cart_item WHERE cart_id = ?`, cart.ID); err != nil {
-		return fmt.Errorf("cart clear: could not delete cart_item for cart_id %s: %w", cart.ID, err)
+		return fmt.Errorf("cart clear: delete cart_item (cart_id=%s): %w", cart.ID, err)
 	}
 
 	if _, err := tx.Exec("DELETE FROM cart_item_component WHERE cart_id = ?", cart.ID); err != nil {
-		return fmt.Errorf("cart clear: could not delete cart_item_component for cart_id %s: %w", cart.ID, err)
+		return fmt.Errorf("cart clear: delete cart_item_component (cart_id=%s): %w", cart.ID, err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			return rbErr
+			return fmt.Errorf("cart clear: rollback after commit failure (cart_id=%s): %w", cart.ID, rbErr)
 		}
-		return err
+		return fmt.Errorf("cart clear: commit transaction (cart_id=%s): %w", cart.ID, err)
 	}
 
 	cart, found, err := h.cartRepo.GetCartByID(cart.ID)
-	if err != nil || !found {
-		return fmt.Errorf("cart clear: failed to retrieve updated cart: %w", err)
+	if err != nil {
+		return fmt.Errorf("cart clear: retrieve updated cart (cart_id=%s): %w", cart.ID, err)
+	}
+	if !found {
+		return fmt.Errorf("cart clear: retrieve updated cart (cart_id=%s): not found", cart.ID)
 	}
 
 	if err := h.rndr.Partial(w, "cart-main", cart); err != nil {
-		return fmt.Errorf("cart clear: failed to render partial (cart-main): %w", err)
+		return fmt.Errorf("cart clear: render partial (cart-main) (cart_id=%s): %w", cart.ID, err)
 	}
 
 	if err := h.rndr.Partial(w, "cart-modal-oob", cart); err != nil {
-		return fmt.Errorf("cart clear: failed to render partial (cart-modal-oob): %w", err)
+		return fmt.Errorf("cart clear: render partial (cart-modal-oob) (cart_id=%s): %w", cart.ID, err)
 	}
 
 	return nil
 }
 
-func (h *Handler) newCart() (*models.Cart, error) {
+func (h *Handler) newCart() (models.Cart, error) {
 	cart := models.NewCart()
 	if _, err := h.cartRepo.SaveCart(cart); err != nil {
-		return nil, err
+		return models.Cart{}, fmt.Errorf("new cart: save cart (cart_id=%s): %w", cart.ID, err)
 	}
-	return &cart, nil
+	return cart, nil
 }
 
 /*returns a new session if the session does not exist*/
 func getCartSession(r *http.Request, store *sessions.CookieStore) (*sessions.Session, error) {
 	session, err := store.Get(r, "cart-session")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get cart session: store get (name=%q): %w", "cart-session", err)
 	}
 	return session, nil
 }
 
 func getCartID(session *sessions.Session) (string, bool, error) {
 	if session == nil {
-		return "", false, errors.New("cart Session is nil")
+		return "", false, errors.New("get cart id: session is nil")
 	}
 	cartID, found := session.Values["cart_id"]
 	if !found {
@@ -168,17 +194,17 @@ func getCartID(session *sessions.Session) (string, bool, error) {
 
 	cartIDString, ok := cartID.(string)
 	if !ok {
-		return "", false, errors.New("could not convert cartID interface to string")
+		return "", false, fmt.Errorf("get cart id: could not convert cart_id to string (type=%T)", cartID)
 	}
 
 	return cartIDString, found, nil
 }
 
-func attachNewCartToSession(cart *models.Cart, session *sessions.Session, w http.ResponseWriter, r *http.Request) error {
+func attachNewCartToSession(cart models.Cart, session *sessions.Session, w http.ResponseWriter, r *http.Request) error {
 
 	session.Values["cart_id"] = cart.ID
 	if err := session.Save(r, w); err != nil {
-		return err
+		return fmt.Errorf("attach new cart to session: save session (cart_id=%s): %w", cart.ID, err)
 	}
 	return nil
 }

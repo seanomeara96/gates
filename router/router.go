@@ -46,14 +46,13 @@ func DefaultRouter(cfg *config.Config) (*Router, error) {
 
 	r.middleware = append(r.middleware, r.handler.GetCartFromRequest) // last one added gets called first?
 	r.middleware = append(r.middleware, func(next handlers.CustomHandleFunc) handlers.CustomHandleFunc {
-		return func(cart *models.Cart, w http.ResponseWriter, r *http.Request) error {
+		return func(cart models.Cart, w http.ResponseWriter, r *http.Request) error {
 			if cfg.Mode == config.Development {
 				rMsg := "[INFO] %s request made to %s"
 				log.Printf(rMsg, r.Method, r.URL.Path)
 			}
 			return next(cart, w, r)
 		}
-
 	})
 	// Should I need to print my cart for debug reasons
 	// r.middleware = append(r.middleware, func(next handlers.CustomHandleFunc) handlers.CustomHandleFunc {
@@ -133,10 +132,10 @@ func (r *Router) Handle(pattern string, fn handlers.CustomHandleFunc) {
 	r.mux.HandleFunc(pattern, func(w http.ResponseWriter, req *http.Request) {
 		// custom handler get passed throgh the cart handler middleware first to
 		// ensure there is a cart session
-		if err := fn(nil, w, req); err != nil {
+		if err := fn(models.Cart{}, w, req); err != nil {
 			errMsg := fmt.Sprintf("[ERROR] Failed  %s request to %s. %v", req.Method, pattern, err)
 			log.Println(errMsg)
-			if err := r.handler.InternalError(nil, w, req); err != nil {
+			if err := r.handler.InternalError(models.Cart{}, w, req); err != nil {
 				log.Printf("failed to call default internal error handler: %v", err)
 				http.Error(w, errMsg, http.StatusInternalServerError)
 			}

@@ -22,6 +22,10 @@ func server() error {
 		return err
 	}
 
+	if cfg.Mode == config.Development && cfg.UseTempl {
+		log.Println("server using templ views")
+	}
+
 	// ROUTING LOGIC
 	// middleware executed in reverse order; i = 0 executes last
 	router, err := router.DefaultRouter(cfg)
