@@ -24,7 +24,6 @@ type BaseProps struct {
 // ────────────────────────────────────────────────
 // Base layout component
 // ────────────────────────────────────────────────
-
 templ Base(props BaseProps) {
 	<!DOCTYPE html>
 	<html lang="en">
@@ -48,14 +47,12 @@ templ Base(props BaseProps) {
 			}
 		</style>
 		<body class="min-h-screen flex flex-col">
-
 			<nav style="background-color: #A28868;" class="py-4">
 				<div class="container mx-auto px-4">
 					<div class="flex justify-between items-center">
 						<a href="/" class="text-white font-bold text-xl">
 							Baby Safety Gates Ireland
 						</a>
-
 						<!-- Hamburger (mobile only) -->
 						<button
 							id="menu-btn"
@@ -64,13 +61,18 @@ templ Base(props BaseProps) {
 							aria-label="Toggle menu"
 						>
 							<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path>
 							</svg>
 						</button>
-
 						<!-- Desktop menu -->
 						<ul class="hidden md:flex gap-6">
-							for _, item := range props.NavItems {
+							for _, item := range []NavItem{
+								{Href: "/", Text: "Home"},
+								{Href: "/gates", Text: "Gates"},
+								{Href: "/extensions", Text: "Extensions"},
+								{Href: "/contact", Text: "Contact"},
+								{Href: "/cart", Text: "Cart"},
+							} {
 								<li>
 									<a href={ templ.URL(item.Href) } class="text-white py-2 hover:underline">
 										{ item.Text }
@@ -79,7 +81,6 @@ templ Base(props BaseProps) {
 							}
 						</ul>
 					</div>
-
 					<!-- Mobile menu -->
 					<ul
 						id="mobile-menu"
@@ -98,7 +99,6 @@ templ Base(props BaseProps) {
 					</ul>
 				</div>
 			</nav>
-
 			<script>
 				const btn = document.getElementById('menu-btn');
 				const menu = document.getElementById('mobile-menu');
@@ -108,26 +108,23 @@ templ Base(props BaseProps) {
 					});
 				}
 			</script>
-
-				{ children... }
-
-			@partials.CartModal(props.Cart) // ← define this component separately
-
+			{ children... }
+			@partials.CartModal(props.Cart)
+			// ← define this component separately
 			<footer class="bg-gray-100 py-10 mt-auto">
 				<div class="container mx-auto px-6">
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-
 						<div>
 							<h3 class="text-lg font-semibold mb-4">Baby Safety Gates Ireland</h3>
 							<p class="text-sm text-gray-600 leading-relaxed">
-								Your trusted source for high-quality baby safety gates in Ireland.<br/>
+								Your trusted source for high-quality baby safety gates in Ireland.
+								<br/>
 								We're dedicated to keeping your little ones safe and secure.
 							</p>
 							<p class="text-xs text-gray-500 mt-4">
 								All non-product related imagery and videos on this site are AI-generated.
 							</p>
 						</div>
-
 						<div>
 							<h3 class="text-lg font-semibold mb-4">Contact Us</h3>
 							<p class="text-sm text-gray-600">Bray, County Wicklow, Ireland</p>
@@ -138,7 +135,6 @@ templ Base(props BaseProps) {
 								Phone: +353 (XX) XXX XXXX
 							</p>
 						</div>
-
 						<div>
 							<h3 class="text-lg font-semibold mb-4">Quick Links</h3>
 							<ul class="space-y-2 text-sm text-gray-600">
@@ -149,7 +145,6 @@ templ Base(props BaseProps) {
 								<li><a href="/contact" class="hover:underline">Contact</a></li>
 							</ul>
 						</div>
-
 						<div>
 							<h3 class="text-lg font-semibold mb-4">Follow Us</h3>
 							<div class="flex gap-5 text-2xl text-gray-600">
@@ -158,18 +153,14 @@ templ Base(props BaseProps) {
 								<a href="#" class="hover:text-pink-600"><i class="fab fa-instagram"></i></a>
 							</div>
 						</div>
-
 					</div>
-
 					<div class="mt-10 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
 						© 2026 Baby Safety Gates Ireland. All Rights Reserved.
 					</div>
 				</div>
 			</footer>
-
 			<script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
 			<script src="/assets/js/index.js"></script>
-
 		</body>
 	</html>
 }
