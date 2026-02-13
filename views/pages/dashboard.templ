@@ -4,19 +4,20 @@ import "fmt"
 import "github.com/seanomeara96/gates/models"
 
 type DashboardPageProps struct {
-    BaseProps BaseProps
-    Products []models.Product
-    Orders []models.Order
-    ActiveTab string
+	BaseProps BaseProps
+	Products  []models.Product
+	Orders    []models.Order
+	ActiveTab string
 }
 
-func isActiveAdminPageClass(a,b string) string {
- defaultClasses := "block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 active:bg-gray-900"
- if a == b {
-    defaultClasses += " bg-gray-900"
-  } 
-  return defaultClasses
+func isActiveAdminPageClass(a, b string) string {
+	defaultClasses := "block py-2.5 px-4 rounded transition duration-200 hover:bg-gray-700 active:bg-gray-900"
+	if a == b {
+		defaultClasses += " bg-gray-900"
+	}
+	return defaultClasses
 }
+
 templ Dashboard(props DashboardPageProps) {
 	@Base(props.BaseProps) {
 		<div class="flex bg-gray-100 min-h-screen">
@@ -34,11 +35,9 @@ templ Dashboard(props DashboardPageProps) {
 					</a>
 				</nav>
 			</aside>
-
 			<main class="flex-1 p-6 overflow-y-auto">
 				<h1 class="text-3xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
-
-			{{
+				{{
 					pendingCount := 0
 					for _, order := range props.Orders {
 						if order.Status == "pending_payment" || order.Status == "awaiting_payment" {
@@ -52,8 +51,7 @@ templ Dashboard(props DashboardPageProps) {
 							outOfStockCount++
 						}
 					}
-				}}	
-
+				}}
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
 					<div class="bg-white p-5 rounded-lg shadow-md flex items-center justify-between">
 						<div>
@@ -84,7 +82,6 @@ templ Dashboard(props DashboardPageProps) {
 						<i class="fas fa-exclamation-circle text-red-500 text-4xl"></i>
 					</div>
 				</div>
-
 				<div class="bg-white shadow-md rounded-lg p-6 mb-8">
 					<h2 class="text-2xl font-semibold text-gray-700 mb-4">Product Management</h2>
 					<div class="overflow-x-auto">
@@ -114,14 +111,16 @@ templ Dashboard(props DashboardPageProps) {
 										<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{ fmt.Sprintf("%gcm", product.Width) }</td>
 										<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">€{ fmt.Sprintf("%.2f", product.Price) }</td>
 										<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{ product.Color }</td>
-	                    <td class={
-	"px-4 py-3 whitespace-nowrap text-sm",
-	templ.KV("text-red-600 font-semibold", product.InventoryLevel == 0),
-	templ.KV("text-yellow-600", product.InventoryLevel > 0 && product.InventoryLevel < 5),
-	templ.KV("text-green-600", product.InventoryLevel >= 5),
-}>
-	{ product.InventoryLevel }
-</td>
+										<td
+											class={
+												"px-4 py-3 whitespace-nowrap text-sm",
+												templ.KV("text-red-600 font-semibold", product.InventoryLevel == 0),
+												templ.KV("text-yellow-600", product.InventoryLevel > 0 && product.InventoryLevel < 5),
+												templ.KV("text-green-600", product.InventoryLevel >= 5),
+											}
+										>
+											{ product.InventoryLevel }
+										</td>
 										<td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
 											<button hx-get={ fmt.Sprintf("/admin/products/edit/%d", product.Id) } hx-target="#modals-here" hx-swap="outerHTML" class="text-indigo-600 hover:text-indigo-900 mr-3 transition ease-in-out duration-150">
 												<i class="fas fa-edit mr-1"></i> Edit
@@ -139,7 +138,6 @@ templ Dashboard(props DashboardPageProps) {
 						<i class="fas fa-plus-circle mr-2"></i> Add New Product
 					</button>
 				</div>
-
 				<div class="bg-white shadow-md rounded-lg p-6">
 					<h2 class="text-2xl font-semibold text-gray-700 mb-4">Order Management</h2>
 					<div class="overflow-x-auto">
@@ -158,29 +156,28 @@ templ Dashboard(props DashboardPageProps) {
 									<tr class="hover:bg-gray-50 cursor-pointer" id={ fmt.Sprintf("order-row-%d", order.ID) }>
 										<td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{ order.ID }</td>
 										<td class="px-4 py-3 whitespace-nowrap">
-											
-                      <span
-	id={ fmt.Sprintf("order-status-%d", order.ID) }
-	class={
-		"px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full",
-		templ.KV("bg-yellow-100 text-yellow-800", order.Status == "pending_payment" || order.Status == "awaiting_payment"),
-		templ.KV("bg-gray-100 text-gray-800", order.Status == "draft"),
-		templ.KV("bg-blue-100 text-blue-800", order.Status == "processing"),
-		templ.KV("bg-purple-100 text-purple-800", order.Status == "on_hold"),
-		templ.KV("bg-indigo-100 text-indigo-800", order.Status == "awaiting_fulfillment"),
-		templ.KV("bg-teal-100 text-teal-800", order.Status == "awaiting_shipment"),
-		templ.KV("bg-orange-100 text-orange-800", order.Status == "partially_shipped"),
-		templ.KV("bg-green-100 text-green-800", order.Status == "shipped" || order.Status == "out_for_delivery" || order.Status == "completed" || order.Status == "delivered" || order.Status == "picked_up"),
-		templ.KV("bg-cyan-100 text-cyan-800", order.Status == "awaiting_pickup"),
-		templ.KV("bg-red-100 text-red-800", order.Status == "canceled" || order.Status == "failed" || order.Status == "refunded" || order.Status == "partial_refunded"),
-		templ.KV("bg-gray-500 text-white", order.Status == "closed"),
-		templ.KV("bg-pink-100 text-pink-800", order.Status == "fraud"),
-		templ.KV("bg-red-200 text-red-900", order.Status == "chargeback"),
-		templ.KV("bg-red-600 text-white", order.Status == "error"),
-	}
->
-	{ order.Status }
-</span>
+											<span
+												id={ fmt.Sprintf("order-status-%d", order.ID) }
+												class={
+													"px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full",
+													templ.KV("bg-yellow-100 text-yellow-800", order.Status == "pending_payment" || order.Status == "awaiting_payment"),
+													templ.KV("bg-gray-100 text-gray-800", order.Status == "draft"),
+													templ.KV("bg-blue-100 text-blue-800", order.Status == "processing"),
+													templ.KV("bg-purple-100 text-purple-800", order.Status == "on_hold"),
+													templ.KV("bg-indigo-100 text-indigo-800", order.Status == "awaiting_fulfillment"),
+													templ.KV("bg-teal-100 text-teal-800", order.Status == "awaiting_shipment"),
+													templ.KV("bg-orange-100 text-orange-800", order.Status == "partially_shipped"),
+													templ.KV("bg-green-100 text-green-800", order.Status == "shipped" || order.Status == "out_for_delivery" || order.Status == "completed" || order.Status == "delivered" || order.Status == "picked_up"),
+													templ.KV("bg-cyan-100 text-cyan-800", order.Status == "awaiting_pickup"),
+													templ.KV("bg-red-100 text-red-800", order.Status == "canceled" || order.Status == "failed" || order.Status == "refunded" || order.Status == "partial_refunded"),
+													templ.KV("bg-gray-500 text-white", order.Status == "closed"),
+													templ.KV("bg-pink-100 text-pink-800", order.Status == "fraud"),
+													templ.KV("bg-red-200 text-red-900", order.Status == "chargeback"),
+													templ.KV("bg-red-600 text-white", order.Status == "error"),
+												}
+											>
+												{ order.Status }
+											</span>
 										</td>
 										<td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
 											if order.CustomerName.Valid {
@@ -227,7 +224,6 @@ templ Dashboard(props DashboardPageProps) {
 				</div>
 			</main>
 		</div>
-
 		<div id="modals-here" class="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"></div>
 	}
 }
